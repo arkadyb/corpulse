@@ -1,0 +1,8 @@
+.planning/
+*.egg-info/
+dist/
+build/
+__pycache__/
+*.pyc
+.eggs/
+*.egg
