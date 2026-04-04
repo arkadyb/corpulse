@@ -327,11 +327,8 @@ class Memento:
 
         dupes = 0
         if _SKLEARN:
-            dupes = len({
-                p["doc_id_a"] for p in self.get_duplicates()
-            } | {
-                p["doc_id_b"] for p in self.get_duplicates()
-            })
+            dup_pairs = self.get_duplicates()
+            dupes = len({p["doc_id_a"] for p in dup_pairs} | {p["doc_id_b"] for p in dup_pairs})
 
         noisy       = len({ghosts, obsolete, stale, dupes})   # rough unique set
         noisy_docs  = ghosts + obsolete + stale + dupes        # may double-count

@@ -6,6 +6,8 @@ from pathlib import Path
 
 
 SCHEMA = """
+PRAGMA journal_mode=WAL;
+
 CREATE TABLE IF NOT EXISTS documents (
     doc_id          TEXT PRIMARY KEY,
     filename        TEXT,
