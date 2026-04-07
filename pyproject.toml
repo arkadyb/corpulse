@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 qdrant = ["qdrant-client>=1.7"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.urls]
 Repository = "https://github.com/arkady/rag-memento"
@@ -26,3 +27,4 @@ packages = ["rag_memento"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "-q", "--import-mode=importlib"]
+asyncio_mode = "auto"
