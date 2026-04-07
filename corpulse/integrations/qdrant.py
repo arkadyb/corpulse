@@ -1,7 +1,7 @@
 """Qdrant vector database integration wrappers for corpulse.
 
-Provides QdrantMementoClient (sync) and AsyncQdrantMementoClient (async).
-Both intercept query_points() to automatically call Memento.log_retrieval()
+Provides QdrantCorpulseClient (sync) and AsyncQdrantCorpulseClient (async).
+Both intercept query_points() to automatically call Corpulse.log_retrieval()
 with normalized results, then return the original Qdrant response unmodified.
 
 Lazy import: qdrant_client is NOT imported at module level so that
@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import asyncio
 
-__all__ = ["QdrantMementoClient", "AsyncQdrantMementoClient"]
+__all__ = ["QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
 
 
 def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_key):
-    """Convert list[ScoredPoint] into list[dict] for Memento.log_retrieval().
+    """Convert list[ScoredPoint] into list[dict] for Corpulse.log_retrieval().
 
     Args:
         points: list of ScoredPoint objects from a Qdrant QueryResponse.
@@ -55,16 +55,16 @@ def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_ke
     return records
 
 
-class QdrantMementoClient:
-    """Sync Qdrant wrapper that auto-logs retrievals to Memento.
+class QdrantCorpulseClient:
+    """Sync Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps a QdrantClient via composition. Intercepts query_points() and
-    search() to call memento.log_retrieval() automatically. All other
+    search() to call corpulse.log_retrieval() automatically. All other
     methods delegate transparently to the underlying client via __getattr__.
 
     Args:
         client: A configured QdrantClient instance.
-        memento: A Memento instance to log retrievals to.
+        corpulse: A Corpulse instance to log retrievals to.
         payload_id_field: Payload key to use as doc_id. When None (default),
             the point's integer/UUID ID is used directly.
         payload_filename_key: Payload key to use as filename. Default "filename".
@@ -73,14 +73,14 @@ class QdrantMementoClient:
     def __init__(
         self,
         client,
-        memento,
+        corpulse,
         *,
         payload_id_field=None,
         payload_filename_key="filename",
     ):
         # Assign _client FIRST to prevent __getattr__ recursion (Pitfall 5)
         self._client = client
-        self._memento = memento
+        self._corpulse = corpulse
         self._payload_id_field = payload_id_field
         self._payload_filename_key = payload_filename_key
         # Lazy import guard: raise early if qdrant-client is not installed
@@ -102,7 +102,7 @@ class QdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            self._memento.log_retrieval(records, query="")
+            self._corpulse.log_retrieval(records, query="")
         return result
 
     def search(self, collection_name, **kwargs):
@@ -121,23 +121,23 @@ class QdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            self._memento.log_retrieval(records, query="")
+            self._corpulse.log_retrieval(records, query="")
         return result
 
     def __getattr__(self, name):
         return getattr(self._client, name)
 
 
-class AsyncQdrantMementoClient:
-    """Async Qdrant wrapper that auto-logs retrievals to Memento.
+class AsyncQdrantCorpulseClient:
+    """Async Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps an AsyncQdrantClient via composition. Intercepts async query_points()
-    and search() to call memento.log_retrieval() via asyncio.to_thread().
+    and search() to call corpulse.log_retrieval() via asyncio.to_thread().
     All other methods delegate transparently via __getattr__.
 
     Args:
         client: A configured AsyncQdrantClient instance.
-        memento: A Memento instance to log retrievals to.
+        corpulse: A Corpulse instance to log retrievals to.
         payload_id_field: Payload key to use as doc_id. When None (default),
             the point's integer/UUID ID is used directly.
         payload_filename_key: Payload key to use as filename. Default "filename".
@@ -146,14 +146,14 @@ class AsyncQdrantMementoClient:
     def __init__(
         self,
         client,
-        memento,
+        corpulse,
         *,
         payload_id_field=None,
         payload_filename_key="filename",
     ):
         # Assign _client FIRST to prevent __getattr__ recursion (Pitfall 5)
         self._client = client
-        self._memento = memento
+        self._corpulse = corpulse
         self._payload_id_field = payload_id_field
         self._payload_filename_key = payload_filename_key
         # Lazy import guard: raise early if qdrant-client is not installed
@@ -177,7 +177,7 @@ class AsyncQdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._memento.log_retrieval, records, "")
+            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
         return result
 
     async def search(self, collection_name, **kwargs):
@@ -195,7 +195,7 @@ class AsyncQdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._memento.log_retrieval, records, "")
+            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
         return result
 
     def __getattr__(self, name):

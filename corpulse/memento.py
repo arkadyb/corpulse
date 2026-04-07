@@ -53,36 +53,36 @@ def _bytes_to_vec(b: bytes) -> np.ndarray:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Memento
+# Corpulse
 # ─────────────────────────────────────────────────────────────────────────────
 
-class Memento:
+class Corpulse:
     """
     Lightweight RAG corpus analytics.
 
     Usage::
 
-        memento = Memento()
+        corp = Corpulse()
         results = vectordb.search(query)
-        memento.log_retrieval(results, query=query)
-        memento.log_engagement("my-doc-id", event="opened")
-        memento.report()
+        corp.log_retrieval(results, query=query)
+        corp.log_engagement("my-doc-id", event="opened")
+        corp.report()
     """
 
     def __init__(
         self,
-        db_path: str = "./memento.db",
+        db_path: str = "./corpulse.db",
         ghost_threshold_days: int = 30,
         duplicate_threshold: float = 0.92,
         stale_threshold_days: int = 14,
         obsolete_pattern: str = r"v\d+",
         top_k_report: int = 20,
     ):
-        """Initialise a Memento instance backed by a SQLite database.
+        """Initialise a Corpulse instance backed by a SQLite database.
 
         Args:
             db_path: Path to the SQLite database file. Created if it does
-                not exist. Defaults to ``"./memento.db"``.
+                not exist. Defaults to ``"./corpulse.db"``.
             ghost_threshold_days: Number of days without retrieval before a
                 document is flagged as a ghost. Defaults to 30.
             duplicate_threshold: Cosine similarity threshold for duplicate
@@ -120,7 +120,7 @@ class Memento:
                 {"doc_id": "abc123", "filename": "guide.md", "score": 0.91},
                 {"doc_id": "def456", "filename": "faq.md",   "score": 0.87},
             ]
-            memento.log_retrieval(results, query="how to install?")
+            corp.log_retrieval(results, query="how to install?")
 
         Args:
             results: List of dicts, each containing at least ``"doc_id"``.
@@ -172,7 +172,7 @@ class Memento:
         updated_at: float | None = None,
     ) -> None:
         """
-        Notify memento that a source file was modified.
+        Notify corpulse that a source file was modified.
 
         *updated_at* defaults to now if omitted.
 
@@ -626,4 +626,4 @@ class Memento:
               f"💀 obsolete: {health['obsolete']}  "
               f"⚠ duplicates: {health['duplicates']}  "
               f"🕓 stale: {health['stale']}")
-        print(f"  Run memento.cleanup_report() for a prioritised action list.\n")
+        print(f"  Run corpulse.cleanup_report() for a prioritised action list.\n")

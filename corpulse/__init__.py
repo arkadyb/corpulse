@@ -1,13 +1,13 @@
-from .memento import Memento
+from .memento import Corpulse
 
-__all__ = ["Memento", "QdrantMementoClient", "AsyncQdrantMementoClient"]
+__all__ = ["Corpulse", "QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
 __version__ = "0.1.0"
 
 
 def __getattr__(name):
-    if name in ("QdrantMementoClient", "AsyncQdrantMementoClient"):
-        from .integrations.qdrant import QdrantMementoClient, AsyncQdrantMementoClient
-        globals()["QdrantMementoClient"] = QdrantMementoClient
-        globals()["AsyncQdrantMementoClient"] = AsyncQdrantMementoClient
+    if name in ("QdrantCorpulseClient", "AsyncQdrantCorpulseClient"):
+        from .integrations.qdrant import QdrantCorpulseClient, AsyncQdrantCorpulseClient
+        globals()["QdrantCorpulseClient"] = QdrantCorpulseClient
+        globals()["AsyncQdrantCorpulseClient"] = AsyncQdrantCorpulseClient
         return globals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
