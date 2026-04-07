@@ -414,26 +414,31 @@ class Corpulse:
                 "recommendation": "Corpus looks healthy.",
             }
 
-        ghosts    = len(self.get_ghosts())
-        obsolete  = len(self.get_obsolete())
-        stale     = len(self.get_stale_embeddings())
+        ghosts = self.get_ghosts()
+        obsolete = self.get_obsolete()
+        stale = self.get_stale_embeddings()
+        ghost_ids = {d["doc_id"] for d in ghosts}
+        obsolete_ids = {d["doc_id"] for d in obsolete}
+        stale_ids = {d["doc_id"] for d in stale}
 
-        dupes = 0
+        duplicate_ids: set[str] = set()
         if _SKLEARN:
             dup_pairs = self.get_duplicates()
-            dupes = len({p["doc_id_a"] for p in dup_pairs} | {p["doc_id_b"] for p in dup_pairs})
+            duplicate_ids = {p["doc_id_a"] for p in dup_pairs} | {
+                p["doc_id_b"] for p in dup_pairs
+            }
 
-        noisy       = len({ghosts, obsolete, stale, dupes})   # rough unique set
-        noisy_docs  = ghosts + obsolete + stale + dupes        # may double-count
-        noise_ratio = min(noisy_docs / total, 1.0)
+        noisy_ids = ghost_ids | obsolete_ids | stale_ids | duplicate_ids
+        dupes = len(duplicate_ids)
+        noise_ratio = round(len(noisy_ids) / total, 2) if total > 0 else 0.0
 
         return {
             "total_docs":     total,
-            "ghosts":         ghosts,
-            "obsolete":       obsolete,
-            "stale":          stale,
+            "ghosts":         len(ghost_ids),
+            "obsolete":       len(obsolete_ids),
+            "stale":          len(stale_ids),
             "duplicates":     dupes,
-            "noise_estimate": round(noise_ratio, 2),
+            "noise_estimate": noise_ratio,
             "bloat_warning":  noise_ratio > 0.20,
             "recommendation": (
                 f"Consider pruning ~{int(noise_ratio * total)} low-signal documents."

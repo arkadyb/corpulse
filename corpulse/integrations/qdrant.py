@@ -1,8 +1,9 @@
 """Qdrant vector database integration wrappers for corpulse.
 
 Provides QdrantCorpulseClient (sync) and AsyncQdrantCorpulseClient (async).
-Both intercept query_points() to automatically call Corpulse.log_retrieval()
-with normalized results, then return the original Qdrant response unmodified.
+Both intercept query_points() and search() to automatically call
+Corpulse.log_retrieval() with normalized results, then return the original
+Qdrant response object unmodified.
 
 Lazy import: qdrant_client is NOT imported at module level so that
 `import corpulse` succeeds without qdrant-client installed.
@@ -72,8 +73,9 @@ class QdrantCorpulseClient:
     """Sync Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps a QdrantClient via composition. Intercepts query_points() and
-    search() to call corpulse.log_retrieval() automatically. All other
-    methods delegate transparently to the underlying client via __getattr__.
+    search() to call corpulse.log_retrieval() after a successful upstream
+    response. All other methods delegate transparently to the underlying
+    client via __getattr__.
 
     Args:
         client: A configured QdrantClient instance.
@@ -105,7 +107,7 @@ class QdrantCorpulseClient:
             )
 
     def query_points(self, collection_name, **kwargs):
-        """Intercept query_points(), log retrieval, return original response."""
+        """Log successful query_points() results, then return the upstream response."""
         result = self._client.query_points(collection_name=collection_name, **kwargs)
         # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
         if result.points:
@@ -119,12 +121,12 @@ class QdrantCorpulseClient:
         return result
 
     def search(self, collection_name, **kwargs):
-        """Intercept search() for qdrant-client <1.16.0 users.
+        """Log successful search() results and return the upstream object unchanged.
 
-        Note: search() was removed in qdrant-client 1.16.0. On current
-        versions this raises AttributeError from the underlying client,
-        which propagates naturally. No emulation of removed behavior.
-        search() returned list[ScoredPoint] directly (not QueryResponse).
+        The wrapper delegates directly to ``self._client.search(...)``.
+        If the configured client does not expose ``search()``, the resulting
+        ``AttributeError`` propagates naturally. No compatibility shim or
+        result emulation is added here.
         """
         result = self._client.search(collection_name=collection_name, **kwargs)
         if result:
@@ -145,8 +147,9 @@ class AsyncQdrantCorpulseClient:
     """Async Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps an AsyncQdrantClient via composition. Intercepts async query_points()
-    and search() to call corpulse.log_retrieval() via asyncio.to_thread().
-    All other methods delegate transparently via __getattr__.
+    and search() to call corpulse.log_retrieval() via asyncio.to_thread()
+    after a successful upstream response. All other methods delegate
+    transparently via __getattr__.
 
     Args:
         client: A configured AsyncQdrantClient instance.
@@ -178,7 +181,7 @@ class AsyncQdrantCorpulseClient:
             )
 
     async def query_points(self, collection_name, **kwargs):
-        """Intercept async query_points(), log retrieval, return original response."""
+        """Log successful async query_points() results, then return the upstream response."""
         result = await self._client.query_points(
             collection_name=collection_name, **kwargs
         )
@@ -194,11 +197,12 @@ class AsyncQdrantCorpulseClient:
         return result
 
     async def search(self, collection_name, **kwargs):
-        """Intercept async search() for qdrant-client <1.16.0 users.
+        """Log successful async search() results and return the upstream object unchanged.
 
-        Note: search() was removed in qdrant-client 1.16.0. On current
-        versions this raises AttributeError from the underlying client.
-        search() returned list[ScoredPoint] directly (not QueryResponse).
+        The wrapper delegates directly to ``self._client.search(...)``.
+        If the configured client does not expose ``search()``, the resulting
+        ``AttributeError`` propagates naturally. No compatibility shim or
+        result emulation is added here.
         """
         result = await self._client.search(collection_name=collection_name, **kwargs)
         if result:
