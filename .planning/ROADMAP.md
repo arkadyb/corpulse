@@ -1,8 +1,8 @@
-# Roadmap: rag-memento
+# Roadmap: corpulse
 
 ## Overview
 
-rag-memento's analytics engine is already working. This milestone makes it adoptable: proper Python packaging, a reliable test suite for the existing engine, a zero-instrumentation Qdrant wrapper (sync and async), and documentation that communicates what the tool does and what it doesn't. Each phase unblocks the next — packaging first so tests can import cleanly, tests before wrapper code so regressions surface immediately, wrapper before docs so the API is stable when written about.
+corpulse's analytics engine is already working. This milestone makes it adoptable: proper Python packaging, a reliable test suite for the existing engine, a zero-instrumentation Qdrant wrapper (sync and async), and documentation that communicates what the tool does and what it doesn't. Each phase unblocks the next — packaging first so tests can import cleanly, tests before wrapper code so regressions surface immediately, wrapper before docs so the API is stable when written about.
 
 ## Phases
 
@@ -25,14 +25,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Nothing (first phase)
 **Requirements**: PKG-01, PKG-02, PKG-03, PKG-04, PKG-05
 **Success Criteria** (what must be TRUE):
-  1. `pip install git+https://github.com/.../rag-memento` succeeds on a clean Python 3.10+ environment
-  2. `import rag_memento` succeeds without qdrant-client installed
-  3. `pip install rag-memento[qdrant]` installs qdrant-client as an optional dependency
-  4. Source files live under `rag_memento/` package directory (not flat at repo root)
+  1. `pip install git+https://github.com/.../corpulse` succeeds on a clean Python 3.10+ environment
+  2. `import corpulse` succeeds without qdrant-client installed
+  3. `pip install "corpulse[qdrant] @ git+https://github.com/.../corpulse.git"` installs qdrant-client as an optional dependency
+  4. Source files live under `corpulse/` package directory (not flat at repo root)
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Restructure into rag_memento/ package with pyproject.toml and smoke tests
+- [ ] 01-01-PLAN.md — Restructure into corpulse/ package with pyproject.toml and smoke tests
 
 ### Phase 2: Core Tests and Bug Fixes
 **Goal**: The existing analytics engine is covered by tests and free of known reliability bugs before the wrapper is layered on
@@ -52,10 +52,10 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: QDRT-01, QDRT-02, QDRT-03, QDRT-04, QDRT-05, QDRT-06, QDRT-07, QDRT-08, QDRT-09, QDRT-10, TEST-02, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
-  1. Wrapping a QdrantClient with QdrantMementoClient intercepts query_points() and search() calls and records retrievals automatically
+  1. Wrapping a QdrantClient with QdrantCorpulseClient intercepts query_points() and search() calls and records retrievals automatically
   2. The wrapped client returns the original Qdrant response objects unchanged — caller code requires no modification
   3. Non-intercepted methods work identically to the unwrapped client via transparent delegation
-  4. AsyncQdrantMementoClient wraps AsyncQdrantClient with identical interception behavior for async codebases
+  4. AsyncQdrantCorpulseClient wraps AsyncQdrantClient with identical interception behavior for async codebases
   5. The qdrant-client package is only required when the wrapper is actually instantiated (not at import time)
 **Plans:** 2/2 plans complete
 
@@ -64,13 +64,13 @@ Plans:
 - [ ] 03-02-PLAN.md — Write comprehensive test suite for both sync and async wrappers
 
 ### Phase 4: Documentation
-**Goal**: A developer landing on the repo can understand what rag-memento does, install it, and start using it — both with and without the Qdrant wrapper
+**Goal**: A developer landing on the repo can understand what corpulse does, install it, and start using it — both with and without the Qdrant wrapper
 **Depends on**: Phase 3
 **Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05
 **Success Criteria** (what must be TRUE):
   1. README shows the exact pip install command, including the [qdrant] extra
-  2. README includes a working before/after example: manual log_retrieval() versus QdrantMementoClient
-  3. README states clearly that rag-memento measures corpus health, not answer quality
+  2. README includes a working before/after example: manual log_retrieval() versus QdrantCorpulseClient
+  3. README states clearly that corpulse measures corpus health, not answer quality
   4. All public methods have docstrings that describe parameters and return values
 **Plans:** 2/2 plans complete
 

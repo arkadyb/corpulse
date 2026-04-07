@@ -1,4 +1,4 @@
-# rag-memento
+# corpulse
 
 ## What This Is
 
@@ -6,7 +6,7 @@ A Python library that tracks and analyzes RAG corpus health for RAG teams. It de
 
 ## Core Value
 
-RAG teams can point rag-memento at their vector DB and immediately understand what's wrong with their corpus — no guessing, no manual audits.
+RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus — no guessing, no manual audits.
 
 ## Requirements
 
@@ -49,7 +49,7 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 ## Context
 
 - Existing codebase is a working v0.1.0 with all core analytics implemented
-- Architecture is clean: Memento facade → analysis methods → DB persistence layer
+- Architecture is clean: Corpulse facade → analysis methods → DB persistence layer
 - Packaging in place (pyproject.toml, extras for optional deps) — Phase 1
 - Analytics engine fully tested (22 tests), WAL mode and duplicate-detection bugs fixed — Phase 2
 - Qdrant wrapper complete (sync + async), 35 tests total, lazy imports verified — Phase 3
@@ -61,7 +61,7 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 ## Constraints
 
 - **Tech stack**: Python, SQLite for local persistence — keep zero-infrastructure requirement
-- **Dependencies**: numpy is the only hard dependency; sklearn/pandas/tabulate stay optional
+- **Dependencies**: numpy and scikit-learn are currently hard dependencies; pandas and tabulate remain optional
 - **Distribution**: GitHub-only for v1; no PyPI publishing yet
 - **Vector DB**: Qdrant as first wrapper target
 - **Compatibility**: Python 3.10+ (modernize from current 3.7+ baseline)
@@ -78,4 +78,4 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 | Keep manual API alongside wrapper | Existing API still useful for custom integrations; wrapper is additive | — Pending |
 
 ---
-*Last updated: 2026-04-07 after Phase 4 completion — all milestone phases complete*
+*Last updated: 2026-04-07 after planning-state and dependency cleanup*

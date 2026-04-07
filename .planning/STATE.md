@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-07T20:57:31+10:00"
-last_activity: "2026-04-07 - Completed quick task 260407-t1c: remove remaining memento module references including memento.py"
+last_updated: "2026-04-07T22:14:00+10:00"
+last_activity: "2026-04-07 - Completed quick task 260407-tfb: fix planning-state drift and dependency-statement drift in current project artifacts"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -17,9 +17,9 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-24)
+See: .planning/PROJECT.md (updated 2026-04-07)
 
-**Core value:** RAG teams can point rag-memento at their Qdrant instance and immediately understand corpus health — no manual instrumentation
+**Core value:** RAG teams can point corpulse at their Qdrant instance and immediately understand corpus health — no manual instrumentation
 **Current focus:** Phase 05 completed — address review findings in corpus health and Qdrant wrapper
 
 ## Current Position
@@ -67,7 +67,7 @@ Recent decisions affecting current work:
 - [Init]: GitHub-only distribution — keep overhead low until API stabilizes
 - [Init]: Wrapper-first over audit-first — query-dependent features are most actionable
 - [Init]: Keep manual API alongside wrapper — wrapper is additive, not a replacement
-- [Phase 01-package-foundation]: Hatchling 1.27 with explicit packages=['rag_memento'] to avoid dash/underscore discovery ambiguity
+- [Phase 01-package-foundation]: Hatchling 1.27 with explicit packages=['corpulse'] to avoid package discovery ambiguity
 - [Phase 01-package-foundation]: Added from __future__ import annotations to db.py for Python 3.9 compat while keeping requires-python=>=3.10 in pyproject.toml
 - [Phase 02-core-tests-and-bug-fixes]: WAL PRAGMA added to SCHEMA string in executescript() — single authoritative location, not in _conn() or _init() separately
 - [Phase 02-core-tests-and-bug-fixes]: Analytics tests use tmp_path (file-based SQLite) not :memory: — required for WAL mode PRAGMA verification
@@ -78,7 +78,7 @@ Recent decisions affecting current work:
 - [Phase 03-qdrant-wrapper]: Use DB._conn() context manager for test verification (DB has no persistent .conn); corrected column name to embedding_vec matching DB schema
 - [Phase 03-qdrant-wrapper]: asyncio_mode=auto in pyproject.toml removes need for @pytest.mark.asyncio on every async test function
 - [Phase 04-documentation]: LICENSE file is legal authority: MPL-2.0 used in README and pyproject.toml, overriding prior MIT entry
-- [Phase 04-documentation]: Users import QdrantMementoClient from rag_memento directly (not rag_memento.integrations) — matches __init__.py lazy __getattr__
+- [Phase 04-documentation]: Users import QdrantCorpulseClient from corpulse directly (not corpulse.integrations) — matches __init__.py lazy __getattr__
 - [Phase 04-documentation]: Docstring test uses inspect.getmembers to discover public methods automatically — catches new undocumented methods without manual maintenance
 - [Phase 04-documentation]: Google-style docstrings established as pattern: one-sentence summary, extended description, then Args/Returns/Raises sections
 - [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Bootstrap used pip --break-system-packages after the host Python rejected editable install under PEP 668.
@@ -109,9 +109,11 @@ None yet.
 | 260407-mao | Rename remaining Memento references to corpulse | 2026-04-07 | c0c9d1e | [260407-mao-rename-remaining-memento-references-to-c](./quick/260407-mao-rename-remaining-memento-references-to-c/) |
 | 260407-sv8 | Fix milestone audit gaps | 2026-04-07 | e2b176c | [260407-sv8-fix-milestone-audit-gaps](./quick/260407-sv8-fix-milestone-audit-gaps/) |
 | 260407-t1c | Remove remaining memento module references including memento.py | 2026-04-07 | f7993ee | [260407-t1c-remove-remaining-memento-module-referenc](./quick/260407-t1c-remove-remaining-memento-module-referenc/) |
+| 260407-taw | Clarify review findings and recommend which issues to address | 2026-04-07 | - | [260407-taw-clarify-review-findings-about-planning-d](./quick/260407-taw-clarify-review-findings-about-planning-d/) |
+| 260407-tfb | Fix planning-state drift and dependency-statement drift in project artifacts | 2026-04-07 | - | [260407-tfb-fix-planning-state-drift-and-dependency-](./quick/260407-tfb-fix-planning-state-drift-and-dependency-/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-07 - Completed quick task 260407-t1c: remove remaining memento module references including memento.py
-Stopped at: Completed quick task 260407-t1c
+Last activity: 2026-04-07 - Completed quick task 260407-tfb: fix planning-state drift and dependency-statement drift in current project artifacts
+Stopped at: Completed quick task 260407-tfb
 Resume file: None

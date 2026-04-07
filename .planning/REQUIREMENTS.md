@@ -1,28 +1,28 @@
-# Requirements: rag-memento
+# Requirements: corpulse
 
 **Defined:** 2026-03-24
-**Core Value:** RAG teams can point rag-memento at their Qdrant instance and immediately understand corpus health — no manual instrumentation
+**Core Value:** RAG teams can point corpulse at their Qdrant instance and immediately understand corpus health — no manual instrumentation
 
 ## v1 Requirements
 
 ### Packaging
 
-- [x] **PKG-01**: Library installable via `pip install git+https://github.com/.../rag-memento`
+- [x] **PKG-01**: Library installable via `pip install git+https://github.com/.../corpulse`
 - [x] **PKG-02**: pyproject.toml with build metadata, Python >=3.10 requirement, and dependency declarations
 - [x] **PKG-03**: Optional `[qdrant]` extra installs qdrant-client dependency
-- [x] **PKG-04**: `import rag_memento` succeeds without qdrant-client installed (lazy import)
-- [x] **PKG-05**: Package uses `rag_memento/` directory structure (not flat files)
+- [x] **PKG-04**: `import corpulse` succeeds without qdrant-client installed (lazy import)
+- [x] **PKG-05**: Package uses `corpulse/` directory structure (not flat files)
 
 ### Qdrant Wrapper
 
-- [x] **QDRT-01**: `QdrantMementoClient` wraps a user-provided `QdrantClient` via composition
+- [x] **QDRT-01**: `QdrantCorpulseClient` wraps a user-provided `QdrantClient` via composition
 - [x] **QDRT-02**: Wrapper intercepts `query_points()` and automatically calls `log_retrieval()` with extracted results
 - [x] **QDRT-03**: Wrapper intercepts `search()` (deprecated but still used) and automatically calls `log_retrieval()`
 - [x] **QDRT-04**: Wrapper returns original Qdrant response objects untouched (no side effects on return values)
 - [x] **QDRT-05**: Non-intercepted methods delegate to underlying client via `__getattr__`
 - [x] **QDRT-06**: Configurable `payload_id_field` parameter for mapping Qdrant payload to doc_id (default: uses point ID)
 - [x] **QDRT-07**: Configurable `payload_filename_key` parameter for extracting filename from payload (default: "filename")
-- [x] **QDRT-08**: `AsyncQdrantMementoClient` wraps `AsyncQdrantClient` with identical interception behavior
+- [x] **QDRT-08**: `AsyncQdrantCorpulseClient` wraps `AsyncQdrantClient` with identical interception behavior
 - [x] **QDRT-09**: Async wrapper intercepts async `query_points()` and `search()` methods
 - [x] **QDRT-10**: Embeddings captured from response when `with_vectors=True` was passed by caller
 
@@ -64,7 +64,7 @@
 
 ### Distribution
 
-- **DIST-01**: PyPI publishing (pip install rag-memento)
+- **DIST-01**: PyPI publishing (pip install corpulse)
 - **DIST-02**: Changelog and versioning policy
 
 ### Features
@@ -127,4 +127,4 @@
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-07 after Phase 5 revision planning*
+*Last updated: 2026-04-07 after planning-state and dependency cleanup*
