@@ -1,5 +1,5 @@
 """
-rag-memento  v0.1.0
+corpulse  v0.1.0
 Core public API — track, analyse, and report on your RAG corpus health.
 """
 
@@ -502,7 +502,7 @@ class Memento:
         suspects = self.get_suspects()
 
         print("\n" + "─" * 60)
-        print("  rag-memento — Cleanup Report")
+        print("  corpulse — Cleanup Report")
         print("─" * 60)
         print(f"  Total documents : {health['total_docs']}")
         print(f"  Noise estimate  : {health['noise_estimate']*100:.0f}%")
@@ -605,7 +605,7 @@ class Memento:
 
         health = self.corpus_health()
         header = (
-            f"\n  rag-memento — Corpus Health Report\n"
+            f"\n  corpulse — Corpus Health Report\n"
             f"  {total} documents · last {window_days or self.ghost_threshold_days} days"
         )
         if health["bloat_warning"]:

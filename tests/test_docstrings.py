@@ -1,6 +1,6 @@
 """Verify all public Memento methods have complete docstrings (DOC-05)."""
 import inspect
-import rag_memento.memento as m_module
+import corpulse.memento as m_module
 
 
 def test_memento_public_methods_have_docstrings():

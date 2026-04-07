@@ -29,10 +29,10 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Qdrant wrapper — automatic query and result capture without manual instrumentation
-- [ ] Proper Python packaging (pyproject.toml, extras for optional deps)
-- [ ] Test suite for existing analytics engine
-- [ ] Documentation (README with usage examples, API reference)
+- ✓ Qdrant wrapper — automatic query and result capture without manual instrumentation — Validated in Phase 3: Qdrant Wrapper
+- ✓ Proper Python packaging (pyproject.toml, extras for optional deps) — Validated in Phase 1: Package Foundation
+- ✓ Test suite for existing analytics engine — Validated in Phase 2: Core Tests and Bug Fixes
+- ✓ Documentation (README with usage examples, API reference) — Validated in Phase 4: Documentation
 
 ### Out of Scope
 
@@ -50,9 +50,11 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 
 - Existing codebase is a working v0.1.0 with all core analytics implemented
 - Architecture is clean: Memento facade → analysis methods → DB persistence layer
-- No packaging infrastructure yet (no pyproject.toml, no tests, no CI)
-- Current API requires manual instrumentation (log_retrieval, log_engagement calls)
-- The Qdrant wrapper is the key v1 addition — it removes the adoption barrier for teams
+- Packaging in place (pyproject.toml, extras for optional deps) — Phase 1
+- Analytics engine fully tested (22 tests), WAL mode and duplicate-detection bugs fixed — Phase 2
+- Qdrant wrapper complete (sync + async), 35 tests total, lazy imports verified — Phase 3
+- Documentation complete: README rewritten with verified examples, all public methods have Google-style docstrings, 39 tests total — Phase 4
+- Manual API still works alongside wrapper — wrapper is additive, not a replacement
 - Target audience: RAG teams who need corpus observability without heavy instrumentation
 - Long-term vision: multiple integration layers (wrappers, framework plugins, standalone audit)
 
@@ -76,4 +78,4 @@ RAG teams can point rag-memento at their vector DB and immediately understand wh
 | Keep manual API alongside wrapper | Existing API still useful for custom integrations; wrapper is additive | — Pending |
 
 ---
-*Last updated: 2026-03-24 after initialization*
+*Last updated: 2026-04-07 after Phase 4 completion — all milestone phases complete*

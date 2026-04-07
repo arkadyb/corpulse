@@ -1,11 +1,11 @@
-"""Qdrant vector database integration wrappers for rag-memento.
+"""Qdrant vector database integration wrappers for corpulse.
 
 Provides QdrantMementoClient (sync) and AsyncQdrantMementoClient (async).
 Both intercept query_points() to automatically call Memento.log_retrieval()
 with normalized results, then return the original Qdrant response unmodified.
 
 Lazy import: qdrant_client is NOT imported at module level so that
-`import rag_memento` succeeds without qdrant-client installed.
+`import corpulse` succeeds without qdrant-client installed.
 """
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ class QdrantMementoClient:
             from qdrant_client import QdrantClient  # noqa: F401
         except ImportError:
             raise ImportError(
-                "Install qdrant-client: pip install rag-memento[qdrant]"
+                "Install qdrant-client: pip install corpulse[qdrant]"
             )
 
     def query_points(self, collection_name, **kwargs):
@@ -161,7 +161,7 @@ class AsyncQdrantMementoClient:
             from qdrant_client import AsyncQdrantClient  # noqa: F401
         except ImportError:
             raise ImportError(
-                "Install qdrant-client: pip install rag-memento[qdrant]"
+                "Install qdrant-client: pip install corpulse[qdrant]"
             )
 
     async def query_points(self, collection_name, **kwargs):

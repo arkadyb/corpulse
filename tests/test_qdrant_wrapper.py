@@ -10,8 +10,8 @@ import pytest
 from qdrant_client import QdrantClient, AsyncQdrantClient, models
 from qdrant_client.http.models import QueryResponse
 
-from rag_memento import Memento
-from rag_memento.integrations.qdrant import QdrantMementoClient, AsyncQdrantMementoClient
+from corpulse import Memento
+from corpulse.integrations.qdrant import QdrantMementoClient, AsyncQdrantMementoClient
 
 # ── constants ─────────────────────────────────────────────────────────────────
 

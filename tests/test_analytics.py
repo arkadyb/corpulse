@@ -1,5 +1,5 @@
 """
-Analytics test suite for rag-memento.
+Analytics test suite for corpulse.
 
 Covers: get_ghosts, get_duplicates, get_obsolete, get_stale_embeddings,
 get_suspects, corpus_health, FIX-01 (single get_duplicates call),
@@ -12,9 +12,9 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-import rag_memento.memento as m_mod
-from rag_memento.db import DB
-from rag_memento.memento import Memento, _vec_to_bytes
+import corpulse.memento as m_mod
+from corpulse.db import DB
+from corpulse.memento import Memento, _vec_to_bytes
 
 # ── constants ────────────────────────────────────────────────────────────────
 

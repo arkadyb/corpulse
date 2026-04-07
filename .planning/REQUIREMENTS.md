@@ -44,7 +44,7 @@
 - [x] **DOC-02**: README with usage example for manual API (log_retrieval, report)
 - [x] **DOC-03**: README with usage example for Qdrant wrapper (sync and async)
 - [x] **DOC-04**: Clear scope statement: corpus health tool, not answer quality evaluator
-- [ ] **DOC-05**: API reference via docstrings on all public methods
+- [x] **DOC-05**: API reference via docstrings on all public methods
 
 ## v2 Requirements
 
@@ -107,7 +107,7 @@
 | DOC-02 | Phase 4 | Complete |
 | DOC-03 | Phase 4 | Complete |
 | DOC-04 | Phase 4 | Complete |
-| DOC-05 | Phase 4 | Pending |
+| DOC-05 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 26 total

@@ -3,12 +3,12 @@ import pathlib
 
 
 def test_package_structure():
-    """PKG-05: Source files live under rag_memento/ directory."""
-    pkg_dir = pathlib.Path(__file__).resolve().parent.parent / "rag_memento"
-    assert pkg_dir.is_dir(), f"rag_memento/ directory not found at {pkg_dir}"
-    assert (pkg_dir / "__init__.py").is_file(), "rag_memento/__init__.py missing"
-    assert (pkg_dir / "db.py").is_file(), "rag_memento/db.py missing"
-    assert (pkg_dir / "memento.py").is_file(), "rag_memento/memento.py missing"
+    """PKG-05: Source files live under corpulse/ directory."""
+    pkg_dir = pathlib.Path(__file__).resolve().parent.parent / "corpulse"
+    assert pkg_dir.is_dir(), f"corpulse/ directory not found at {pkg_dir}"
+    assert (pkg_dir / "__init__.py").is_file(), "corpulse/__init__.py missing"
+    assert (pkg_dir / "db.py").is_file(), "corpulse/db.py missing"
+    assert (pkg_dir / "memento.py").is_file(), "corpulse/memento.py missing"
 
 
 def test_pyproject_metadata():
@@ -16,7 +16,7 @@ def test_pyproject_metadata():
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
     assert pyproject.is_file(), "pyproject.toml not found"
     content = pyproject.read_text()
-    assert 'name = "rag-memento"' in content, "Missing project name"
+    assert 'name = "corpulse"' in content, "Missing project name"
     assert 'requires-python = ">=3.10"' in content, "Missing Python version requirement"
     assert '"numpy>=1.24"' in content, "Missing numpy dependency"
     assert '"scikit-learn>=1.3"' in content, "Missing scikit-learn dependency"
@@ -32,7 +32,7 @@ def test_qdrant_extra_declared():
 
 
 def test_hatchling_packages_explicit():
-    """Hatchling explicitly declares rag_memento as the only package."""
+    """Hatchling explicitly declares corpulse as the only package."""
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
     content = pyproject.read_text()
-    assert 'packages = ["rag_memento"]' in content, "Missing explicit hatchling packages declaration"
+    assert 'packages = ["corpulse"]' in content, "Missing explicit hatchling packages declaration"

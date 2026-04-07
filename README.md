@@ -1,4 +1,4 @@
-# rag-memento
+# corpulse
 
 Corpus health analytics for RAG pipelines. Track which documents help, which ones don't, and which ones are just noise.
 
@@ -6,13 +6,13 @@ Corpus health analytics for RAG pipelines. Track which documents help, which one
 
 ## The Problem
 
-Your vector database grows over time. Documents get added, re-chunked, and updated. Old versions linger. Near-identical content gets indexed twice. Outdated files keep surfacing in results. Without tracking, you're building on top of noise. rag-memento surfaces these issues automatically.
+Your vector database grows over time. Documents get added, re-chunked, and updated. Old versions linger. Near-identical content gets indexed twice. Outdated files keep surfacing in results. Without tracking, you're building on top of noise. corpulse surfaces these issues automatically.
 
 ---
 
-## What rag-memento is (and isn't)
+## What corpulse is (and isn't)
 
-rag-memento measures **corpus health** — which documents are retrieved, how often, and whether users act on them.
+corpulse measures **corpus health** — which documents are retrieved, how often, and whether users act on them.
 
 It does **not** measure answer quality, faithfulness, or relevance. For that, see tools like Ragas or DeepEval.
 
@@ -24,10 +24,10 @@ Think of it as a fitness tracker for your document corpus, not a grade on your a
 
 ```bash
 # Core library (GitHub install — not yet on PyPI)
-pip install "git+https://github.com/arkady/rag-memento"
+pip install "git+https://github.com/arkadyb/corpulse"
 
 # With Qdrant wrapper support
-pip install "git+https://github.com/arkady/rag-memento[qdrant]"
+pip install "git+https://github.com/arkadyb/corpulse[qdrant]"
 ```
 
 Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
@@ -37,7 +37,7 @@ Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
 ## Quickstart: Manual API
 
 ```python
-from rag_memento import Memento
+from corpulse import Memento
 
 memento = Memento()  # writes to ./memento.db
 
@@ -65,7 +65,7 @@ memento.report()
 
 ```python
 from qdrant_client import QdrantClient
-from rag_memento import Memento
+from corpulse import Memento
 
 client = QdrantClient(":memory:")
 memento = Memento()
@@ -83,7 +83,7 @@ memento.log_retrieval(records, query="how to install?")
 
 ```python
 from qdrant_client import QdrantClient
-from rag_memento import Memento, QdrantMementoClient
+from corpulse import Memento, QdrantMementoClient
 
 client = QdrantClient(":memory:")
 memento = Memento()
@@ -98,7 +98,7 @@ result = wrapped.query_points(collection_name="docs", query=[0.1, 0.2, ...], lim
 ```python
 import asyncio
 from qdrant_client import AsyncQdrantClient
-from rag_memento import Memento, AsyncQdrantMementoClient
+from corpulse import Memento, AsyncQdrantMementoClient
 
 async def main():
     client = AsyncQdrantClient(":memory:")
