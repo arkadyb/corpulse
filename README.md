@@ -1,164 +1,166 @@
 # rag-memento
-> *"I can't remember to forget you"*
-`rag-memento` is a lightweight analytics library for RAG pipelines. It tracks which documents in your vector database are actually retrieved, which ones users engage with — and which ones have been silently forgotten.
+
+Corpus health analytics for RAG pipelines. Track which documents help, which ones don't, and which ones are just noise.
+
 ---
+
 ## The Problem
 
-
-Your vector database grows. Documents get added, re-chunked, updated.
-Old versions linger. Near-identical content gets indexed twice.
-Outdated files keep surfacing in results, quietly poisoning your answers.
-
-Without tracking, you're building on top of noise.
-rag-memento leaves notes — and reads the ones you left before.
----
-## Features
-
-- **Retrieval Tracking** — log every search result with rank, score, and query context
-- **Engagement Signals** — capture when users act on a retrieved document
-- **Duplicate Detection** — identify semantically near-identical chunks competing for the same queries
-- **Obsolete File Flagging** — surface documents superseded by newer versions of the same content
-- **Corpus Health Report** — ranked table of your documents by actual usage
-- **Ghost File Detection** — surface documents never retrieved in N days
-- **Zero Infrastructure** — SQLite by default, no cloud, no account, no friction
-- **Integrates in 3 lines** — wraps your existing pipeline, touches nothing else
+Your vector database grows over time. Documents get added, re-chunked, and updated. Old versions linger. Near-identical content gets indexed twice. Outdated files keep surfacing in results. Without tracking, you're building on top of noise. rag-memento surfaces these issues automatically.
 
 ---
- ## 📦 Installation
+
+## What rag-memento is (and isn't)
+
+rag-memento measures **corpus health** — which documents are retrieved, how often, and whether users act on them.
+
+It does **not** measure answer quality, faithfulness, or relevance. For that, see tools like Ragas or DeepEval.
+
+Think of it as a fitness tracker for your document corpus, not a grade on your answers.
+
+---
+
+## Installation
+
 ```bash
-pip install rag-memento
+# Core library (GitHub install — not yet on PyPI)
+pip install "git+https://github.com/arkady/rag-memento"
+
+# With Qdrant wrapper support
+pip install "git+https://github.com/arkady/rag-memento[qdrant]"
 ```
+
+Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
+
 ---
 
-## 🏃 Quickstart
+## Quickstart: Manual API
+
 ```python
 from rag_memento import Memento
 
-memento = Memento()  # SQLite by default, stored in ./memento.db
+memento = Memento()  # writes to ./memento.db
 
-# Wrap your vector DB search
-results = your_vectordb.search(query)
-memento.log_retrieval(results, query=query)
+# After your vector DB search returns results
+results = [
+    {"doc_id": "abc123", "filename": "guide.md", "score": 0.91},
+    {"doc_id": "def456", "filename": "faq.md",   "score": 0.87},
+]
+memento.log_retrieval(results, query="how to install?")
 
-# When a user engages with a source
-memento.log_engagement(doc_id="your-doc-id", event="opened")
+# When user acts on a result
+memento.log_engagement("abc123", event="opened")
 
-# See what's working (and what isn't)
+# Print corpus health table
 memento.report()
 ```
----
 
-## 📊 Report Output
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ rag-memento — Corpus Health Report                                      │
-│ 142 documents tracked · last 30 days                                   │
-├────────────────────────────┬──────────┬────────────┬────────────────────┤
-│ Document                   │ Retrieved│ Engagement │ Status             │
-├────────────────────────────┼──────────┼────────────┼────────────────────┤
-│ onboarding-guide.md        │ 94       │ 61%        │ ✓ healthy          │
-│ api-reference-v2.md        │ 78       │ 44%        │ ✓ healthy          │
-│ api-reference-v1.md        │ 71       │ 9%         │ ⚠ obsolete (v2)   │
-│ setup-instructions.md      │ 44       │ 38%        │ ⚠ duplicate (×2)  │
-│ troubleshooting-faq.md     │ 12       │ 8%         │ ◌ low engagement  │
-│ legacy-setup-2021.md       │ 0        │ —          │ 👻 ghost           │
-└────────────────────────────┴──────────┴────────────┴────────────────────┘
-
-  👻 ghosts: 12 documents · 💀 obsolete: 5 · ⚠ duplicates: 8 pairs
-  Estimated corpus noise: 31% — run memento.cleanup_report() for details
-```
+`report()` pretty-prints with [tabulate](https://pypi.org/project/tabulate/) if installed, falls back to plain text otherwise.
 
 ---
-## 🔍 Duplicate & Obsolete Detection
+
+## Quickstart: Qdrant Wrapper
+
+**Before (manual instrumentation):**
+
 ```python
-# Find semantically near-duplicate chunks (cosine similarity threshold)
-dupes = memento.get_duplicates(threshold=0.92)
-# → [("setup-v1.md::chunk_4", "setup-v2.md::chunk_1", similarity=0.97), ...]
+from qdrant_client import QdrantClient
+from rag_memento import Memento
 
-# Find documents likely superseded by a newer version
-obsolete = memento.get_obsolete()
-# → [{"file": "api-reference-v1.md", "superseded_by": "api-reference-v2.md", ...}]
+client = QdrantClient(":memory:")
+memento = Memento()
 
-# Get a full cleanup recommendation
-memento.cleanup_report()
-# Prints a prioritised action list: what to delete, merge, or re-chunk
+result = client.query_points(collection_name="docs", query=[0.1, 0.2, ...], limit=5)
+# Must manually extract results and call log_retrieval
+records = [
+    {"doc_id": str(p.id), "filename": p.payload.get("filename", str(p.id)), "score": p.score}
+    for p in result.points
+]
+memento.log_retrieval(records, query="how to install?")
 ```
 
-Duplicate detection compares embedding vectors already in your vector store —
-no re-embedding, no extra API calls.
+**After (automatic via wrapper):**
+
+```python
+from qdrant_client import QdrantClient
+from rag_memento import Memento, QdrantMementoClient
+
+client = QdrantClient(":memory:")
+memento = Memento()
+wrapped = QdrantMementoClient(client, memento)
+
+result = wrapped.query_points(collection_name="docs", query=[0.1, 0.2, ...], limit=5)
+# log_retrieval() called automatically — result is unchanged
+```
+
+**Async variant:**
+
+```python
+import asyncio
+from qdrant_client import AsyncQdrantClient
+from rag_memento import Memento, AsyncQdrantMementoClient
+
+async def main():
+    client = AsyncQdrantClient(":memory:")
+    memento = Memento()
+    wrapped = AsyncQdrantMementoClient(client, memento)
+
+    result = await wrapped.query_points(
+        collection_name="docs", query=[0.1, 0.2, ...], limit=5
+    )
+    # log_retrieval() called automatically
+
+asyncio.run(main())
+```
+
+**Constructor parameters:**
+
+- `payload_id_field` — payload key to use as document ID (default: `None`, uses Qdrant point ID)
+- `payload_filename_key` — payload key for filename (default: `"filename"`)
 
 ---
 
-## ⚙️ Configuration
+## What It Measures
+
+- Ghost documents — registered but never retrieved within a time window
+- Near-duplicates — embedding pairs above a cosine similarity threshold (requires scikit-learn)
+- Obsolete versions — e.g. `api-v1.md` superseded by `api-v2.md`
+- Stale embeddings — source file updated but embedding not refreshed
+- Low-engagement suspects — retrieved often but users rarely act on them
+
+---
+
+## Configuration
+
 ```python
 memento = Memento(
-    db_path="./memento.db",          # SQLite path
-    ghost_threshold_days=30,         # Days before a doc is flagged as ghost
-    duplicate_threshold=0.92,        # Cosine similarity for duplicate detection
-    obsolete_pattern=r"v\d+",        # Regex hint for versioned filename detection
-    top_k_report=20,                 # Documents shown in report
+    db_path="./memento.db",          # SQLite database path
+    ghost_threshold_days=30,         # Days before flagging as ghost
+    duplicate_threshold=0.92,        # Cosine similarity threshold
+    stale_threshold_days=14,         # Days of source-vs-embedding lag
+    obsolete_pattern=r"v\d+",        # Regex for version detection in filenames
+    top_k_report=20,                 # Documents shown in report()
 )
 ```
 
 ---
-## 🔌 Integrations
 
-Works with any vector store. Built-in helpers for:
+## Analysis Methods
 
-- **Chroma** — `from rag_memento.integrations import ChromaMemento`
-- **Qdrant** — `from rag_memento.integrations import QdrantMemento`
-- **LlamaIndex** — drop-in callback handler
-- **LangChain** — retriever wrapper
-
-Custom store? `log_retrieval()` accepts any list of dicts with `doc_id` and `score`.
-
----
-## 🏗️ Architecture
-```
-Your RAG Pipeline
-       ↓
-  Memento Wrapper               ← the only thing you add
-  ├── log_retrieval()
-  └── log_engagement()
-       ↓
-  memento.db (SQLite)
-  ├── retrievals
-  ├── engagements
-  └── file_stats (nightly aggregate)
-       ↓
-  Analysis Layer
-  ├── ghost detection
-  ├── duplicate detection        ← compares stored embeddings
-  └── obsolete flagging          ← version pattern + retrieval displacement
-       ↓
-  memento.report()               ← actionable output
-```
+| Method | Returns |
+|--------|---------|
+| `get_ghosts()` | Documents never retrieved in threshold window |
+| `get_duplicates()` | Embedding-similar document pairs |
+| `get_obsolete()` | Documents superseded by newer versions |
+| `get_stale_embeddings()` | Documents with outdated embeddings |
+| `get_suspects()` | High-retrieval, low-engagement documents |
+| `corpus_health()` | Overall noise estimate and bloat warning |
+| `to_dataframe()` | Full stats as pandas DataFrame |
+| `report()` | Print corpus health table to stdout |
+| `cleanup_report()` | Print prioritised action list |
 
 ---
 
-## 🧹 Acting on the Data
-```python
-# Get ghost files (never retrieved in 30 days)
-ghosts = memento.get_ghosts()
+## License
 
-# Get semantically near-duplicate document pairs
-dupes = memento.get_duplicates()
-
-# Get files likely superseded by newer versions
-obsolete = memento.get_obsolete()
-
-# Get high-retrieval, low-engagement docs (candidates for re-chunking)
-suspects = memento.get_suspects()
-
-# Export full stats as DataFrame
-df = memento.to_dataframe()
-```
-
----
-
-## 📝 License
-MPL 2.0 (Mozilla Public License)
-
----
-
-*Like the movie: the clues were always there. rag-memento just helps you read them.*
+MPL 2.0 — see [LICENSE](LICENSE) for details.
