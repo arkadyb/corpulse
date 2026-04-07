@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-07T04:12:17.063Z"
+status: complete
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-04-07T08:11:11.091Z"
+last_activity: "2026-04-07 - Completed 05-03-PLAN.md: Reconcile Qdrant wrapper upstream behavior and named-vector capture"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -19,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** RAG teams can point rag-memento at their Qdrant instance and immediately understand corpus health — no manual instrumentation
-**Current focus:** Phase 04 — documentation
+**Current focus:** Phase 05 completed — address review findings in corpus health and Qdrant wrapper
 
 ## Current Position
 
-Phase: 04 (documentation) — EXECUTING
-Plan: 1 of 2
+Phase: 05 (address review findings in corpus health and Qdrant wrapper) — COMPLETE
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -52,6 +53,8 @@ Plan: 1 of 2
 | Phase 03-qdrant-wrapper P02 | 2 | 2 tasks | 2 files |
 | Phase 04-documentation P01 | 2 | 1 tasks | 2 files |
 | Phase 04-documentation P02 | 5 | 2 tasks | 2 files |
+| Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P01 | 4 | 3 tasks | 3 files |
+| Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -78,18 +81,35 @@ Recent decisions affecting current work:
 - [Phase 04-documentation]: Users import QdrantMementoClient from rag_memento directly (not rag_memento.integrations) — matches __init__.py lazy __getattr__
 - [Phase 04-documentation]: Docstring test uses inspect.getmembers to discover public methods automatically — catches new undocumented methods without manual maintenance
 - [Phase 04-documentation]: Google-style docstrings established as pattern: one-sentence summary, extended description, then Args/Returns/Raises sections
+- [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Bootstrap used pip --break-system-packages after the host Python rejected editable install under PEP 668.
+- [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Qdrant search regressions branch on hasattr(...) so tests match the installed client instead of stale removal assumptions.
+- [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Named-vector verification reads embedding_vec bytes from SQLite to prove the stored vector matches the requested dense payload.
+- [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Keep corpus_health() return type and public name unchanged while normalizing the empty-corpus shape to the populated schema.
+- [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Compute noise_estimate from the union of noisy doc IDs so overlapping categories count once without reintroducing duplicate get_duplicates() calls.
+- [Phase 05]: Named-vector capture selects the explicitly requested vector name and stores None when that name is absent.
+- [Phase 05]: Qdrant search wrappers keep direct upstream delegation and allow AttributeError to propagate naturally.
 
 ### Pending Todos
 
 None yet.
+
+### Roadmap Evolution
+
+- Phase 5 added: Address review findings in corpus health and Qdrant wrapper
 
 ### Blockers/Concerns
 
 - [Research]: Default `payload_id_field` value is a guess ("doc_id") — validate against demo.py before finalizing wrapper API in Phase 3
 - [Research]: async SQLite write latency via asyncio.to_thread() is unbenchmarked — acceptable for now, document as known trade-off
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260407-mao | Rename remaining Memento references to corpulse | 2026-04-07 | c0c9d1e | [260407-mao-rename-remaining-memento-references-to-c](./quick/260407-mao-rename-remaining-memento-references-to-c/) |
+
 ## Session Continuity
 
-Last session: 2026-04-07T04:09:53.195Z
-Stopped at: Completed 04-02-PLAN.md
+Last activity: 2026-04-07 - Completed 05-02-PLAN.md: Fix corpus_health schema stability and unique noisy-doc noise estimation
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None

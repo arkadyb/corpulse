@@ -1,8 +1,9 @@
 """Qdrant vector database integration wrappers for corpulse.
 
-Provides QdrantMementoClient (sync) and AsyncQdrantMementoClient (async).
-Both intercept query_points() to automatically call Memento.log_retrieval()
-with normalized results, then return the original Qdrant response unmodified.
+Provides QdrantCorpulseClient (sync) and AsyncQdrantCorpulseClient (async).
+Both intercept query_points() and search() to automatically call
+Corpulse.log_retrieval() with normalized results, then return the original
+Qdrant response object unmodified.
 
 Lazy import: qdrant_client is NOT imported at module level so that
 `import corpulse` succeeds without qdrant-client installed.
@@ -10,12 +11,13 @@ Lazy import: qdrant_client is NOT imported at module level so that
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 
-__all__ = ["QdrantMementoClient", "AsyncQdrantMementoClient"]
+__all__ = ["QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
 
 
 def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_key):
-    """Convert list[ScoredPoint] into list[dict] for Memento.log_retrieval().
+    """Convert list[ScoredPoint] into list[dict] for Corpulse.log_retrieval().
 
     Args:
         points: list of ScoredPoint objects from a Qdrant QueryResponse.
@@ -42,9 +44,21 @@ def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_ke
         filename = payload.get(payload_filename_key, doc_id)
 
         embedding = p.vector if with_vectors else None
-        # Named vectors: p.vector is dict[str, list[float]] — extract first value
         if isinstance(embedding, dict):
-            embedding = next(iter(embedding.values()), None)
+            requested_vector_name = None
+            if isinstance(with_vectors, Sequence) and not isinstance(
+                with_vectors, (str, bytes)
+            ):
+                requested_vector_name = next(iter(with_vectors), None)
+
+            if requested_vector_name is not None:
+                embedding = embedding.get(requested_vector_name)
+            elif with_vectors is True:
+                # Preserve deterministic unnamed behavior when the caller asks
+                # for vectors generally rather than by a specific name.
+                embedding = next(iter(embedding.values()), None)
+            else:
+                embedding = None
 
         records.append({
             "doc_id": doc_id,
@@ -55,16 +69,17 @@ def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_ke
     return records
 
 
-class QdrantMementoClient:
-    """Sync Qdrant wrapper that auto-logs retrievals to Memento.
+class QdrantCorpulseClient:
+    """Sync Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps a QdrantClient via composition. Intercepts query_points() and
-    search() to call memento.log_retrieval() automatically. All other
-    methods delegate transparently to the underlying client via __getattr__.
+    search() to call corpulse.log_retrieval() after a successful upstream
+    response. All other methods delegate transparently to the underlying
+    client via __getattr__.
 
     Args:
         client: A configured QdrantClient instance.
-        memento: A Memento instance to log retrievals to.
+        corpulse: A Corpulse instance to log retrievals to.
         payload_id_field: Payload key to use as doc_id. When None (default),
             the point's integer/UUID ID is used directly.
         payload_filename_key: Payload key to use as filename. Default "filename".
@@ -73,14 +88,14 @@ class QdrantMementoClient:
     def __init__(
         self,
         client,
-        memento,
+        corpulse,
         *,
         payload_id_field=None,
         payload_filename_key="filename",
     ):
         # Assign _client FIRST to prevent __getattr__ recursion (Pitfall 5)
         self._client = client
-        self._memento = memento
+        self._corpulse = corpulse
         self._payload_id_field = payload_id_field
         self._payload_filename_key = payload_filename_key
         # Lazy import guard: raise early if qdrant-client is not installed
@@ -92,7 +107,7 @@ class QdrantMementoClient:
             )
 
     def query_points(self, collection_name, **kwargs):
-        """Intercept query_points(), log retrieval, return original response."""
+        """Log successful query_points() results, then return the upstream response."""
         result = self._client.query_points(collection_name=collection_name, **kwargs)
         # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
         if result.points:
@@ -102,17 +117,18 @@ class QdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            self._memento.log_retrieval(records, query="")
+            self._corpulse.log_retrieval(records, query="")
         return result
 
     def search(self, collection_name, **kwargs):
-        """Intercept search() for qdrant-client <1.16.0 users.
+        """Log successful search() results and return the upstream object unchanged.
 
-        Note: search() was removed in qdrant-client 1.16.0. On current
-        versions this raises AttributeError from the underlying client,
-        which propagates naturally. No emulation of removed behavior.
-        search() returned list[ScoredPoint] directly (not QueryResponse).
+        The wrapper delegates directly to ``self._client.search(...)``.
+        If the configured client does not expose ``search()``, the resulting
+        ``AttributeError`` propagates naturally. No compatibility shim or
+        result emulation is added here.
         """
+        # search() returns the client's native list response shape when available.
         result = self._client.search(collection_name=collection_name, **kwargs)
         if result:
             records = _normalize_points(
@@ -121,23 +137,24 @@ class QdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            self._memento.log_retrieval(records, query="")
+            self._corpulse.log_retrieval(records, query="")
         return result
 
     def __getattr__(self, name):
         return getattr(self._client, name)
 
 
-class AsyncQdrantMementoClient:
-    """Async Qdrant wrapper that auto-logs retrievals to Memento.
+class AsyncQdrantCorpulseClient:
+    """Async Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps an AsyncQdrantClient via composition. Intercepts async query_points()
-    and search() to call memento.log_retrieval() via asyncio.to_thread().
-    All other methods delegate transparently via __getattr__.
+    and search() to call corpulse.log_retrieval() via asyncio.to_thread()
+    after a successful upstream response. All other methods delegate
+    transparently via __getattr__.
 
     Args:
         client: A configured AsyncQdrantClient instance.
-        memento: A Memento instance to log retrievals to.
+        corpulse: A Corpulse instance to log retrievals to.
         payload_id_field: Payload key to use as doc_id. When None (default),
             the point's integer/UUID ID is used directly.
         payload_filename_key: Payload key to use as filename. Default "filename".
@@ -146,14 +163,14 @@ class AsyncQdrantMementoClient:
     def __init__(
         self,
         client,
-        memento,
+        corpulse,
         *,
         payload_id_field=None,
         payload_filename_key="filename",
     ):
         # Assign _client FIRST to prevent __getattr__ recursion (Pitfall 5)
         self._client = client
-        self._memento = memento
+        self._corpulse = corpulse
         self._payload_id_field = payload_id_field
         self._payload_filename_key = payload_filename_key
         # Lazy import guard: raise early if qdrant-client is not installed
@@ -165,7 +182,7 @@ class AsyncQdrantMementoClient:
             )
 
     async def query_points(self, collection_name, **kwargs):
-        """Intercept async query_points(), log retrieval, return original response."""
+        """Log successful async query_points() results, then return the upstream response."""
         result = await self._client.query_points(
             collection_name=collection_name, **kwargs
         )
@@ -177,16 +194,18 @@ class AsyncQdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._memento.log_retrieval, records, "")
+            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
         return result
 
     async def search(self, collection_name, **kwargs):
-        """Intercept async search() for qdrant-client <1.16.0 users.
+        """Log successful async search() results and return the upstream object unchanged.
 
-        Note: search() was removed in qdrant-client 1.16.0. On current
-        versions this raises AttributeError from the underlying client.
-        search() returned list[ScoredPoint] directly (not QueryResponse).
+        The wrapper delegates directly to ``self._client.search(...)``.
+        If the configured client does not expose ``search()``, the resulting
+        ``AttributeError`` propagates naturally. No compatibility shim or
+        result emulation is added here.
         """
+        # search() returns the client's native list response shape when available.
         result = await self._client.search(collection_name=collection_name, **kwargs)
         if result:
             records = _normalize_points(
@@ -195,7 +214,7 @@ class AsyncQdrantMementoClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._memento.log_retrieval, records, "")
+            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
         return result
 
     def __getattr__(self, name):

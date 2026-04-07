@@ -72,7 +72,7 @@ CORPUS HEALTH REPORT
   pricing-2023.md                              0            —  👻 ghost
 
   👻 ghosts: 2  💀 obsolete: 1  ⚠ duplicates: 4  🕓 stale: 0
-  Run memento.cleanup_report() for a prioritised action list.
+  Run corpulse.cleanup_report() for a prioritised action list.
 
 ------------------------------------------------------------
 CLEANUP RECOMMENDATIONS

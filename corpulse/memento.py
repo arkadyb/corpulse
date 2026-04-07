@@ -53,36 +53,36 @@ def _bytes_to_vec(b: bytes) -> np.ndarray:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Memento
+# Corpulse
 # ─────────────────────────────────────────────────────────────────────────────
 
-class Memento:
+class Corpulse:
     """
     Lightweight RAG corpus analytics.
 
     Usage::
 
-        memento = Memento()
+        corp = Corpulse()
         results = vectordb.search(query)
-        memento.log_retrieval(results, query=query)
-        memento.log_engagement("my-doc-id", event="opened")
-        memento.report()
+        corp.log_retrieval(results, query=query)
+        corp.log_engagement("my-doc-id", event="opened")
+        corp.report()
     """
 
     def __init__(
         self,
-        db_path: str = "./memento.db",
+        db_path: str = "./corpulse.db",
         ghost_threshold_days: int = 30,
         duplicate_threshold: float = 0.92,
         stale_threshold_days: int = 14,
         obsolete_pattern: str = r"v\d+",
         top_k_report: int = 20,
     ):
-        """Initialise a Memento instance backed by a SQLite database.
+        """Initialise a Corpulse instance backed by a SQLite database.
 
         Args:
             db_path: Path to the SQLite database file. Created if it does
-                not exist. Defaults to ``"./memento.db"``.
+                not exist. Defaults to ``"./corpulse.db"``.
             ghost_threshold_days: Number of days without retrieval before a
                 document is flagged as a ghost. Defaults to 30.
             duplicate_threshold: Cosine similarity threshold for duplicate
@@ -120,7 +120,7 @@ class Memento:
                 {"doc_id": "abc123", "filename": "guide.md", "score": 0.91},
                 {"doc_id": "def456", "filename": "faq.md",   "score": 0.87},
             ]
-            memento.log_retrieval(results, query="how to install?")
+            corp.log_retrieval(results, query="how to install?")
 
         Args:
             results: List of dicts, each containing at least ``"doc_id"``.
@@ -172,7 +172,7 @@ class Memento:
         updated_at: float | None = None,
     ) -> None:
         """
-        Notify memento that a source file was modified.
+        Notify corpulse that a source file was modified.
 
         *updated_at* defaults to now if omitted.
 
@@ -403,28 +403,42 @@ class Memento:
         all_docs   = self.db.all_documents()
         total      = len(all_docs)
         if total == 0:
-            return {"total_docs": 0, "noise_estimate": 0.0, "bloat_warning": False}
+            return {
+                "total_docs": 0,
+                "ghosts": 0,
+                "obsolete": 0,
+                "stale": 0,
+                "duplicates": 0,
+                "noise_estimate": 0.0,
+                "bloat_warning": False,
+                "recommendation": "Corpus looks healthy.",
+            }
 
-        ghosts    = len(self.get_ghosts())
-        obsolete  = len(self.get_obsolete())
-        stale     = len(self.get_stale_embeddings())
+        ghosts = self.get_ghosts()
+        obsolete = self.get_obsolete()
+        stale = self.get_stale_embeddings()
+        ghost_ids = {d["doc_id"] for d in ghosts}
+        obsolete_ids = {d["doc_id"] for d in obsolete}
+        stale_ids = {d["doc_id"] for d in stale}
 
-        dupes = 0
+        duplicate_ids: set[str] = set()
         if _SKLEARN:
             dup_pairs = self.get_duplicates()
-            dupes = len({p["doc_id_a"] for p in dup_pairs} | {p["doc_id_b"] for p in dup_pairs})
+            duplicate_ids = {p["doc_id_a"] for p in dup_pairs} | {
+                p["doc_id_b"] for p in dup_pairs
+            }
 
-        noisy       = len({ghosts, obsolete, stale, dupes})   # rough unique set
-        noisy_docs  = ghosts + obsolete + stale + dupes        # may double-count
-        noise_ratio = min(noisy_docs / total, 1.0)
+        noisy_ids = ghost_ids | obsolete_ids | stale_ids | duplicate_ids
+        dupes = len(duplicate_ids)
+        noise_ratio = round(len(noisy_ids) / total, 2) if total > 0 else 0.0
 
         return {
             "total_docs":     total,
-            "ghosts":         ghosts,
-            "obsolete":       obsolete,
-            "stale":          stale,
+            "ghosts":         len(ghost_ids),
+            "obsolete":       len(obsolete_ids),
+            "stale":          len(stale_ids),
             "duplicates":     dupes,
-            "noise_estimate": round(noise_ratio, 2),
+            "noise_estimate": noise_ratio,
             "bloat_warning":  noise_ratio > 0.20,
             "recommendation": (
                 f"Consider pruning ~{int(noise_ratio * total)} low-signal documents."
@@ -626,4 +640,4 @@ class Memento:
               f"💀 obsolete: {health['obsolete']}  "
               f"⚠ duplicates: {health['duplicates']}  "
               f"🕓 stale: {health['stale']}")
-        print(f"  Run memento.cleanup_report() for a prioritised action list.\n")
+        print(f"  Run corpulse.cleanup_report() for a prioritised action list.\n")

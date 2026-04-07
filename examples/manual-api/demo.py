@@ -18,7 +18,7 @@ Prerequisites:
 
 import random
 import numpy as np
-from corpulse import Memento
+from corpulse import Corpulse
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ print("=" * 60)
 print("CORPULSE  —  Manual API Demo")
 print("=" * 60)
 
-memento = Memento(db_path=DB_PATH)
+corpulse_inst = Corpulse(db_path=DB_PATH)
 
 DOCUMENTS = [
     {"id": "1",  "filename": "getting-started.md",     "topic": "getting-started"},
@@ -83,7 +83,7 @@ for doc in DOCUMENTS:
     else:
         vec = similar_vector(topic_vectors[topic], noise=0.03)
 
-    memento.register_document(doc["id"], doc["filename"], embedding=vec)
+    corpulse_inst.register_document(doc["id"], doc["filename"], embedding=vec)
 
 print(f"\n✓ Registered {len(DOCUMENTS)} documents with embeddings\n")
 
@@ -111,7 +111,7 @@ for i, (query_text, result_docs) in enumerate(QUERIES):
         {"doc_id": did, "filename": fname, "score": round(random.uniform(0.75, 0.97), 3)}
         for did, fname in result_docs
     ]
-    memento.log_retrieval(results, query=query_text)
+    corpulse_inst.log_retrieval(results, query=query_text)
     print(f"  Q: \"{query_text}\"")
     print(f"     → {', '.join(fname for _, fname in result_docs)}")
 
@@ -121,7 +121,7 @@ for _ in range(20):
         {"doc_id": did, "filename": fname, "score": round(random.uniform(0.75, 0.97), 3)}
         for did, fname in result_docs
     ]
-    memento.log_retrieval(results, query=query_text)
+    corpulse_inst.log_retrieval(results, query=query_text)
 
 print(f"\n✓ Logged {5 + 20} retrieval events\n")
 
@@ -138,15 +138,15 @@ print("Simulating user engagement...")
 
 # Popular docs get high engagement
 for _ in range(15):
-    memento.log_engagement("1", event="opened")   # getting-started.md
-    memento.log_engagement("2", event="opened")   # api-reference-v2.md
+    corpulse_inst.log_engagement("1", event="opened")   # getting-started.md
+    corpulse_inst.log_engagement("2", event="opened")   # api-reference-v2.md
 
 # Troubleshooting retrieved often but rarely opened (suspect)
 for _ in range(2):
-    memento.log_engagement("4", event="opened")
+    corpulse_inst.log_engagement("4", event="opened")
 
 # Mark pricing doc source as updated (stale embedding)
-memento.log_source_update("7")
+corpulse_inst.log_source_update("7")
 
 print("✓ Engagement and source updates logged\n")
 
@@ -160,7 +160,7 @@ print("CORPUS HEALTH REPORT")
 print("=" * 60)
 print()
 
-memento.report(window_days=30)
+corpulse_inst.report(window_days=30)
 
 print()
 print("-" * 60)
@@ -168,34 +168,34 @@ print("CLEANUP RECOMMENDATIONS")
 print("-" * 60)
 print()
 
-memento.cleanup_report()
+corpulse_inst.cleanup_report()
 
 print()
 print("-" * 60)
 print("DETAILED FINDINGS")
 print("-" * 60)
 
-ghosts = memento.get_ghosts()
+ghosts = corpulse_inst.get_ghosts()
 print(f"\nGhost documents ({len(ghosts)}):")
 for g in ghosts:
     print(f"  · {g['filename']} — never retrieved, safe to remove")
 
-dupes = memento.get_duplicates(threshold=0.85)
+dupes = corpulse_inst.get_duplicates(threshold=0.85)
 print(f"\nNear-duplicate pairs ({len(dupes)}):")
 for d in dupes:
     print(f"  · {d['filename_a']}  ↔  {d['filename_b']}  (similarity: {d['similarity']:.2f})")
 
-obsolete = memento.get_obsolete()
+obsolete = corpulse_inst.get_obsolete()
 print(f"\nObsolete versions ({len(obsolete)}):")
 for o in obsolete:
     print(f"  · {o['filename']}  → superseded by {o['superseded_by']}")
 
-stale = memento.get_stale_embeddings()
+stale = corpulse_inst.get_stale_embeddings()
 print(f"\nStale embeddings ({len(stale)}):")
 for s in stale:
     print(f"  · {s['filename']}  ({s['days_behind']}d behind source update)")
 
-health = memento.corpus_health()
+health = corpulse_inst.corpus_health()
 print(f"\nOverall health score:")
 for k, v in health.items():
     print(f"  {k:<22}: {v}")
