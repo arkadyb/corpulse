@@ -6,6 +6,7 @@ All tests run against real in-memory Qdrant clients (no mocks).
 Covers: QDRT-01 through QDRT-10, TEST-02, TEST-03, TEST-04.
 """
 
+import numpy as np
 import pytest
 from qdrant_client import QdrantClient, AsyncQdrantClient, models
 from qdrant_client.http.models import QueryResponse
@@ -113,6 +114,17 @@ def _embeddings_not_null_count(corpulse):
         ).fetchone()[0]
 
 
+def _stored_embedding(corpulse, doc_id):
+    with corpulse.db._conn() as conn:
+        row = conn.execute(
+            "SELECT embedding_vec FROM documents WHERE doc_id = ?",
+            (doc_id,),
+        ).fetchone()
+    assert row is not None
+    assert row[0] is not None
+    return np.frombuffer(row[0], dtype=np.float32)
+
+
 # ── sync tests ────────────────────────────────────────────────────────────────
 
 
@@ -130,13 +142,18 @@ def test_query_points_calls_log_retrieval(qdrant_client_fixture, corpulse):
 
 
 def test_search_interception(qdrant_client_fixture, corpulse):
-    """QDRT-03: wrapper.search() delegates; skipped if search() absent in client >= 1.16.0."""
+    """QDRT-03: wrapper.search() follows the installed client's behavior."""
     wrapper = QdrantCorpulseClient(qdrant_client_fixture, corpulse)
-    has_search = hasattr(QdrantClient(":memory:"), "search")
-    if not has_search:
-        pytest.skip("search() removed in qdrant-client >= 1.16.0")
-    result = wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
-    assert isinstance(result, list)
+    client = QdrantClient(":memory:")
+
+    if hasattr(client, "search"):
+        result = wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+        assert _retrieval_count(corpulse) > 0
+        assert isinstance(result, list)
+    else:
+        with pytest.raises(AttributeError):
+            wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+        assert _retrieval_count(corpulse) == 0
 
 
 def test_returns_unmodified_response(qdrant_client_fixture, corpulse):
@@ -205,6 +222,51 @@ def test_vector_capture_with_vectors_true(qdrant_client_fixture, corpulse):
     assert _embeddings_not_null_count(corpulse) > 0
 
 
+def test_named_vector_capture_uses_requested_vector(corpulse):
+    """QDRT-10: with_vectors=['dense'] stores the requested named vector bytes."""
+    client = QdrantClient(":memory:")
+    client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config={
+            "dense": models.VectorParams(
+                size=VECTOR_SIZE,
+                distance=models.Distance.COSINE,
+            ),
+            "sparse": models.VectorParams(
+                size=VECTOR_SIZE,
+                distance=models.Distance.COSINE,
+            ),
+        },
+    )
+    client.upsert(
+        collection_name=COLLECTION,
+        points=[
+            models.PointStruct(
+                id=10,
+                vector={
+                    "dense": [0.1, 0.2, 0.3, 0.4],
+                    "sparse": [0.9, 0.8, 0.7, 0.6],
+                },
+                payload={"doc_id": "named-doc", "filename": "named.md"},
+            ),
+        ],
+    )
+
+    wrapper = QdrantCorpulseClient(client, corpulse, payload_id_field="doc_id")
+    result = wrapper.query_points(
+        COLLECTION,
+        query=QUERY_VEC,
+        using="dense",
+        with_vectors=["dense"],
+        limit=1,
+    )
+
+    assert isinstance(result.points[0].vector, dict)
+    stored = _stored_embedding(corpulse, "named-doc")
+    dense_vector = np.array(result.points[0].vector["dense"], dtype=np.float32)
+    assert np.allclose(stored, dense_vector)
+
+
 def test_vector_not_captured_by_default(qdrant_client_fixture, corpulse):
     """QDRT-10: Without with_vectors, embedding should be None (not stored)."""
     wrapper = QdrantCorpulseClient(qdrant_client_fixture, corpulse)
@@ -262,10 +324,15 @@ async def test_async_query_points(async_qdrant_client_fixture, corpulse):
 
 
 async def test_async_search_interception(async_qdrant_client_fixture, corpulse):
-    """Async wrapper.search() delegates; skipped if search() absent in client >= 1.16.0."""
+    """Async wrapper.search() follows the installed client's behavior."""
     wrapper = AsyncQdrantCorpulseClient(async_qdrant_client_fixture, corpulse)
-    has_search = hasattr(AsyncQdrantClient(":memory:"), "search")
-    if not has_search:
-        pytest.skip("search() removed in qdrant-client >= 1.16.0")
-    result = await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
-    assert isinstance(result, list)
+    client = AsyncQdrantClient(":memory:")
+
+    if hasattr(client, "search"):
+        result = await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+        assert _retrieval_count(corpulse) > 0
+        assert isinstance(result, list)
+    else:
+        with pytest.raises(AttributeError):
+            await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+        assert _retrieval_count(corpulse) == 0
