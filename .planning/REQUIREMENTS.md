@@ -46,6 +46,13 @@
 - [x] **DOC-04**: Clear scope statement: corpus health tool, not answer quality evaluator
 - [x] **DOC-05**: API reference via docstrings on all public methods
 
+### Review Follow-Ups
+
+- [x] **RVW-CH-01**: `corpus_health()` returns the same response keys for empty and populated corpora
+- [x] **RVW-CH-02**: `corpus_health().noise_estimate` counts unique noisy documents once even when categories overlap
+- [x] **RVW-QD-01**: Sync and async Qdrant wrappers follow the currently installed client's `query_points()` and `search()` behavior without fabricating compatibility
+- [x] **RVW-QD-02**: Qdrant wrapper vector capture stores the requested named vector when `with_vectors` specifies one and preserves boolean `with_vectors=True` behavior
+
 ## v2 Requirements
 
 ### Additional Wrappers
@@ -108,12 +115,16 @@
 | DOC-03 | Phase 4 | Complete |
 | DOC-04 | Phase 4 | Complete |
 | DOC-05 | Phase 4 | Complete |
+| RVW-CH-01 | Phase 5 | Complete |
+| RVW-CH-02 | Phase 5 | Complete |
+| RVW-QD-01 | Phase 5 | Complete |
+| RVW-QD-02 | Phase 5 | Complete |
 
 **Coverage:**
-- v1 requirements: 26 total
-- Mapped to phases: 26
+- v1 requirements: 30 total
+- Mapped to phases: 30
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after roadmap creation*
+*Last updated: 2026-04-07 after Phase 5 revision planning*
