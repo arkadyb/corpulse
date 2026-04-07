@@ -1,4 +1,4 @@
-from .memento import Corpulse
+from .core import Corpulse
 
 __all__ = ["Corpulse", "QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
 __version__ = "0.1.0"

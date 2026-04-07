@@ -1,11 +1,11 @@
 """Verify all public Corpulse methods have complete docstrings (DOC-05)."""
 import inspect
-import corpulse.memento as m_module
+import corpulse.core as c_module
 
 
 def test_corpulse_public_methods_have_docstrings():
     """Every public method on Corpulse must have a non-empty __doc__."""
-    cls = m_module.Corpulse
+    cls = c_module.Corpulse
     public = [
         name for name, _ in inspect.getmembers(cls, predicate=inspect.isfunction)
         if not name.startswith("_")
@@ -29,7 +29,7 @@ _METHODS_WITH_PARAMS = [
 
 def test_corpulse_docstrings_have_args_section():
     """Public methods with parameters must have an Args: section."""
-    cls = m_module.Corpulse
+    cls = c_module.Corpulse
     missing_args = []
     for name in _METHODS_WITH_PARAMS:
         method = getattr(cls, name)

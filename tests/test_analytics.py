@@ -12,9 +12,9 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-import corpulse.memento as m_mod
+import corpulse.core as c_mod
 from corpulse.db import DB
-from corpulse.memento import Corpulse, _vec_to_bytes
+from corpulse.core import Corpulse, _vec_to_bytes
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ def _make_embedding(seed: int, dim: int = 8) -> bytes:
 
 def test_ghost_detection(corpulse, monkeypatch):
     """ghost1 has no recent retrievals; active has one — only ghost1 returned."""
-    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
     # Register both docs
     corpulse.db.upsert_document("ghost1", "ghost.md")
@@ -60,7 +60,7 @@ def test_ghost_detection(corpulse, monkeypatch):
 
 def test_ghost_no_false_positives(corpulse, monkeypatch):
     """All docs have recent retrievals — get_ghosts() returns empty list."""
-    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
     corpulse.db.upsert_document("doc1", "doc1.md")
     corpulse.db.upsert_document("doc2", "doc2.md")
@@ -104,7 +104,7 @@ def test_duplicates_empty_with_single_doc(corpulse):
 
 def test_duplicates_requires_sklearn(corpulse):
     """With _SKLEARN patched to False, get_duplicates() raises RuntimeError."""
-    with patch.object(m_mod, "_SKLEARN", False):
+    with patch.object(c_mod, "_SKLEARN", False):
         with pytest.raises(RuntimeError, match="scikit-learn"):
             corpulse.get_duplicates()
 
@@ -160,7 +160,7 @@ def test_stale_embeddings_fresh(corpulse):
 
 def test_suspect_detection(corpulse, monkeypatch):
     """Doc with 10 retrievals and 0 engagements should appear as suspect."""
-    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
     corpulse.db.upsert_document("sus1", "suspect.md")
 
@@ -179,7 +179,7 @@ def test_suspect_detection(corpulse, monkeypatch):
 
 def test_suspect_below_min_retrievals(corpulse, monkeypatch):
     """Doc with only 3 retrievals — below minimum 5, not flagged as suspect."""
-    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
     corpulse.db.upsert_document("low1", "low.md")
     recent_ts = FROZEN - 5 * 86400
@@ -218,7 +218,7 @@ def test_corpus_health_structure_empty_db_returns_full_schema(tmp_path):
 
 def test_corpus_health_noise_estimate_counts_unique_noisy_docs(corpulse, monkeypatch):
     """Overlapping noisy categories should count each noisy doc only once."""
-    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
     shared_embedding = _make_embedding(seed=7)
     corpulse.db.upsert_document(

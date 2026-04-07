@@ -8,7 +8,7 @@ def test_package_structure():
     assert pkg_dir.is_dir(), f"corpulse/ directory not found at {pkg_dir}"
     assert (pkg_dir / "__init__.py").is_file(), "corpulse/__init__.py missing"
     assert (pkg_dir / "db.py").is_file(), "corpulse/db.py missing"
-    assert (pkg_dir / "memento.py").is_file(), "corpulse/memento.py missing"
+    assert (pkg_dir / "core.py").is_file(), "corpulse/core.py missing"
 
 
 def test_pyproject_metadata():
