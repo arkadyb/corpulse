@@ -78,6 +78,22 @@ class Memento:
         obsolete_pattern: str = r"v\d+",
         top_k_report: int = 20,
     ):
+        """Initialise a Memento instance backed by a SQLite database.
+
+        Args:
+            db_path: Path to the SQLite database file. Created if it does
+                not exist. Defaults to ``"./memento.db"``.
+            ghost_threshold_days: Number of days without retrieval before a
+                document is flagged as a ghost. Defaults to 30.
+            duplicate_threshold: Cosine similarity threshold for duplicate
+                detection. Pairs above this value are flagged. Defaults to 0.92.
+            stale_threshold_days: Number of days of source-vs-embedding lag
+                before an embedding is flagged as stale. Defaults to 14.
+            obsolete_pattern: Regex pattern used to detect version tokens in
+                filenames (e.g. ``v1``, ``v2``). Defaults to ``r"v\\d+"``.
+            top_k_report: Maximum number of documents shown in ``report()``
+                output. Defaults to 20.
+        """
         self.db = DB(db_path)
         self.ghost_threshold_days = ghost_threshold_days
         self.duplicate_threshold = duplicate_threshold
@@ -105,6 +121,16 @@ class Memento:
                 {"doc_id": "def456", "filename": "faq.md",   "score": 0.87},
             ]
             memento.log_retrieval(results, query="how to install?")
+
+        Args:
+            results: List of dicts, each containing at least ``"doc_id"``.
+                Optional keys: ``"filename"``, ``"score"`` (float),
+                ``"embedding"`` (list or numpy array).
+            query: The search query string. Used for query deduplication
+                via hashing. Defaults to ``""``.
+
+        Returns:
+            None.
         """
         qhash = _hash_query(query)
         ts = _now()
@@ -132,6 +158,11 @@ class Memento:
         Call this when a user acts on a retrieved document.
 
         *event* is a free-form label — e.g. "opened", "copied", "thumbs_up".
+
+        Args:
+            doc_id: Identifier of the document the user interacted with.
+            event: Free-form label for the interaction type.
+                Defaults to ``"opened"``.
         """
         self.db.insert_engagement(doc_id, event, _now())
 
@@ -144,6 +175,11 @@ class Memento:
         Notify memento that a source file was modified.
 
         *updated_at* defaults to now if omitted.
+
+        Args:
+            doc_id: Identifier of the document whose source was modified.
+            updated_at: Unix timestamp of the modification. Defaults to
+                the current time if ``None``.
         """
         self.db.update_source_timestamp(doc_id, updated_at or _now())
 
@@ -156,6 +192,13 @@ class Memento:
         """
         Optionally pre-register documents with their embeddings so duplicate
         detection works even before the first retrieval.
+
+        Args:
+            doc_id: Unique identifier for the document.
+            filename: Human-readable filename or label.
+            embedding: Optional embedding vector as a list or numpy array.
+                When provided, enables duplicate detection for this document
+                even before its first retrieval.
         """
         self.db.upsert_document(
             doc_id=doc_id,
@@ -167,7 +210,11 @@ class Memento:
     # ── analysis ──────────────────────────────────────────────────────────────
 
     def get_ghosts(self) -> list[dict]:
-        """Documents not retrieved in the last *ghost_threshold_days* days."""
+        """Documents not retrieved in the last *ghost_threshold_days* days.
+
+        Returns:
+            List of dicts with keys: ``doc_id``, ``filename``.
+        """
         cutoff = _days_ago(self.ghost_threshold_days)
         recent_ids = {
             r["doc_id"]
@@ -189,6 +236,19 @@ class Memento:
         *threshold* — likely redundant content competing for the same queries.
 
         Requires scikit-learn and stored embeddings.
+
+        Args:
+            threshold: Cosine similarity threshold above which documents are
+                considered duplicates. Defaults to ``duplicate_threshold``
+                if ``None``.
+
+        Returns:
+            List of dicts with keys: ``doc_id_a``, ``filename_a``,
+            ``doc_id_b``, ``filename_b``, ``similarity`` (float).
+            Sorted by similarity descending.
+
+        Raises:
+            RuntimeError: If scikit-learn is not installed.
         """
         if not _SKLEARN:
             raise RuntimeError(
@@ -227,6 +287,10 @@ class Memento:
 
         e.g. if both "api-reference-v1.md" and "api-reference-v2.md" exist,
         v1 is flagged as obsolete.
+
+        Returns:
+            List of dicts with keys: ``doc_id``, ``filename``,
+            ``superseded_by`` (filename of the newer version).
         """
         all_docs = self.db.all_documents()
         pattern  = re.compile(self.obsolete_pattern, re.IGNORECASE)
@@ -263,6 +327,11 @@ class Memento:
         """
         Documents where the source file was updated more than
         *stale_threshold_days* days after the last embedding.
+
+        Returns:
+            List of dicts with keys: ``doc_id``, ``filename``,
+            ``source_updated`` (date string), ``last_embedded`` (date string),
+            ``days_behind`` (int). Sorted by days_behind descending.
         """
         threshold_secs = self.stale_threshold_days * 86_400
         stale = []
@@ -287,6 +356,15 @@ class Memento:
         """
         Documents with high retrieval count but low engagement rate —
         retrieved often but users don't act on them. Good re-chunking candidates.
+
+        Args:
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            List of dicts with keys: ``doc_id``, ``filename``,
+            ``retrievals`` (int), ``engagement_rate`` (float 0-1).
+            Sorted by retrievals descending.
         """
         since = _days_ago(window_days or self.ghost_threshold_days)
         r_map = {r["doc_id"]: r for r in self.db.retrieval_counts(since=since)}
@@ -315,6 +393,12 @@ class Memento:
     def corpus_health(self) -> dict:
         """
         High-level corpus noise estimate and bloat warning.
+
+        Returns:
+            Dict with keys: ``total_docs`` (int), ``ghosts`` (int),
+            ``obsolete`` (int), ``stale`` (int), ``duplicates`` (int),
+            ``noise_estimate`` (float 0-1), ``bloat_warning`` (bool),
+            ``recommendation`` (str).
         """
         all_docs   = self.db.all_documents()
         total      = len(all_docs)
@@ -351,7 +435,20 @@ class Memento:
     # ── reporting ─────────────────────────────────────────────────────────────
 
     def to_dataframe(self, window_days: int | None = None):
-        """Return corpus stats as a pandas DataFrame."""
+        """Return corpus stats as a pandas DataFrame.
+
+        Args:
+            window_days: Lookback window in days for retrieval/engagement
+                counts. Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            pandas.DataFrame with columns: ``doc_id``, ``filename``,
+            ``retrievals``, ``engagements``, ``engagement_rate``, ``status``.
+            Sorted by retrievals descending.
+
+        Raises:
+            RuntimeError: If pandas is not installed.
+        """
         try:
             import pandas as pd
         except ImportError:
@@ -389,7 +486,15 @@ class Memento:
         return pd.DataFrame(rows).sort_values("retrievals", ascending=False)
 
     def cleanup_report(self) -> None:
-        """Print a prioritised, human-readable action list."""
+        """Print a prioritised, human-readable action list.
+
+        Prints sections for ghosts, obsolete documents, stale embeddings,
+        and re-chunk candidates with counts and top-5 examples in each
+        category.
+
+        Returns:
+            None. Output is printed to stdout.
+        """
         health   = self.corpus_health()
         ghosts   = self.get_ghosts()
         obsolete = self.get_obsolete()
@@ -444,7 +549,19 @@ class Memento:
         print("─" * 60 + "\n")
 
     def report(self, window_days: int | None = None) -> None:
-        """Print the full corpus health table to stdout."""
+        """Print the full corpus health table to stdout.
+
+        Uses tabulate for pretty-printing if installed, falls back to
+        plain-text columns otherwise.
+
+        Args:
+            window_days: Lookback window in days for retrieval and
+                engagement counts. Defaults to ``ghost_threshold_days``
+                if ``None``.
+
+        Returns:
+            None. Output is printed to stdout.
+        """
         try:
             from tabulate import tabulate
             _tabulate = True
