@@ -403,7 +403,16 @@ class Corpulse:
         all_docs   = self.db.all_documents()
         total      = len(all_docs)
         if total == 0:
-            return {"total_docs": 0, "noise_estimate": 0.0, "bloat_warning": False}
+            return {
+                "total_docs": 0,
+                "ghosts": 0,
+                "obsolete": 0,
+                "stale": 0,
+                "duplicates": 0,
+                "noise_estimate": 0.0,
+                "bloat_warning": False,
+                "recommendation": "Corpus looks healthy.",
+            }
 
         ghosts    = len(self.get_ghosts())
         obsolete  = len(self.get_obsolete())

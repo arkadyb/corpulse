@@ -192,7 +192,7 @@ def test_suspect_below_min_retrievals(corpulse, monkeypatch):
 # ── corpus_health tests ───────────────────────────────────────────────────────
 
 
-def test_corpus_health_empty_db_returns_full_schema(tmp_path):
+def test_corpus_health_structure_empty_db_returns_full_schema(tmp_path):
     """Empty DB should still return the full corpus_health() schema."""
     health = Corpulse(db_path=str(tmp_path / "empty.db")).corpus_health()
 
