@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Core Tests and Bug Fixes | 1/1 | Complete   | 2026-04-04 |
 | 3. Qdrant Wrapper | 2/2 | Complete   | 2026-04-07 |
 | 4. Documentation | 2/2 | Complete   | 2026-04-07 |
-| 5. Address review findings in corpus health and Qdrant wrapper | 1/3 | In Progress | - |
+| 5. Address review findings in corpus health and Qdrant wrapper | 2/3 | In Progress | - |
 
 ### Phase 5: Address review findings in corpus health and Qdrant wrapper
 
@@ -100,5 +100,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 Plans:
 - [x] 05-01-PLAN.md — Bootstrap the local test environment and add regression coverage for corpus_health and Qdrant wrapper review findings
-- [ ] 05-02-PLAN.md — Fix corpus_health schema stability and unique noisy-doc noise estimation
+- [x] 05-02-PLAN.md — Fix corpus_health schema stability and unique noisy-doc noise estimation
 - [ ] 05-03-PLAN.md — Reconcile Qdrant wrapper upstream behavior and named-vector capture
