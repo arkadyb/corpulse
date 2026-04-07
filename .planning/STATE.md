@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-07T08:11:11.091Z"
-last_activity: "2026-04-07 - Completed 05-03-PLAN.md: Reconcile Qdrant wrapper upstream behavior and named-vector capture"
+last_updated: "2026-04-07T20:57:31+10:00"
+last_activity: "2026-04-07 - Completed quick task 260407-t1c: remove remaining memento module references including memento.py"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -107,9 +107,11 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260407-mao | Rename remaining Memento references to corpulse | 2026-04-07 | c0c9d1e | [260407-mao-rename-remaining-memento-references-to-c](./quick/260407-mao-rename-remaining-memento-references-to-c/) |
+| 260407-sv8 | Fix milestone audit gaps | 2026-04-07 | e2b176c | [260407-sv8-fix-milestone-audit-gaps](./quick/260407-sv8-fix-milestone-audit-gaps/) |
+| 260407-t1c | Remove remaining memento module references including memento.py | 2026-04-07 | f7993ee | [260407-t1c-remove-remaining-memento-module-referenc](./quick/260407-t1c-remove-remaining-memento-module-referenc/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-07 - Completed 05-02-PLAN.md: Fix corpus_health schema stability and unique noisy-doc noise estimation
-Stopped at: Completed 05-03-PLAN.md
+Last activity: 2026-04-07 - Completed quick task 260407-t1c: remove remaining memento module references including memento.py
+Stopped at: Completed quick task 260407-t1c
 Resume file: None
