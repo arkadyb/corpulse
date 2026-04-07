@@ -37,22 +37,22 @@ Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
 ## Quickstart: Manual API
 
 ```python
-from corpulse import Memento
+from corpulse import Corpulse
 
-memento = Memento()  # writes to ./memento.db
+corp = Corpulse()  # writes to ./corpulse.db
 
 # After your vector DB search returns results
 results = [
     {"doc_id": "abc123", "filename": "guide.md", "score": 0.91},
     {"doc_id": "def456", "filename": "faq.md",   "score": 0.87},
 ]
-memento.log_retrieval(results, query="how to install?")
+corp.log_retrieval(results, query="how to install?")
 
 # When user acts on a result
-memento.log_engagement("abc123", event="opened")
+corp.log_engagement("abc123", event="opened")
 
 # Print corpus health table
-memento.report()
+corp.report()
 ```
 
 `report()` pretty-prints with [tabulate](https://pypi.org/project/tabulate/) if installed, falls back to plain text otherwise.
@@ -65,10 +65,10 @@ memento.report()
 
 ```python
 from qdrant_client import QdrantClient
-from corpulse import Memento
+from corpulse import Corpulse
 
 client = QdrantClient(":memory:")
-memento = Memento()
+corp = Corpulse()
 
 result = client.query_points(collection_name="docs", query=[0.1, 0.2, ...], limit=5)
 # Must manually extract results and call log_retrieval
@@ -76,18 +76,18 @@ records = [
     {"doc_id": str(p.id), "filename": p.payload.get("filename", str(p.id)), "score": p.score}
     for p in result.points
 ]
-memento.log_retrieval(records, query="how to install?")
+corp.log_retrieval(records, query="how to install?")
 ```
 
 **After (automatic via wrapper):**
 
 ```python
 from qdrant_client import QdrantClient
-from corpulse import Memento, QdrantMementoClient
+from corpulse import Corpulse, QdrantCorpulseClient
 
 client = QdrantClient(":memory:")
-memento = Memento()
-wrapped = QdrantMementoClient(client, memento)
+corp = Corpulse()
+wrapped = QdrantCorpulseClient(client, corp)
 
 result = wrapped.query_points(collection_name="docs", query=[0.1, 0.2, ...], limit=5)
 # log_retrieval() called automatically — result is unchanged
@@ -98,12 +98,12 @@ result = wrapped.query_points(collection_name="docs", query=[0.1, 0.2, ...], lim
 ```python
 import asyncio
 from qdrant_client import AsyncQdrantClient
-from corpulse import Memento, AsyncQdrantMementoClient
+from corpulse import Corpulse, AsyncQdrantCorpulseClient
 
 async def main():
     client = AsyncQdrantClient(":memory:")
-    memento = Memento()
-    wrapped = AsyncQdrantMementoClient(client, memento)
+    corp = Corpulse()
+    wrapped = AsyncQdrantCorpulseClient(client, corp)
 
     result = await wrapped.query_points(
         collection_name="docs", query=[0.1, 0.2, ...], limit=5
@@ -133,8 +133,8 @@ asyncio.run(main())
 ## Configuration
 
 ```python
-memento = Memento(
-    db_path="./memento.db",          # SQLite database path
+corp = Corpulse(
+    db_path="./corpulse.db",          # SQLite database path
     ghost_threshold_days=30,         # Days before flagging as ghost
     duplicate_threshold=0.92,        # Cosine similarity threshold
     stale_threshold_days=14,         # Days of source-vs-embedding lag

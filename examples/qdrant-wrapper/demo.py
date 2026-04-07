@@ -4,7 +4,7 @@ qdrant_demo.py — Sample app showcasing corpulse with a real Qdrant instance.
 This script:
   1. Connects to a local Qdrant server
   2. Creates a collection and inserts sample documents
-  3. Wraps the Qdrant client with QdrantMementoClient
+  3. Wraps the Qdrant client with QdrantCorpulseClient
   4. Runs queries — retrievals are tracked automatically
   5. Simulates user engagement
   6. Prints a corpus health report
@@ -24,7 +24,7 @@ import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
-from corpulse import Memento, QdrantMementoClient
+from corpulse import Corpulse, QdrantCorpulseClient
 
 
 # ---------------------------------------------------------------------------
@@ -112,10 +112,10 @@ print(f"\n✓ Inserted {len(points)} documents into '{COLLECTION_NAME}' collecti
 # 2. Wrap the client with corpulse
 # ---------------------------------------------------------------------------
 
-memento = Memento(db_path="./qdrant_demo.db")
-wrapped = QdrantMementoClient(client, memento)
+corp = Corpulse(db_path="./qdrant_demo.db")
+wrapped = QdrantCorpulseClient(client, corp)
 
-print("✓ Wrapped QdrantClient with QdrantMementoClient")
+print("✓ Wrapped QdrantClient with QdrantCorpulseClient")
 print("  Every query_points() call now auto-logs retrievals.\n")
 
 
@@ -165,15 +165,15 @@ print("Simulating user engagement...")
 
 # Popular docs get high engagement
 for _ in range(15):
-    memento.log_engagement("1", event="opened")   # getting-started.md
-    memento.log_engagement("2", event="opened")   # api-reference-v2.md
+    corp.log_engagement("1", event="opened")   # getting-started.md
+    corp.log_engagement("2", event="opened")   # api-reference-v2.md
 
 # Troubleshooting retrieved often but rarely opened (suspect)
 for _ in range(2):
-    memento.log_engagement("4", event="opened")
+    corp.log_engagement("4", event="opened")
 
 # Mark pricing doc source as updated (stale embedding)
-memento.log_source_update("7")
+corp.log_source_update("7")
 
 print("✓ Engagement and source updates logged\n")
 
@@ -184,7 +184,7 @@ print("✓ Engagement and source updates logged\n")
 
 for doc, point in zip(DOCUMENTS, points):
     vec_array = np.array(point.vector, dtype=np.float32)
-    memento.register_document(
+    corp.register_document(
         doc_id=str(doc["id"]),
         filename=doc["filename"],
         embedding=vec_array,
@@ -200,7 +200,7 @@ print("CORPUS HEALTH REPORT")
 print("=" * 60)
 print()
 
-memento.report(window_days=30)
+corp.report(window_days=30)
 
 print()
 print("-" * 60)
@@ -208,34 +208,34 @@ print("CLEANUP RECOMMENDATIONS")
 print("-" * 60)
 print()
 
-memento.cleanup_report()
+corp.cleanup_report()
 
 print()
 print("-" * 60)
 print("DETAILED FINDINGS")
 print("-" * 60)
 
-ghosts = memento.get_ghosts()
+ghosts = corp.get_ghosts()
 print(f"\nGhost documents ({len(ghosts)}):")
 for g in ghosts:
     print(f"  · {g['filename']} — never retrieved, safe to remove")
 
-dupes = memento.get_duplicates(threshold=0.85)
+dupes = corp.get_duplicates(threshold=0.85)
 print(f"\nNear-duplicate pairs ({len(dupes)}):")
 for d in dupes:
     print(f"  · {d['filename_a']}  ↔  {d['filename_b']}  (similarity: {d['similarity']:.2f})")
 
-obsolete = memento.get_obsolete()
+obsolete = corp.get_obsolete()
 print(f"\nObsolete versions ({len(obsolete)}):")
 for o in obsolete:
     print(f"  · {o['filename']}  → superseded by {o['superseded_by']}")
 
-stale = memento.get_stale_embeddings()
+stale = corp.get_stale_embeddings()
 print(f"\nStale embeddings ({len(stale)}):")
 for s in stale:
     print(f"  · {s['filename']}  ({s['days_behind']}d behind source update)")
 
-health = memento.corpus_health()
+health = corp.corpus_health()
 print(f"\nOverall health score:")
 for k, v in health.items():
     print(f"  {k:<22}: {v}")

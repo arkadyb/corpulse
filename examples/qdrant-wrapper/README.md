@@ -5,7 +5,7 @@ Demonstrates corpulse's zero-instrumentation Qdrant wrapper. Wraps a `QdrantClie
 ## What it does
 
 1. Creates a Qdrant collection with 10 sample documents
-2. Wraps the client: `QdrantMementoClient(client, memento)`
+2. Wraps the client: `QdrantCorpulseClient(client, corp)`
 3. Runs 25 queries — retrievals tracked automatically
 4. Simulates user engagement and a stale source update
 5. Prints a full corpus health report with cleanup recommendations
@@ -47,7 +47,7 @@ CORPULSE  ×  QDRANT  —  Sample Application
 
 ✓ Inserted 10 documents into 'knowledge_base' collection
 
-✓ Wrapped QdrantClient with QdrantMementoClient
+✓ Wrapped QdrantClient with QdrantCorpulseClient
   Every query_points() call now auto-logs retrievals.
 
 ------------------------------------------------------------
@@ -89,7 +89,7 @@ CORPUS HEALTH REPORT
   pricing-2023.md                              0            —  👻 ghost
 
   👻 ghosts: 2  💀 obsolete: 1  ⚠ duplicates: 2  🕓 stale: 0
-  Run memento.cleanup_report() for a prioritised action list.
+  Run corpulse.cleanup_report() for a prioritised action list.
 
 ------------------------------------------------------------
 CLEANUP RECOMMENDATIONS
