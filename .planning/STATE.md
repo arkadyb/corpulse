@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 05-02-PLAN.md
+status: complete
+stopped_at: Completed 05-03-PLAN.md
 last_updated: "2026-04-07T08:11:11.091Z"
-last_activity: "2026-04-07 - Completed 05-02-PLAN.md: Fix corpus_health schema stability and unique noisy-doc noise estimation"
+last_activity: "2026-04-07 - Completed 05-03-PLAN.md: Reconcile Qdrant wrapper upstream behavior and named-vector capture"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -20,11 +20,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** RAG teams can point rag-memento at their Qdrant instance and immediately understand corpus health — no manual instrumentation
-**Current focus:** Phase 05 — address review findings in corpus health and Qdrant wrapper
+**Current focus:** Phase 05 completed — address review findings in corpus health and Qdrant wrapper
 
 ## Current Position
 
-Phase: 05 (address review findings in corpus health and Qdrant wrapper) — EXECUTING
+Phase: 05 (address review findings in corpus health and Qdrant wrapper) — COMPLETE
 Plan: 3 of 3
 
 ## Performance Metrics
@@ -87,6 +87,7 @@ Recent decisions affecting current work:
 - [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Keep corpus_health() return type and public name unchanged while normalizing the empty-corpus shape to the populated schema.
 - [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Compute noise_estimate from the union of noisy doc IDs so overlapping categories count once without reintroducing duplicate get_duplicates() calls.
 - [Phase 05]: Named-vector capture selects the explicitly requested vector name and stores None when that name is absent.
+- [Phase 05]: Qdrant search wrappers keep direct upstream delegation and allow AttributeError to propagate naturally.
 
 ### Pending Todos
 
@@ -110,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-07 - Completed 05-02-PLAN.md: Fix corpus_health schema stability and unique noisy-doc noise estimation
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None

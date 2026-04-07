@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Core Tests and Bug Fixes** - Cover the existing analytics engine with tests and fix known reliability issues (completed 2026-04-04)
 - [x] **Phase 3: Qdrant Wrapper** - Build zero-instrumentation sync and async Qdrant wrappers (completed 2026-04-07)
 - [x] **Phase 4: Documentation** - Write the README and docstrings that make the library adoptable (completed 2026-04-07)
-- [ ] **Phase 5: Address review findings in corpus health and Qdrant wrapper** - Lock review follow-up regressions before corrective implementation
+- [x] **Phase 5: Address review findings in corpus health and Qdrant wrapper** - Lock review follow-up regressions before corrective implementation (completed 2026-04-07)
 
 ## Phase Details
 
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Core Tests and Bug Fixes | 1/1 | Complete   | 2026-04-04 |
 | 3. Qdrant Wrapper | 2/2 | Complete   | 2026-04-07 |
 | 4. Documentation | 2/2 | Complete   | 2026-04-07 |
-| 5. Address review findings in corpus health and Qdrant wrapper | 2/3 | In Progress | - |
+| 5. Address review findings in corpus health and Qdrant wrapper | 3/3 | Complete   | 2026-04-07 |
 
 ### Phase 5: Address review findings in corpus health and Qdrant wrapper
 
@@ -101,4 +101,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 Plans:
 - [x] 05-01-PLAN.md — Bootstrap the local test environment and add regression coverage for corpus_health and Qdrant wrapper review findings
 - [x] 05-02-PLAN.md — Fix corpus_health schema stability and unique noisy-doc noise estimation
-- [ ] 05-03-PLAN.md — Reconcile Qdrant wrapper upstream behavior and named-vector capture
+- [x] 05-03-PLAN.md — Reconcile Qdrant wrapper upstream behavior and named-vector capture
