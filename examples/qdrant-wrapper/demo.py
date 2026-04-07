@@ -10,7 +10,7 @@ This script:
   6. Prints a corpus health report
 
 Prerequisites:
-  pip install "git+https://github.com/arkadyb/corpulse[qdrant]"
+  pip install "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git"
 
   # Start Qdrant locally (pick one):
   #   Option A — Docker (recommended):
@@ -20,6 +20,7 @@ Prerequisites:
   #     No setup required. This demo uses ":memory:" mode.
 """
 
+from pathlib import Path
 import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
@@ -112,7 +113,9 @@ print(f"\n✓ Inserted {len(points)} documents into '{COLLECTION_NAME}' collecti
 # 2. Wrap the client with corpulse
 # ---------------------------------------------------------------------------
 
-corp = Corpulse(db_path="./qdrant_demo.db")
+DB_PATH = "./qdrant_demo.db"
+Path(DB_PATH).unlink(missing_ok=True)
+corp = Corpulse(db_path=DB_PATH)
 wrapped = QdrantCorpulseClient(client, corp)
 
 print("✓ Wrapped QdrantClient with QdrantCorpulseClient")
@@ -241,5 +244,5 @@ for k, v in health.items():
     print(f"  {k:<22}: {v}")
 
 print(f"\n{'=' * 60}")
-print("✓ Demo complete. Database written to ./qdrant_demo.db")
+print(f"✓ Demo complete. Database written to {DB_PATH}")
 print(f"{'=' * 60}")

@@ -82,8 +82,8 @@ CLEANUP RECOMMENDATIONS
   corpulse — Cleanup Report
 ────────────────────────────────────────────────────────────
   Total documents : 10
-  Noise estimate  : 70%
-  ⚠  Consider pruning ~7 low-signal documents.
+  Noise estimate  : 50%
+  ⚠  Consider pruning ~5 low-signal documents.
 
   👻  GHOSTS  (2 docs — never retrieved in 30d)
       · api-reference-v1.md
@@ -121,9 +121,9 @@ Overall health score:
   obsolete              : 1
   stale                 : 0
   duplicates            : 4
-  noise_estimate        : 0.7
+  noise_estimate        : 0.5
   bloat_warning         : True
-  recommendation        : Consider pruning ~7 low-signal documents.
+  recommendation        : Consider pruning ~5 low-signal documents.
 
 ============================================================
 ✓ Demo complete. Database written to ./manual_api_demo.db

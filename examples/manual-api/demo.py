@@ -16,6 +16,7 @@ Prerequisites:
   pip install "git+https://github.com/arkadyb/corpulse"
 """
 
+from pathlib import Path
 import random
 import numpy as np
 from corpulse import Corpulse
@@ -56,6 +57,7 @@ print("=" * 60)
 print("CORPULSE  —  Manual API Demo")
 print("=" * 60)
 
+Path(DB_PATH).unlink(missing_ok=True)
 corpulse_inst = Corpulse(db_path=DB_PATH)
 
 DOCUMENTS = [

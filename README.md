@@ -27,7 +27,7 @@ Think of it as a fitness tracker for your document corpus, not a grade on your a
 pip install "git+https://github.com/arkadyb/corpulse"
 
 # With Qdrant wrapper support
-pip install "git+https://github.com/arkadyb/corpulse[qdrant]"
+pip install "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git"
 ```
 
 Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.

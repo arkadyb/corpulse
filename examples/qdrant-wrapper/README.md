@@ -13,7 +13,7 @@ Demonstrates corpulse's zero-instrumentation Qdrant wrapper. Wraps a `QdrantClie
 ## Prerequisites
 
 ```bash
-pip install "git+https://github.com/arkadyb/corpulse[qdrant]"
+pip install "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git"
 ```
 
 ## Running Qdrant
@@ -74,7 +74,7 @@ CORPUS HEALTH REPORT
 ============================================================
 
   corpulse — Corpus Health Report
-  10 documents · last 30 days · ⚠ corpus bloat detected (50% noise est.)
+  10 documents · last 30 days · ⚠ corpus bloat detected (40% noise est.)
   Document                             Retrieved   Engagement  Status
   ──────────────────────────────────────────────────────────────────────
   internal-draft.md                           17           0%  ◌  low eng.
@@ -99,8 +99,8 @@ CLEANUP RECOMMENDATIONS
   corpulse — Cleanup Report
 ────────────────────────────────────────────────────────────
   Total documents : 10
-  Noise estimate  : 50%
-  ⚠  Consider pruning ~5 low-signal documents.
+  Noise estimate  : 40%
+  ⚠  Consider pruning ~4 low-signal documents.
 
   👻  GHOSTS  (2 docs — never retrieved in 30d)
       · api-reference-v1.md
@@ -137,9 +137,9 @@ Overall health score:
   obsolete              : 1
   stale                 : 0
   duplicates            : 2
-  noise_estimate        : 0.5
+  noise_estimate        : 0.4
   bloat_warning         : True
-  recommendation        : Consider pruning ~5 low-signal documents.
+  recommendation        : Consider pruning ~4 low-signal documents.
 
 ============================================================
 ✓ Demo complete. Database written to ./qdrant_demo.db
