@@ -10,6 +10,7 @@ Lazy import: qdrant_client is NOT imported at module level so that
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 
 __all__ = ["QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
 
@@ -42,9 +43,21 @@ def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_ke
         filename = payload.get(payload_filename_key, doc_id)
 
         embedding = p.vector if with_vectors else None
-        # Named vectors: p.vector is dict[str, list[float]] — extract first value
         if isinstance(embedding, dict):
-            embedding = next(iter(embedding.values()), None)
+            requested_vector_name = None
+            if isinstance(with_vectors, Sequence) and not isinstance(
+                with_vectors, (str, bytes)
+            ):
+                requested_vector_name = next(iter(with_vectors), None)
+
+            if requested_vector_name is not None:
+                embedding = embedding.get(requested_vector_name)
+            elif with_vectors is True:
+                # Preserve deterministic unnamed behavior when the caller asks
+                # for vectors generally rather than by a specific name.
+                embedding = next(iter(embedding.values()), None)
+            else:
+                embedding = None
 
         records.append({
             "doc_id": doc_id,
