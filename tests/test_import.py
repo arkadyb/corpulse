@@ -6,7 +6,7 @@ import sys
 def test_import_corpulse():
     """PKG-04: import corpulse succeeds."""
     import corpulse
-    assert hasattr(corpulse, "Memento"), "Memento class not exported"
+    assert hasattr(corpulse, "Corpulse"), "Corpulse class not exported"
     assert hasattr(corpulse, "__version__"), "__version__ not exposed"
 
 
@@ -24,11 +24,11 @@ def test_import_without_qdrant(monkeypatch):
     # Reload to verify no top-level qdrant import
     import corpulse
     importlib.reload(corpulse)
-    assert hasattr(corpulse, "Memento")
+    assert hasattr(corpulse, "Corpulse")
 
 
-def test_memento_class_importable():
-    """Memento class can be instantiated from the package."""
-    from corpulse import Memento
+def test_corpulse_class_importable():
+    """Corpulse class can be instantiated from the package."""
+    from corpulse import Corpulse
     # Just verify the class is accessible; don't instantiate (needs filesystem)
-    assert callable(Memento)
+    assert callable(Corpulse)
