@@ -88,8 +88,14 @@ None yet.
 - [Research]: Default `payload_id_field` value is a guess ("doc_id") — validate against demo.py before finalizing wrapper API in Phase 3
 - [Research]: async SQLite write latency via asyncio.to_thread() is unbenchmarked — acceptable for now, document as known trade-off
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260407-mao | Rename remaining Memento references to corpulse | 2026-04-07 | c0c9d1e | [260407-mao-rename-remaining-memento-references-to-c](./quick/260407-mao-rename-remaining-memento-references-to-c/) |
+
 ## Session Continuity
 
-Last session: 2026-04-07T04:09:53.195Z
+Last activity: 2026-04-07 - Completed quick task 260407-mao: Rename remaining Memento references to corpulse
 Stopped at: Completed 04-02-PLAN.md
 Resume file: None
