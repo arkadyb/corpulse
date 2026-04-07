@@ -128,6 +128,7 @@ class QdrantCorpulseClient:
         ``AttributeError`` propagates naturally. No compatibility shim or
         result emulation is added here.
         """
+        # search() returns the client's native list response shape when available.
         result = self._client.search(collection_name=collection_name, **kwargs)
         if result:
             records = _normalize_points(
@@ -204,6 +205,7 @@ class AsyncQdrantCorpulseClient:
         ``AttributeError`` propagates naturally. No compatibility shim or
         result emulation is added here.
         """
+        # search() returns the client's native list response shape when available.
         result = await self._client.search(collection_name=collection_name, **kwargs)
         if result:
             records = _normalize_points(
