@@ -192,15 +192,69 @@ def test_suspect_below_min_retrievals(corpulse, monkeypatch):
 # ── corpus_health tests ───────────────────────────────────────────────────────
 
 
-def test_corpus_health_structure(tmp_path):
-    """Empty DB — corpus_health() returns dict with required keys, total_docs == 0."""
-    m = Corpulse(db_path=str(tmp_path / "empty.db"))
-    health = m.corpus_health()
+def test_corpus_health_empty_db_returns_full_schema(tmp_path):
+    """Empty DB should still return the full corpus_health() schema."""
+    health = Corpulse(db_path=str(tmp_path / "empty.db")).corpus_health()
 
-    assert "total_docs" in health
-    assert "noise_estimate" in health
-    assert "bloat_warning" in health
+    assert set(health) == {
+        "total_docs",
+        "ghosts",
+        "obsolete",
+        "stale",
+        "duplicates",
+        "noise_estimate",
+        "bloat_warning",
+        "recommendation",
+    }
     assert health["total_docs"] == 0
+    assert health["ghosts"] == 0
+    assert health["obsolete"] == 0
+    assert health["stale"] == 0
+    assert health["duplicates"] == 0
+    assert health["noise_estimate"] == 0.0
+    assert health["bloat_warning"] is False
+    assert health["recommendation"] == "Corpus looks healthy."
+
+
+def test_corpus_health_noise_estimate_counts_unique_noisy_docs(corpulse, monkeypatch):
+    """Overlapping noisy categories should count each noisy doc only once."""
+    monkeypatch.setattr(m_mod, "_now", lambda: FROZEN)
+
+    shared_embedding = _make_embedding(seed=7)
+    corpulse.db.upsert_document(
+        "shared",
+        "guide-v1.md",
+        shared_embedding,
+        embedded_at=FROZEN,
+    )
+    corpulse.db.upsert_document(
+        "dup-peer",
+        "guide-copy.md",
+        shared_embedding,
+        embedded_at=FROZEN,
+    )
+    corpulse.db.upsert_document(
+        "fresh",
+        "guide-v2.md",
+        _make_embedding(seed=11),
+        embedded_at=FROZEN,
+    )
+
+    corpulse.db.update_source_timestamp("shared", FROZEN + 15 * 86400 + 1)
+
+    recent_ts = FROZEN - 5 * 86400
+    corpulse.db.insert_retrieval("dup-peer", "dup-peer-recent", 1, 0.92, recent_ts)
+    corpulse.db.insert_retrieval("fresh", "fresh-recent", 1, 0.88, recent_ts)
+
+    health = corpulse.corpus_health()
+    unique_noisy_docs = 2
+
+    assert health["total_docs"] == 3
+    assert health["ghosts"] == 1
+    assert health["obsolete"] == 1
+    assert health["stale"] == 1
+    assert health["duplicates"] == 2
+    assert health["noise_estimate"] == round(unique_noisy_docs / health["total_docs"], 2)
 
 
 def test_corpus_health_calls_get_duplicates_once(corpulse):
