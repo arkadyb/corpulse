@@ -1,4 +1,10 @@
 import inspect
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from corpulse.backends.base import (
     DocumentRow,
@@ -42,3 +48,18 @@ def test_storage_backend_contract_is_frozen():
         assert keys <= set(row_type.__annotations__)
 
     assert issubclass(StorageBackendError, RuntimeError)
+
+
+@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
+def test_sqlite_backend_parity_placeholder():
+    assert False, "placeholder"
+
+
+@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
+def test_translated_runtime_error_placeholder():
+    assert False, "placeholder"
+
+
+@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
+def test_shared_backend_fixture_placeholder():
+    assert False, "placeholder"
