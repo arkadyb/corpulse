@@ -86,6 +86,8 @@ def test_backend_parity(backend):
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
 
+
+def test_sqlite_backend_enables_wal(sqlite_backend):
     with sqlite_backend._conn() as conn:
         journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
 
