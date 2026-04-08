@@ -53,21 +53,21 @@ def test_storage_backend_contract_is_frozen():
     assert issubclass(StorageBackendError, RuntimeError)
 
 
-def test_sqlite_backend_parity(sqlite_backend):
-    sqlite_backend.upsert_document(
+def test_backend_parity(backend):
+    backend.upsert_document(
         "doc-1",
         "doc-1.md",
         embedding=b"vec",
         embedded_at=12.5,
     )
-    sqlite_backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
-    sqlite_backend.insert_engagement("doc-1", "opened", 30.0)
-    sqlite_backend.update_source_timestamp("doc-1", 40.0)
+    backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
+    backend.insert_engagement("doc-1", "opened", 30.0)
+    backend.update_source_timestamp("doc-1", 40.0)
 
-    documents = sqlite_backend.all_documents()
-    retrievals = sqlite_backend.retrieval_counts(0.0)
-    engagements = sqlite_backend.engagement_counts(0.0)
-    embeddings = sqlite_backend.all_embeddings()
+    documents = backend.all_documents()
+    retrievals = backend.retrieval_counts(0.0)
+    engagements = backend.engagement_counts(0.0)
+    embeddings = backend.all_embeddings()
 
     assert documents == [
         {
@@ -106,6 +106,14 @@ def test_translated_runtime_error(sqlite_backend, monkeypatch):
 
 def test_shared_backend_fixture_uses_sqlite_backend(sqlite_backend):
     assert isinstance(sqlite_backend, DB)
+
+
+def test_shared_backend_fixture_runs_for_sqlite_and_memory(backend, request):
+    if request.node.callspec.params["backend"] == "sqlite":
+        assert isinstance(backend, DB)
+        return
+
+    assert isinstance(backend, InMemoryBackend)
 
 
 def test_inmemory_backend_persists_documents_and_events_without_filesystem():

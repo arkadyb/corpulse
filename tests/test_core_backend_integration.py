@@ -6,16 +6,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import tests.test_backend_contract as backend_contract_tests
-from corpulse.backends import SQLiteBackend
+from corpulse.backends import InMemoryBackend, SQLiteBackend
 from corpulse.core import Corpulse
 from corpulse.db import DB
 
 
 def test_backend_contract_module_exposes_active_parity_cases():
     expected = {
-        "test_sqlite_backend_parity",
+        "test_backend_parity",
         "test_translated_runtime_error",
-        "test_shared_backend_fixture_uses_sqlite_backend",
+        "test_shared_backend_fixture_runs_for_sqlite_and_memory",
     }
 
     missing = [
@@ -51,6 +51,37 @@ def test_corpulse_lifecycle_delegation(tmp_path):
         assert corpulse.db is backend
 
     corpulse.close()
+
+
+def test_corpulse_inmemory_backend_records_retrievals_without_file_io():
+    corpulse = Corpulse(backend=InMemoryBackend())
+
+    corpulse.log_retrieval(
+        [{"doc_id": "ghost", "filename": "ghost.md", "score": 0.2}],
+        query="status",
+    )
+    corpulse.register_document("suspect", "suspect.md")
+    for _ in range(5):
+        corpulse.log_retrieval(
+            [{"doc_id": "suspect", "filename": "suspect.md", "score": 0.9}],
+            query="hot path",
+        )
+
+    assert corpulse.get_ghosts() == []
+    suspects = corpulse.get_suspects()
+    assert [item["doc_id"] for item in suspects] == ["suspect"]
+
+
+def test_corpulse_inmemory_backend_context_manager_delegates_close():
+    backend = InMemoryBackend()
+
+    with Corpulse(backend=InMemoryBackend()) as corpulse:
+        assert isinstance(corpulse.db, InMemoryBackend)
+
+    with Corpulse(backend=backend) as corpulse:
+        assert corpulse.db is backend
+
+    assert backend._closed is True
 
 
 def test_corpulse_constructor_conflict_raises_value_error(tmp_path):
