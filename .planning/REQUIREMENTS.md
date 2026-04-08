@@ -62,13 +62,13 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 - [x] **ABS-01**: StorageBackend ABC defines 8 abstract methods matching existing DB interface
 - [x] **ABS-02**: TypedDict return types (DocumentRow, RetrievalRow, EngagementRow, EmbeddingRow) shared across all backends
 - [x] **ABS-03**: StorageBackendError wraps native DB exceptions at the backend boundary
-- [ ] **ABS-04**: Shared parametrized test fixture runs against all backend implementations
+- [x] **ABS-04**: Shared parametrized test fixture runs against all backend implementations
 
 ### Backends
 
 - [x] **BACK-01**: SQLiteBackend refactors existing DB class with zero behavioral change (41 tests pass)
 - [x] **BACK-02**: db.py becomes a one-line compat shim importing SQLiteBackend as DB
-- [ ] **BACK-03**: InMemoryBackend (dict-based, no deps) with full aggregate behavior
+- [x] **BACK-03**: InMemoryBackend (dict-based, no deps) with full aggregate behavior
 - [ ] **BACK-04**: PostgresBackend (sync) via psycopg>=3.2 with schema auto-init
 - [ ] **BACK-05**: AsyncPostgresBackend via asyncpg>=0.29 with async initialize() and connection pool
 - [x] **BACK-06**: All backends implement close() and context manager protocol
@@ -161,10 +161,10 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 | ABS-01 | Phase 6 | Complete |
 | ABS-02 | Phase 6 | Complete |
 | ABS-03 | Phase 6 | Complete |
-| ABS-04 | — | Pending |
+| ABS-04 | — | Complete |
 | BACK-01 | Phase 6 | Complete |
 | BACK-02 | Phase 6 | Complete |
-| BACK-03 | — | Pending |
+| BACK-03 | — | Complete |
 | BACK-04 | — | Pending |
 | BACK-05 | — | Pending |
 | BACK-06 | Phase 6 | Complete |

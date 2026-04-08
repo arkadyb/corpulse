@@ -107,7 +107,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Freeze the backend contract and add shared backend contract/core integration test scaffolding
 - [x] 06-02-PLAN.md — Refactor DB into SQLiteBackend, keep db.py compatibility, and wire Corpulse backend injection
-- [ ] 06-03-PLAN.md — Implement InMemoryBackend and finish shared parity coverage
+- [x] 06-03-PLAN.md — Implement InMemoryBackend and finish shared parity coverage
 
 #### Phase 7: PostgresBackend (Sync)
 **Goal**: A service using PostgreSQL can point corpulse at it and get the same corpus health analytics as SQLite — schema created automatically, no migrations needed
@@ -150,6 +150,6 @@ Phases execute in numeric order: 6 → 7 → 8
 | 3. Qdrant Wrapper | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 4. Documentation | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 5. Address Review Findings | v1.0 | 3/3 | Complete | 2026-04-07 |
-| 6. Storage Foundation | v1.1 | 2/3 | In Progress | - |
+| 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
 | 7. PostgresBackend (Sync) | v1.1 | 0/1 | Not started | - |
 | 8. AsyncPostgresBackend | v1.1 | 0/1 | Not started | - |
