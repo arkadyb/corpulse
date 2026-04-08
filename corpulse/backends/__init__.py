@@ -8,6 +8,7 @@ from .base import (
     StorageBackend,
     StorageBackendError,
 )
+from .memory import InMemoryBackend
 from .sqlite import SQLiteBackend
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "RetrievalRow",
     "StorageBackend",
     "StorageBackendError",
+    "InMemoryBackend",
     "SQLiteBackend",
 ]
