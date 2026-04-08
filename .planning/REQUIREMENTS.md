@@ -1,7 +1,7 @@
 # Requirements: corpulse
 
 **Defined:** 2026-03-24
-**Core Value:** RAG teams can point corpulse at their Qdrant instance and immediately understand corpus health — no manual instrumentation
+**Core Value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health — no manual instrumentation
 
 ## v1 Requirements
 
@@ -53,6 +53,32 @@
 - [x] **RVW-QD-01**: Sync and async Qdrant wrappers follow the currently installed client's `query_points()` and `search()` behavior without fabricating compatibility
 - [x] **RVW-QD-02**: Qdrant wrapper vector capture stores the requested named vector when `with_vectors` specifies one and preserves boolean `with_vectors=True` behavior
 
+## v1.1 Requirements
+
+Requirements for milestone v1.1: Pluggable Storage Backends.
+
+### Abstraction
+
+- [x] **ABS-01**: StorageBackend ABC defines 8 abstract methods matching existing DB interface
+- [x] **ABS-02**: TypedDict return types (DocumentRow, RetrievalRow, EngagementRow, EmbeddingRow) shared across all backends
+- [x] **ABS-03**: StorageBackendError wraps native DB exceptions at the backend boundary
+- [ ] **ABS-04**: Shared parametrized test fixture runs against all backend implementations
+
+### Backends
+
+- [ ] **BACK-01**: SQLiteBackend refactors existing DB class with zero behavioral change (41 tests pass)
+- [ ] **BACK-02**: db.py becomes a one-line compat shim importing SQLiteBackend as DB
+- [ ] **BACK-03**: InMemoryBackend (dict-based, no deps) with full aggregate behavior
+- [ ] **BACK-04**: PostgresBackend (sync) via psycopg>=3.2 with schema auto-init
+- [ ] **BACK-05**: AsyncPostgresBackend via asyncpg>=0.29 with async initialize() and connection pool
+- [ ] **BACK-06**: All backends implement close() and context manager protocol
+
+### Integration
+
+- [ ] **INT-01**: Corpulse(backend=...) accepts explicit backend; defaults to SQLiteBackend when omitted
+- [ ] **INT-02**: pyproject.toml extras: [postgres] for psycopg, [postgres-async] for asyncpg
+- [ ] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
+
 ## v2 Requirements
 
 ### Additional Wrappers
@@ -74,6 +100,16 @@
 - **FEAT-03**: Batch write buffering for high-throughput pipelines
 - **FEAT-04**: Export-to-CSV for BI tools
 
+### Async Facade
+
+- **ASYNC-01**: AsyncCorpulse facade with async analytics methods
+- **ASYNC-02**: Native async support without asyncio.to_thread() bridge
+
+### Additional Backends
+
+- **ADDL-01**: MySQL/MariaDB backend
+- **ADDL-02**: Schema versioning and migration support
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -82,8 +118,11 @@
 | Answer quality / faithfulness metrics | Ragas and DeepEval cover this; splits focus |
 | Real-time streaming capture | SQLite lock contention; WAL + batch writes sufficient |
 | Automatic engagement inference | High false-positive rate; engagement stays explicit |
-| Multi-tenancy | SQLite doesn't scale for concurrent multi-tenant writes; one instance per corpus |
-| PyPI publishing | GitHub-only for v1 until API stabilizes |
+| PyPI publishing | GitHub-only until API stabilizes |
+| SQLAlchemy/ORM abstraction | Library uses raw SQL by design; ORM adds heavy dependency for 3 tables |
+| Schema migration (Alembic) | 3 stable tables; CREATE TABLE IF NOT EXISTS is sufficient |
+| AsyncCorpulse facade | Async analytics layer is a separate milestone; v1.1 focuses on storage only |
+| MySQL/MariaDB backend | PostgreSQL is the priority for the service repo |
 
 ## Traceability
 
@@ -119,12 +158,26 @@
 | RVW-CH-02 | Phase 5 | Complete |
 | RVW-QD-01 | Phase 5 | Complete |
 | RVW-QD-02 | Phase 5 | Complete |
+| ABS-01 | Phase 6 | Complete |
+| ABS-02 | Phase 6 | Complete |
+| ABS-03 | Phase 6 | Complete |
+| ABS-04 | — | Pending |
+| BACK-01 | — | Pending |
+| BACK-02 | — | Pending |
+| BACK-03 | — | Pending |
+| BACK-04 | — | Pending |
+| BACK-05 | — | Pending |
+| BACK-06 | — | Pending |
+| INT-01 | — | Pending |
+| INT-02 | — | Pending |
+| INT-03 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 30 total
-- Mapped to phases: 30
-- Unmapped: 0
+- v1 requirements: 30 total (all complete)
+- v1.1 requirements: 13 total
+- Mapped to phases: 3
+- Unmapped: 10 ⚠️
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-07 after planning-state and dependency cleanup*
+*Last updated: 2026-04-08 after milestone v1.1 requirements definition*

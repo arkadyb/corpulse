@@ -1,24 +1,14 @@
 # Roadmap: corpulse
 
-## Overview
+## Milestones
 
-corpulse's analytics engine is already working. This milestone makes it adoptable: proper Python packaging, a reliable test suite for the existing engine, a zero-instrumentation Qdrant wrapper (sync and async), and documentation that communicates what the tool does and what it doesn't. Each phase unblocks the next — packaging first so tests can import cleanly, tests before wrapper code so regressions surface immediately, wrapper before docs so the API is stable when written about.
+- ✅ **v1.0 — Qdrant Wrapper + Packaging** - Phases 1-5 (shipped 2026-04-07)
+- 🚧 **v1.1 — Pluggable Storage Backends** - Phases 6-8 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Package Foundation** - Restructure into a proper pip-installable package with optional extras (completed 2026-04-02)
-- [x] **Phase 2: Core Tests and Bug Fixes** - Cover the existing analytics engine with tests and fix known reliability issues (completed 2026-04-04)
-- [x] **Phase 3: Qdrant Wrapper** - Build zero-instrumentation sync and async Qdrant wrappers (completed 2026-04-07)
-- [x] **Phase 4: Documentation** - Write the README and docstrings that make the library adoptable (completed 2026-04-07)
-- [x] **Phase 5: Address review findings in corpus health and Qdrant wrapper** - Lock review follow-up regressions before corrective implementation (completed 2026-04-07)
-
-## Phase Details
+<details>
+<summary>✅ v1.0 — Qdrant Wrapper + Packaging (Phases 1-5) — SHIPPED 2026-04-07</summary>
 
 ### Phase 1: Package Foundation
 **Goal**: The library is installable via pip from GitHub with the correct optional dependency structure
@@ -29,10 +19,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `import corpulse` succeeds without qdrant-client installed
   3. `pip install "corpulse[qdrant] @ git+https://github.com/.../corpulse.git"` installs qdrant-client as an optional dependency
   4. Source files live under `corpulse/` package directory (not flat at repo root)
-**Plans:** 1/1 plans complete
+**Plans**: 1/1 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Restructure into corpulse/ package with pyproject.toml and smoke tests
+- [x] 01-01-PLAN.md — Restructure into corpulse/ package with pyproject.toml and smoke tests
 
 ### Phase 2: Core Tests and Bug Fixes
 **Goal**: The existing analytics engine is covered by tests and free of known reliability bugs before the wrapper is layered on
@@ -42,10 +32,10 @@ Plans:
   1. `pytest tests/` runs and all tests pass for ghost, duplicate, obsolete, stale, and suspect analytics
   2. SQLite does not raise `database is locked` errors under concurrent writes
   3. `corpus_health()` computes duplicate detection only once (not twice) per call
-**Plans:** 1/1 plans complete
+**Plans**: 1/1 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Fix WAL mode and double get_duplicates bugs, write analytics test suite
+- [x] 02-01-PLAN.md — Fix WAL mode and double get_duplicates bugs, write analytics test suite
 
 ### Phase 3: Qdrant Wrapper
 **Goal**: A team using Qdrant can wrap their client in one line and get automatic corpus health tracking — no manual log_retrieval() calls required
@@ -57,11 +47,11 @@ Plans:
   3. Non-intercepted methods work identically to the unwrapped client via transparent delegation
   4. AsyncQdrantCorpulseClient wraps AsyncQdrantClient with identical interception behavior for async codebases
   5. The qdrant-client package is only required when the wrapper is actually instantiated (not at import time)
-**Plans:** 2/2 plans complete
+**Plans**: 2/2 plans complete
 
 Plans:
-- [ ] 03-01-PLAN.md — Create integrations package with sync and async Qdrant wrapper classes
-- [ ] 03-02-PLAN.md — Write comprehensive test suite for both sync and async wrappers
+- [x] 03-01-PLAN.md — Create integrations package with sync and async Qdrant wrapper classes
+- [x] 03-02-PLAN.md — Write comprehensive test suite for both sync and async wrappers
 
 ### Phase 4: Documentation
 **Goal**: A developer landing on the repo can understand what corpulse does, install it, and start using it — both with and without the Qdrant wrapper
@@ -72,33 +62,94 @@ Plans:
   2. README includes a working before/after example: manual log_retrieval() versus QdrantCorpulseClient
   3. README states clearly that corpulse measures corpus health, not answer quality
   4. All public methods have docstrings that describe parameters and return values
-**Plans:** 2/2 plans complete
+**Plans**: 2/2 plans complete
 
 Plans:
-- [ ] 04-01-PLAN.md — Rewrite README.md with verified install commands, usage examples, and scope statement
-- [ ] 04-02-PLAN.md — Add complete Google-style docstrings to all public Memento methods with automated test
+- [x] 04-01-PLAN.md — Rewrite README.md with verified install commands, usage examples, and scope statement
+- [x] 04-02-PLAN.md — Add complete Google-style docstrings to all public Memento methods with automated test
+
+### Phase 5: Address Review Findings
+**Goal**: corpus_health() and the Qdrant wrappers behave predictably against empty corpora, overlapping noise categories, and the current qdrant-client API
+**Depends on**: Phase 4
+**Requirements**: RVW-CH-01, RVW-CH-02, RVW-QD-01, RVW-QD-02
+**Success Criteria** (what must be TRUE):
+  1. corpus_health() returns the same response keys for empty and populated corpora
+  2. noise_estimate counts unique noisy documents once even when categories overlap
+  3. Sync and async Qdrant wrappers match the installed client's behavior without fabricating compatibility
+  4. Named-vector capture stores the requested vector and preserves boolean with_vectors=True behavior
+**Plans**: 3/3 plans complete
+
+Plans:
+- [x] 05-01-PLAN.md — Bootstrap test environment and add regression coverage for corpus_health and Qdrant wrapper findings
+- [x] 05-02-PLAN.md — Fix corpus_health schema stability and unique noisy-doc noise estimation
+- [x] 05-03-PLAN.md — Reconcile Qdrant wrapper upstream behavior and named-vector capture
+
+</details>
+
+---
+
+### 🚧 v1.1 — Pluggable Storage Backends (In Progress)
+
+**Milestone Goal:** Make the persistence layer pluggable so corpulse can use PostgreSQL (or other backends) in production services, while keeping SQLite as the zero-configuration default.
+
+#### Phase 6: Storage Foundation
+**Goal**: The StorageBackend abstraction exists, SQLiteBackend preserves the 41-test regression baseline, InMemoryBackend enables test writing, and Corpulse accepts an explicit backend argument
+**Depends on**: Phase 5
+**Requirements**: ABS-01, ABS-02, ABS-03, ABS-04, BACK-01, BACK-02, BACK-03, BACK-06, INT-01
+**Success Criteria** (what must be TRUE):
+  1. `Corpulse()` with no arguments works exactly as before — SQLite default, all 41 existing tests pass
+  2. `Corpulse(backend=SQLiteBackend("path/to/db"))` behaves identically to the default
+  3. `Corpulse(backend=InMemoryBackend())` records retrievals and produces analytics from in-memory state with no file I/O
+  4. Any native DB exception raised inside a backend surfaces as `StorageBackendError` at the caller boundary
+  5. All backends support `with Corpulse(...) as c:` context manager and explicit `.close()`
+**Plans**: 1/3 plans complete
+
+Plans:
+- [x] 06-01-PLAN.md — Freeze the backend contract and add shared backend contract/core integration test scaffolding
+- [ ] 06-02-PLAN.md — Refactor DB into SQLiteBackend, keep db.py compatibility, and wire Corpulse backend injection
+- [ ] 06-03-PLAN.md — Implement InMemoryBackend and finish shared parity coverage
+
+#### Phase 7: PostgresBackend (Sync)
+**Goal**: A service using PostgreSQL can point corpulse at it and get the same corpus health analytics as SQLite — schema created automatically, no migrations needed
+**Depends on**: Phase 6
+**Requirements**: BACK-04, INT-02
+**Success Criteria** (what must be TRUE):
+  1. `pip install "corpulse[postgres]"` installs psycopg>=3.2 as an optional dependency
+  2. `Corpulse(backend=PostgresBackend(conninfo="..."))` auto-creates the schema on first connection and records retrievals
+  3. The shared parametrized test fixture passes for PostgresBackend (same assertions as SQLite and InMemory)
+  4. psycopg is only imported when PostgresBackend is instantiated — not at `import corpulse` time
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01-PLAN.md — Implement PostgresBackend with psycopg3, schema auto-init, BYTEA handling, and add [postgres] extra
+
+#### Phase 8: AsyncPostgresBackend
+**Goal**: An async service (FastAPI, etc.) can use corpulse with PostgreSQL without blocking the event loop — async pool, async initialize(), and optional extras for both Postgres backends
+**Depends on**: Phase 7
+**Requirements**: BACK-05, INT-02, INT-03
+**Success Criteria** (what must be TRUE):
+  1. `pip install "corpulse[postgres-async]"` installs asyncpg>=0.29 as an optional dependency
+  2. `Corpulse(backend=await AsyncPostgresBackend.create(dsn="..."))` works in async context with a connection pool
+  3. The shared parametrized test fixture passes for AsyncPostgresBackend
+  4. Both PostgresBackend and AsyncPostgresBackend support connection pooling with configurable pool size
+  5. asyncpg is only imported when AsyncPostgresBackend is instantiated — not at `import corpulse` time
+**Plans**: TBD
+
+Plans:
+- [ ] 08-01-PLAN.md — Implement AsyncPostgresBackend with asyncpg, async pool, async initialize(), and add [postgres-async] extra
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 6 → 7 → 8
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Package Foundation | 1/1 | Complete   | 2026-04-02 |
-| 2. Core Tests and Bug Fixes | 1/1 | Complete   | 2026-04-04 |
-| 3. Qdrant Wrapper | 2/2 | Complete   | 2026-04-07 |
-| 4. Documentation | 2/2 | Complete   | 2026-04-07 |
-| 5. Address review findings in corpus health and Qdrant wrapper | 3/3 | Complete   | 2026-04-07 |
-
-### Phase 5: Address review findings in corpus health and Qdrant wrapper
-
-**Goal:** corpus_health() and the Qdrant wrappers behave predictably against empty corpora, overlapping noise categories, and the current qdrant-client API
-**Requirements**: RVW-CH-01, RVW-CH-02, RVW-QD-01, RVW-QD-02
-**Depends on:** Phase 4
-**Plans:** 3 plans
-
-Plans:
-- [x] 05-01-PLAN.md — Bootstrap the local test environment and add regression coverage for corpus_health and Qdrant wrapper review findings
-- [x] 05-02-PLAN.md — Fix corpus_health schema stability and unique noisy-doc noise estimation
-- [x] 05-03-PLAN.md — Reconcile Qdrant wrapper upstream behavior and named-vector capture
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Package Foundation | v1.0 | 1/1 | Complete | 2026-04-02 |
+| 2. Core Tests and Bug Fixes | v1.0 | 1/1 | Complete | 2026-04-04 |
+| 3. Qdrant Wrapper | v1.0 | 2/2 | Complete | 2026-04-07 |
+| 4. Documentation | v1.0 | 2/2 | Complete | 2026-04-07 |
+| 5. Address Review Findings | v1.0 | 3/3 | Complete | 2026-04-07 |
+| 6. Storage Foundation | v1.1 | 1/3 | In Progress | - |
+| 7. PostgresBackend (Sync) | v1.1 | 0/1 | Not started | - |
+| 8. AsyncPostgresBackend | v1.1 | 0/1 | Not started | - |

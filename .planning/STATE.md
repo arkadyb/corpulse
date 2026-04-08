@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: complete
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-07T22:14:00+10:00"
-last_activity: "2026-04-07 - Completed quick task 260407-tfb: fix planning-state drift and dependency-statement drift in current project artifacts"
+milestone: v1.1
+milestone_name: — Pluggable Storage Backends
+status: in_progress
+stopped_at: Completed 06-storage-foundation-01-PLAN.md
+last_updated: "2026-04-08T11:35:35.405Z"
+last_activity: "2026-04-08 - Completed 06-01: backend contract and wave-1 scaffolding"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -19,32 +19,32 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-07)
 
-**Core value:** RAG teams can point corpulse at their Qdrant instance and immediately understand corpus health — no manual instrumentation
-**Current focus:** Phase 05 completed — address review findings in corpus health and Qdrant wrapper
+**Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health — no manual instrumentation
+**Current focus:** Milestone v1.1 — Pluggable Storage Backends
 
 ## Current Position
 
-Phase: 05 (address review findings in corpus health and Qdrant wrapper) — COMPLETE
-Plan: 3 of 3
+Phase: 06-storage-foundation (in progress)
+Plan: 02 next
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 3 min
+- Total execution time: 3 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 06-storage-foundation | 1 | 3 min | 3 min |
 
 **Recent Trend:**
 
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 06-01 (3 min)
+- Trend: 1/1 latest plan completed
 
 *Updated after each plan completion*
 | Phase 01-package-foundation P01 | 5 | 2 tasks | 8 files |
@@ -55,6 +55,7 @@ Plan: 3 of 3
 | Phase 04-documentation P02 | 5 | 2 tasks | 2 files |
 | Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P01 | 4 | 3 tasks | 3 files |
 | Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P02 | 4 | 2 tasks | 2 files |
+| Phase 06-storage-foundation P01 | 3 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Recent decisions affecting current work:
 - [Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper]: Compute noise_estimate from the union of noisy doc IDs so overlapping categories count once without reintroducing duplicate get_duplicates() calls.
 - [Phase 05]: Named-vector capture selects the explicitly requested vector name and stores None when that name is absent.
 - [Phase 05]: Qdrant search wrappers keep direct upstream delegation and allow AttributeError to propagate naturally.
+- [Phase 06-storage-foundation]: Expose the storage seam as corpulse.backends.base now and keep the existing DB method names/signatures unchanged.
+- [Phase 06-storage-foundation]: Stage SQLite parity, translated-error, and backend injection scenarios behind explicit pytest skips until 06-02 and 06-03 land.
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-07 - Completed quick task 260407-tfb: fix planning-state drift and dependency-statement drift in current project artifacts
-Stopped at: Completed quick task 260407-tfb
+Last activity: 2026-04-08 - Completed 06-01: backend contract and wave-1 scaffolding
+Stopped at: Completed 06-storage-foundation-01-PLAN.md
 Resume file: None
