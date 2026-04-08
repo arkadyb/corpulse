@@ -102,11 +102,11 @@ Plans:
   3. `Corpulse(backend=InMemoryBackend())` records retrievals and produces analytics from in-memory state with no file I/O
   4. Any native DB exception raised inside a backend surfaces as `StorageBackendError` at the caller boundary
   5. All backends support `with Corpulse(...) as c:` context manager and explicit `.close()`
-**Plans**: 1/3 plans complete
+**Plans**: 2/3 plans complete
 
 Plans:
 - [x] 06-01-PLAN.md — Freeze the backend contract and add shared backend contract/core integration test scaffolding
-- [ ] 06-02-PLAN.md — Refactor DB into SQLiteBackend, keep db.py compatibility, and wire Corpulse backend injection
+- [x] 06-02-PLAN.md — Refactor DB into SQLiteBackend, keep db.py compatibility, and wire Corpulse backend injection
 - [ ] 06-03-PLAN.md — Implement InMemoryBackend and finish shared parity coverage
 
 #### Phase 7: PostgresBackend (Sync)
@@ -150,6 +150,6 @@ Phases execute in numeric order: 6 → 7 → 8
 | 3. Qdrant Wrapper | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 4. Documentation | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 5. Address Review Findings | v1.0 | 3/3 | Complete | 2026-04-07 |
-| 6. Storage Foundation | v1.1 | 1/3 | In Progress | - |
+| 6. Storage Foundation | v1.1 | 2/3 | In Progress | - |
 | 7. PostgresBackend (Sync) | v1.1 | 0/1 | Not started | - |
 | 8. AsyncPostgresBackend | v1.1 | 0/1 | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
 status: in_progress
-stopped_at: Completed 06-storage-foundation-01-PLAN.md
-last_updated: "2026-04-08T11:35:35.405Z"
-last_activity: "2026-04-08 - Completed 06-01: backend contract and wave-1 scaffolding"
+stopped_at: Completed 06-storage-foundation-02-PLAN.md
+last_updated: "2026-04-08T11:43:03.981Z"
+last_activity: "2026-04-08 - Completed 06-02: SQLite backend refactor and Corpulse backend injection"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -25,26 +25,26 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 06-storage-foundation (in progress)
-Plan: 02 next
+Plan: 03 next
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: 3 min
-- Total execution time: 3 min
+- Total execution time: 6 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 06-storage-foundation | 1 | 3 min | 3 min |
+| 06-storage-foundation | 2 | 6 min | 3 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-01 (3 min)
-- Trend: 1/1 latest plan completed
+- Last 5 plans: 06-01 (3 min), 06-02 (3 min)
+- Trend: 2/2 latest plan completed
 
 *Updated after each plan completion*
 | Phase 01-package-foundation P01 | 5 | 2 tasks | 8 files |
@@ -56,6 +56,7 @@ Plan: 02 next
 | Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P01 | 4 | 3 tasks | 3 files |
 | Phase 05-address-review-findings-in-corpus-health-and-qdrant-wrapper P02 | 4 | 2 tasks | 2 files |
 | Phase 06-storage-foundation P01 | 3 min | 2 tasks | 4 files |
+| Phase 06-storage-foundation P02 | 3 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Qdrant search wrappers keep direct upstream delegation and allow AttributeError to propagate naturally.
 - [Phase 06-storage-foundation]: Expose the storage seam as corpulse.backends.base now and keep the existing DB method names/signatures unchanged.
 - [Phase 06-storage-foundation]: Stage SQLite parity, translated-error, and backend injection scenarios behind explicit pytest skips until 06-02 and 06-03 land.
+- [Phase 06-storage-foundation]: Keep corpulse.db as a one-line compatibility alias to SQLiteBackend so existing imports and isinstance checks continue to work.
+- [Phase 06-storage-foundation]: Translate sqlite3.Error inside SQLiteBackend public methods into StorageBackendError while keeping analytics and caller misuse exceptions untouched.
+- [Phase 06-storage-foundation]: Reject non-default db_path when backend is provided so Corpulse has a single authoritative storage configuration.
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-08 - Completed 06-01: backend contract and wave-1 scaffolding
-Stopped at: Completed 06-storage-foundation-01-PLAN.md
+Last activity: 2026-04-08 - Completed 06-02: SQLite backend refactor and Corpulse backend injection
+Stopped at: Completed 06-storage-foundation-02-PLAN.md
 Resume file: None
