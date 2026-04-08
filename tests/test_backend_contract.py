@@ -1,4 +1,5 @@
 import inspect
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from corpulse.backends.base import (
     StorageBackend,
     StorageBackendError,
 )
+from corpulse.db import DB
 
 
 def test_storage_backend_contract_is_frozen():
@@ -50,16 +52,56 @@ def test_storage_backend_contract_is_frozen():
     assert issubclass(StorageBackendError, RuntimeError)
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_sqlite_backend_parity_placeholder():
-    assert False, "placeholder"
+def test_sqlite_backend_parity(sqlite_backend):
+    sqlite_backend.upsert_document(
+        "doc-1",
+        "doc-1.md",
+        embedding=b"vec",
+        embedded_at=12.5,
+    )
+    sqlite_backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
+    sqlite_backend.insert_engagement("doc-1", "opened", 30.0)
+    sqlite_backend.update_source_timestamp("doc-1", 40.0)
+
+    documents = sqlite_backend.all_documents()
+    retrievals = sqlite_backend.retrieval_counts(0.0)
+    engagements = sqlite_backend.engagement_counts(0.0)
+    embeddings = sqlite_backend.all_embeddings()
+
+    assert documents == [
+        {
+            "doc_id": "doc-1",
+            "filename": "doc-1.md",
+            "embedding_vec": b"vec",
+            "embedded_at": 12.5,
+            "source_updated_at": 40.0,
+        }
+    ]
+    assert retrievals == [
+        {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+    ]
+    assert engagements == [{"doc_id": "doc-1", "cnt": 1}]
+    assert embeddings == [
+        {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
+    ]
+
+    with sqlite_backend._conn() as conn:
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+
+    assert journal_mode == "wal"
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_translated_runtime_error_placeholder():
-    assert False, "placeholder"
+def test_translated_runtime_error(sqlite_backend, monkeypatch):
+    def raising_conn():
+        raise sqlite3.OperationalError("boom")
+
+    monkeypatch.setattr(sqlite_backend, "_conn", raising_conn)
+
+    with pytest.raises(StorageBackendError, match="boom") as exc_info:
+        sqlite_backend.all_documents()
+
+    assert isinstance(exc_info.value.__cause__, sqlite3.OperationalError)
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_shared_backend_fixture_placeholder():
-    assert False, "placeholder"
+def test_shared_backend_fixture_uses_sqlite_backend(sqlite_backend):
+    assert isinstance(sqlite_backend, DB)
