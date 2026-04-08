@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from .db import DB
+from .backends import SQLiteBackend, StorageBackend
 
 try:
     from sklearn.metrics.pairwise import cosine_similarity
@@ -72,6 +72,7 @@ class Corpulse:
     def __init__(
         self,
         db_path: str = "./corpulse.db",
+        backend: StorageBackend | None = None,
         ghost_threshold_days: int = 30,
         duplicate_threshold: float = 0.92,
         stale_threshold_days: int = 14,
@@ -83,6 +84,8 @@ class Corpulse:
         Args:
             db_path: Path to the SQLite database file. Created if it does
                 not exist. Defaults to ``"./corpulse.db"``.
+            backend: Explicit storage backend instance. When omitted,
+                corpulse uses ``SQLiteBackend(db_path)``.
             ghost_threshold_days: Number of days without retrieval before a
                 document is flagged as a ghost. Defaults to 30.
             duplicate_threshold: Cosine similarity threshold for duplicate
@@ -94,12 +97,25 @@ class Corpulse:
             top_k_report: Maximum number of documents shown in ``report()``
                 output. Defaults to 20.
         """
-        self.db = DB(db_path)
+        if backend is not None and db_path != "./corpulse.db":
+            raise ValueError("Pass either the default db_path or an explicit backend, not both")
+
+        self.db = backend if backend is not None else SQLiteBackend(db_path)
         self.ghost_threshold_days = ghost_threshold_days
         self.duplicate_threshold = duplicate_threshold
         self.stale_threshold_days = stale_threshold_days
         self.obsolete_pattern = obsolete_pattern
         self.top_k_report = top_k_report
+
+    def close(self) -> None:
+        """Close the underlying storage backend."""
+        self.db.close()
+
+    def __enter__(self) -> Corpulse:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
 
     # ── ingestion ─────────────────────────────────────────────────────────────
 

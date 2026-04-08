@@ -6,15 +6,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import tests.test_backend_contract as backend_contract_tests
+from corpulse.backends import SQLiteBackend
 from corpulse.core import Corpulse
 from corpulse.db import DB
 
 
-def test_backend_contract_module_stages_future_parity_cases():
+def test_backend_contract_module_exposes_active_parity_cases():
     expected = {
-        "test_sqlite_backend_parity_placeholder",
-        "test_translated_runtime_error_placeholder",
-        "test_shared_backend_fixture_placeholder",
+        "test_sqlite_backend_parity",
+        "test_translated_runtime_error",
+        "test_shared_backend_fixture_uses_sqlite_backend",
     }
 
     missing = [
@@ -35,16 +36,25 @@ def test_corpulse_default_constructor_uses_default_sqlite_path(tmp_path, monkeyp
     assert corpulse.db.path.exists()
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_corpulse_backend_injection_placeholder():
-    assert False, "placeholder"
+def test_corpulse_backend_injection_uses_explicit_backend(tmp_path):
+    backend = SQLiteBackend(str(tmp_path / "explicit.db"))
+    corpulse = Corpulse(backend=backend)
+
+    assert corpulse.db is backend
+    assert corpulse.db.path == tmp_path / "explicit.db"
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_corpulse_lifecycle_delegation_placeholder():
-    assert False, "placeholder"
+def test_corpulse_lifecycle_delegation(tmp_path):
+    backend = SQLiteBackend(str(tmp_path / "ctx.db"))
+
+    with Corpulse(backend=backend) as corpulse:
+        assert corpulse.db is backend
+
+    corpulse.close()
 
 
-@pytest.mark.skip(reason="Activate in 06-02/06-03 once concrete backends exist")
-def test_corpulse_constructor_conflict_placeholder():
-    assert False, "placeholder"
+def test_corpulse_constructor_conflict_raises_value_error(tmp_path):
+    backend = SQLiteBackend(str(tmp_path / "conflict.db"))
+
+    with pytest.raises(ValueError, match="db_path|backend"):
+        Corpulse(db_path=str(tmp_path / "other.db"), backend=backend)
