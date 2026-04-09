@@ -1,91 +1,133 @@
 # Stack Research
 
-**Domain:** Python library — Qdrant vector DB wrapper for RAG corpus analytics
-**Researched:** 2026-03-24
-**Confidence:** HIGH (all critical facts verified against PyPI/official docs)
+**Domain:** Python library — Pluggable storage backends (PostgreSQL sync/async, InMemory, refactored SQLite)
+**Researched:** 2026-04-08
+**Confidence:** HIGH (versions verified against PyPI; interface patterns verified against Python official docs)
 
 ## Context
 
-This research covers only the new additions for the Qdrant wrapper milestone. The existing stack (SQLite, numpy, sklearn, pandas, tabulate) is not re-researched. The question is: what is needed to add a `QdrantMemento` wrapper that auto-captures queries and results from Qdrant without manual instrumentation?
+This research covers only the new additions for the v1.1 pluggable storage backends milestone. The existing stack (SQLite via `db.py`, numpy, scikit-learn, pandas, tabulate, qdrant-client, hatchling, pytest) is not re-researched.
+
+The question is: what specific libraries, versions, and interface patterns are needed to introduce a `StorageBackend` ABC, refactor `DB` into `SQLiteBackend`, add `PostgresBackend` (sync), `AsyncPostgresBackend`, and `InMemoryBackend`?
 
 ---
 
 ## Recommended Stack
 
-### Core Technologies
+### Core Technologies (new additions only)
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| qdrant-client | 1.17.1 | Qdrant Python client — the thing being wrapped | Only official client; Apache-2.0 licensed; ships `QdrantClient` (sync) and `AsyncQdrantClient` (async); Python 3.10+ (matches project constraint); actively maintained by Qdrant team; in-memory mode (`":memory:"`) enables zero-infrastructure testing |
-| Python | 3.10+ | Runtime (align with project constraint) | qdrant-client 1.17.1 requires Python >=3.10; project already targets 3.10+; use of `str | None` unions (PEP 604) is already in the codebase |
+| psycopg | >=3.2 | Sync PostgreSQL driver (`PostgresBackend`) | psycopg 3 is the actively developed successor to psycopg2; new features go here only; ships both sync `Connection` and async `AsyncConnection` in the same package; pure-Python install works without system libpq if users install `psycopg[binary]`; library consumers should pin `psycopg` without extras and let users choose their install variant |
+| asyncpg | >=0.29 | Async PostgreSQL driver (`AsyncPostgresBackend`) | Fastest async PostgreSQL driver available (5x faster than psycopg3 async in benchmarks); production-stable (0.31.0 released Nov 2025); uses binary protocol exclusively; Python 3.9+; separate package means users pay zero overhead if they only need sync |
+| Python `abc` stdlib | built-in | `StorageBackend` abstract base class | stdlib, no dependency; `ABC` + `@abstractmethod` enforces interface at instantiation time, not call time — catches missing implementations early; right tool when you control the class hierarchy (all backends are defined in-library) |
+| Python `typing.Protocol` | built-in (3.8+) | Optional: type-checker-friendly interface annotation | Use alongside ABC for static analysis; `@runtime_checkable` Protocol gives isinstance()-checks but only verifies attribute existence, not signatures — ABC is the enforcement mechanism, Protocol is the annotation mechanism |
 
-### Wrapper Pattern
+### Supporting Libraries
 
-The wrapper is a composition-over-inheritance proxy: `QdrantMemento` holds a real `QdrantClient` internally, delegates all calls to it, and intercepts `query_points` / `search` to call `memento.log_retrieval()` automatically.
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| psycopg[binary] | >=3.2 | Binary wheel variant of psycopg for end-user installs | In application pyproject.toml or Docker images where build tools are absent; NOT in corpulse's own dependency declaration |
+| psycopg[c] | >=3.2 | C-extension variant of psycopg for performance | In production deployments where libpq and a C compiler are available; faster than binary variant; NOT in corpulse's own dependency declaration |
+| pytest-asyncio | >=0.23 | Already present — needed for AsyncPostgresBackend tests | Already in dev extras; use `asyncio_mode = "auto"` which is already configured in pyproject.toml |
 
-**Do not subclass `QdrantClient`.** The class is large, uses private internals, and subclassing breaks with client upgrades. Composition is the documented pattern for this type of instrumentation wrapper.
+### Development Tools (no changes needed)
 
-Key method to intercept: `query_points()` — this is the unified query API introduced in client 1.7.1 (server 1.6). The older `search()` method still exists but is soft-deprecated in favour of `query_points`. The wrapper must intercept both for backward compatibility.
+Existing tooling (hatchling, pytest, pytest-asyncio) is sufficient. No additions required.
 
-Return type from both methods: `list[ScoredPoint]` (sync) or async equivalent.
+---
 
-`ScoredPoint` fields available to the wrapper:
-- `.id` — Qdrant point ID (int or UUID string); use as `doc_id`
-- `.score` — float similarity score; map to `log_retrieval`'s `score` field
-- `.payload` — `dict | None`; can contain `filename` or other metadata; extract if present
-- `.vector` — embedding array if `with_vectors=True` was passed; feed to `embedding` field of `log_retrieval`
+## Interface Design: ABC vs Protocol
 
-### Build / Packaging
+**Use `ABC` with `@abstractmethod` as the enforcement mechanism.** Use `typing.Protocol` as an optional annotation for users who want to implement a custom backend without subclassing.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| hatchling | latest (via `pip`) | Build backend for pyproject.toml | Standard modern choice for pure-Python libraries; no mandatory lock file; supports `[project.optional-dependencies]` cleanly; widely understood by contributors; lighter than Poetry for a library with no complex dependency graph |
-| pyproject.toml (PEP 517/621) | — | Package declaration | The only standard format in 2025; replaces setup.py/setup.cfg entirely for pure-Python projects |
+Rationale: corpulse owns all backends (`SQLiteBackend`, `PostgresBackend`, `AsyncPostgresBackend`, `InMemoryBackend`). All ship in the library. This is the exact use case ABCs are designed for — a closed class hierarchy where the library enforces the contract. Protocol adds nothing for enforcement here but adds value as a type annotation for external implementors.
 
-**Optional dependency groups for pyproject.toml:**
+Concrete pattern:
+
+```python
+# corpulse/backends/base.py
+from abc import ABC, abstractmethod
+
+class StorageBackend(ABC):
+    @abstractmethod
+    def upsert_document(self, doc_id: str, filename: str,
+                        embedding: bytes | None, embedded_at: float | None) -> None: ...
+
+    @abstractmethod
+    def insert_retrieval(self, doc_id: str, query_hash: str,
+                         rank: int, score: float, retrieved_at: float) -> None: ...
+
+    @abstractmethod
+    def insert_engagement(self, doc_id: str, event_type: str, engaged_at: float) -> None: ...
+
+    @abstractmethod
+    def update_source_timestamp(self, doc_id: str, updated_at: float) -> None: ...
+
+    @abstractmethod
+    def all_documents(self) -> list: ...
+
+    @abstractmethod
+    def retrieval_counts(self, since: float) -> list: ...
+
+    @abstractmethod
+    def engagement_counts(self, since: float) -> list: ...
+
+    @abstractmethod
+    def all_embeddings(self) -> list: ...
+```
+
+The `AsyncStorageBackend` is a parallel ABC where every method is `async def`. Do not make sync and async share a base class — they are different call protocols and mixing them leads to confusing errors.
+
+---
+
+## psycopg vs asyncpg for Async
+
+Both are viable; the project uses **both** because they serve different user needs:
+
+- `PostgresBackend` (sync): uses `psycopg` (psycopg3). Sync PostgreSQL in the same library that provides async via `AsyncConnection`. Single dependency for sync users.
+- `AsyncPostgresBackend`: uses `asyncpg`. Faster binary protocol driver; preferred when users are already in an async service (the primary production use case for this backend). asyncpg is a separate package, separate optional extra.
+
+This is not redundancy — it is intentional. Sync users install `[postgres]`, async users install `[postgres-async]`. Users running both would need both, but that's an unusual combination.
+
+---
+
+## pyproject.toml Changes
+
+Add two new optional extras. Keep existing `qdrant` and `dev` extras unchanged:
 
 ```toml
 [project.optional-dependencies]
-qdrant  = ["qdrant-client>=1.7.1"]
-sklearn = ["scikit-learn>=1.0"]
-pandas  = ["pandas>=1.3"]
-reports = ["tabulate>=0.8"]
-all     = [
-    "qdrant-client>=1.7.1",
-    "scikit-learn>=1.0",
-    "pandas>=1.3",
-    "tabulate>=0.8",
-]
+qdrant        = ["qdrant-client>=1.7.1"]
+postgres      = ["psycopg>=3.2"]
+postgres-async = ["asyncpg>=0.29"]
+dev           = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 ```
 
-Minimum qdrant-client pin: `>=1.7.1` (when `query_points` was added). Not `>=1.17.1` — don't pin to latest; users may run older patch versions.
+Do NOT add `psycopg[binary]` or `psycopg[c]` in the library's own dependency — only declare `psycopg>=3.2`. Let end-users choose the install variant appropriate to their environment. This follows the psycopg3 official documentation guidance for libraries.
 
-### Testing
+---
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| pytest | >=9.0 | Test runner | De facto standard; version 9.0 (Nov 2025) dropped Python 3.9 support, aligns with project's 3.10+ target; fixture system makes Qdrant in-memory setup clean |
-| pytest-mock | >=3.12 | Mocking `QdrantClient` internals | Thin wrapper over `unittest.mock`; provides `mocker` fixture for easy patching; `create_autospec()` lets you mock `QdrantClient` with its real interface enforced |
+## InMemoryBackend
 
-**Testing strategy for the wrapper (no mock needed for unit tests):**
-
-Use `QdrantClient(":memory:")` — the client's built-in in-memory mode. It runs a full local Qdrant instance in-process. This means wrapper tests can create real collections, insert real points, and call real `query_points()` without a running server or mocking. This is the correct approach — tests verify the wrapper's interception logic against the real client interface.
-
-Reserve `pytest-mock` for testing edge cases (e.g., what happens when `payload` is `None`, when Qdrant raises an exception).
+No new dependencies. Pure Python dicts and lists. The only constraint is thread safety if users call into corpulse from multiple threads — use `threading.Lock` internally. This is a stdlib-only concern, no new packages.
 
 ---
 
 ## Installation
 
 ```bash
-# Library users: install with Qdrant extras
-pip install "rag-memento[qdrant]"
+# Users who want sync Postgres
+pip install "corpulse[postgres]"
 
-# Development (from repo root)
-pip install -e ".[qdrant,sklearn,pandas,reports]"
+# Users who want async Postgres
+pip install "corpulse[postgres-async]"
 
-# Dev tools only
-pip install pytest>=9.0 pytest-mock>=3.12
+# Users who want both
+pip install "corpulse[postgres,postgres-async]"
+
+# Development (run all tests including Postgres)
+pip install -e ".[postgres,postgres-async,dev]"
 ```
 
 ---
@@ -94,12 +136,11 @@ pip install pytest>=9.0 pytest-mock>=3.12
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Composition proxy (`QdrantMemento` wraps `QdrantClient`) | Subclass `QdrantClient` | Never — Qdrant client uses private internals and generated code; subclassing is fragile across versions |
-| `QdrantClient(":memory:")` for tests | Docker + real Qdrant server | Integration/performance tests in CI; not needed for wrapper unit tests |
-| hatchling build backend | setuptools | If you need C extensions or a custom build hook that hatchling can't handle; not applicable here |
-| hatchling build backend | flit | If the package has literally zero optional deps and needs minimal config; flit lacks extras grouping flexibility |
-| `query_points` as primary intercept point | `search` as primary intercept point | Never; `search` is deprecated; intercept both but document `query_points` as the primary API |
-| Pin `qdrant-client>=1.7.1` | Pin `>=1.17.1` (latest) | Never pin to latest in a library; users need version flexibility |
+| `abc.ABC` + `@abstractmethod` | `typing.Protocol` alone | If corpulse exposed a public interface for third-party backends and wanted to allow structural (duck-typed) implementations without subclassing; not the case now, all backends are first-party |
+| psycopg3 for sync Postgres | psycopg2 | Only if targeting Python <3.8 or needing a long-established ecosystem with many ORMs; psycopg2 is in maintenance mode — no new features planned; for new code, psycopg3 is the right choice |
+| asyncpg for async Postgres | psycopg3 async (`AsyncConnection`) | If you want a single dependency for both sync and async Postgres, use psycopg3 for both. asyncpg is faster but is async-only. The decision to use asyncpg here is about giving async users the fastest possible driver, not minimizing dependencies. |
+| Separate `postgres` and `postgres-async` extras | Single `postgres` extra with both psycopg and asyncpg | Only if you want simpler install UX at the cost of always pulling in both drivers; most production users are either sync or async, not both |
+| `threading.Lock` in InMemoryBackend | No lock | Only if corpulse explicitly documents single-threaded-only guarantee; adding a lock costs nothing |
 
 ---
 
@@ -107,33 +148,11 @@ pip install pytest>=9.0 pytest-mock>=3.12
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `wrapt` or `objproxies` | These transparent proxy libraries add complexity for no gain; rag-memento only needs to intercept 2 methods (`search`, `query_points`), not every attribute access | Explicit composition: `QdrantMemento.__init__` takes a `QdrantClient` and delegates explicitly |
-| Monkey-patching the real `QdrantClient` | Modifies global state; breaks if two parts of user code share a client; hard to test | Explicit wrapper class |
-| `fastembed` extras from qdrant-client | rag-memento doesn't generate embeddings; it captures what Qdrant already returns | Use `with_vectors=True` in `query_points` to retrieve vectors that Qdrant already computed |
-| Poetry as build/package manager | Introduces a lock file and Poetry-specific pyproject.toml format that complicates GitHub-only distribution and contributor onboarding | hatchling + pip; users install directly from GitHub with `pip install git+https://...` |
-| `setup.py` / `setup.cfg` | Deprecated; no advantage for a pure-Python library | `pyproject.toml` with hatchling backend |
-
----
-
-## Stack Patterns by Variant
-
-**If the user's code uses sync `QdrantClient`:**
-- Wrap with `QdrantMemento(client)` — intercept `search()` and `query_points()`
-- No async needed; `log_retrieval` is synchronous SQLite write, fast enough in-band
-
-**If the user's code uses `AsyncQdrantClient`:**
-- Provide `AsyncQdrantMemento` that wraps `AsyncQdrantClient`
-- Intercept `async def search()` and `async def query_points()` with `async def` overrides
-- Call `self._memento.log_retrieval(...)` synchronously inside the async intercept (SQLite write is fast; no need to make the analytics layer async)
-- This is a v2 concern; for the current milestone, sync-only is sufficient
-
-**If the user stores `doc_id` as an integer Qdrant point ID:**
-- `ScoredPoint.id` is `int | str`; call `str(point.id)` before passing to `log_retrieval`
-- Document this clearly; rag-memento uses `TEXT` doc_id in SQLite
-
-**If the user stores filename in Qdrant payload:**
-- Look for `point.payload.get("filename")` or `point.payload.get("name")` or `point.payload.get("source")`
-- Wrapper should accept a `payload_filename_key: str = "filename"` constructor argument to let users configure which payload field to use
+| psycopg2 | Maintenance mode; no new features; psycopg3 has superior async support and better type annotations | `psycopg>=3.2` |
+| SQLAlchemy as abstraction layer | Adds a large ORM dependency; corpulse uses raw SQL by design to stay lightweight and infrastructure-free by default; would complicate the SQLiteBackend which needs BLOB storage for numpy arrays | Raw SQL in each backend |
+| databases (encode/databases) | Thin async wrapper over SQLAlchemy core; adds indirection without eliminating SQLAlchemy; no active development as of 2025 | asyncpg directly |
+| aiopg | psycopg2-based async driver; psycopg2 maintenance mode means aiopg has no future | asyncpg |
+| `@runtime_checkable` Protocol as sole interface | `isinstance()` on a `@runtime_checkable` Protocol only checks attribute existence, not method signatures — a backend can have `upsert_document = None` and still pass the check | ABC with `@abstractmethod` as the primary enforcement mechanism |
 
 ---
 
@@ -141,24 +160,25 @@ pip install pytest>=9.0 pytest-mock>=3.12
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| qdrant-client>=1.7.1 | Python >=3.10 | `query_points` API added in 1.7.1 alongside Qdrant server 1.6; older client only has `search()` |
-| qdrant-client 1.17.1 | Python 3.10–3.14 | Verified against PyPI (released 2026-03-13) |
-| pytest>=9.0 | Python >=3.10 | pytest 9.0 dropped Python 3.9; aligns with project baseline |
-| numpy (existing dep) | qdrant-client 1.17.x | qdrant-client bundles its own numpy usage; no conflict with rag-memento's existing numpy dep |
+| psycopg>=3.2 | Python 3.8+ | 3.3.3 released 2026-02-18; verified on PyPI. Library pins `>=3.2` (when async-to-sync auto-conversion landed, making the codebase more stable). |
+| asyncpg>=0.29 | Python 3.9+ | 0.31.0 released 2025-11-24; verified on PyPI. Python 3.9+ aligns with project's 3.10+ constraint. |
+| abc (stdlib) | Python 3.4+ | Built-in; no version concern for a 3.10+ project. |
+| pytest-asyncio>=0.23 | Python 3.10+ | Already in dev extras; `asyncio_mode = "auto"` already configured in pyproject.toml — no changes needed. |
 
 ---
 
 ## Sources
 
-- [qdrant-client PyPI](https://pypi.org/project/qdrant-client/) — version 1.17.1 confirmed (2026-03-13), Python >=3.10 requirement, optional extras (fastembed). **HIGH confidence.**
-- [Qdrant Python Client docs — Quickstart](https://python-client.qdrant.tech/quickstart) — `search()` and `query_points()` method signatures, `ScoredPoint` fields (id, score, payload, vector), in-memory mode `":memory:"`. **HIGH confidence.**
-- [qdrant_client.qdrant_client module docs](https://python-client.qdrant.tech/qdrant_client.qdrant_client) — `query_points`, `query_batch_points` signatures and return types. **HIGH confidence.**
-- [Qdrant hybrid search article](https://qdrant.tech/articles/hybrid-search/) — confirms `query_points` introduced in client 1.7.1 as unified replacement for `search`. **HIGH confidence.**
-- [Python Packaging User Guide — Writing pyproject.toml](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) — `[project.optional-dependencies]` syntax confirmed as current standard. **HIGH confidence.**
-- [Python Build Backends in 2025 — Medium](https://medium.com/@dynamicy/python-build-backends-in-2025-what-to-use-and-why-uv-build-vs-hatchling-vs-poetry-core-94dd6b92248f) — hatchling vs uv_build vs poetry-core comparison. **MEDIUM confidence** (community article, not official).
-- [pytest PyPI](https://pypi.org/project/pytest/) — version 9.0.2 confirmed as latest (2025-12-06), Python >=3.10 requirement. **HIGH confidence.**
-- [pytest-mock GitHub](https://github.com/pytest-dev/pytest-mock) — current maintenance status confirmed. **HIGH confidence.**
+- [psycopg PyPI](https://pypi.org/project/psycopg/) — version 3.3.3 confirmed, released 2026-02-18. **HIGH confidence.**
+- [psycopg installation docs](https://www.psycopg.org/psycopg3/docs/basic/install.html) — binary/c/pure-python variants; library vs application dependency guidance. **HIGH confidence.**
+- [asyncpg PyPI](https://pypi.org/project/asyncpg/) — version 0.31.0 confirmed, released 2025-11-24; Python 3.9+. **HIGH confidence.**
+- [psycopg3 vs asyncpg benchmark](https://fernandoarteaga.dev/blog/psycopg-vs-asyncpg/) — asyncpg ~5x faster than psycopg3 async in request throughput benchmarks. **MEDIUM confidence** (third-party benchmark; methodology not fully disclosed).
+- [Python abc stdlib docs](https://docs.python.org/3/library/abc.html) — `ABC`, `@abstractmethod` semantics; catches missing implementations at instantiation. **HIGH confidence.**
+- [ABC vs Protocol analysis](https://jellis18.github.io/post/2022-01-11-abc-vs-protocol/) — ABC for nominal subtyping with controlled class hierarchy; Protocol for structural subtyping / third-party implementors. **MEDIUM confidence** (community article, aligned with official PEP 544 guidance).
+- [PEP 544 — Protocols](https://peps.python.org/pep-0544/) — `@runtime_checkable` only checks attribute existence, not signatures. **HIGH confidence.**
+- [Python Packaging — writing pyproject.toml](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) — `[project.optional-dependencies]` syntax for extras. **HIGH confidence.**
+- psycopg2 maintenance status: [psycopg features page](https://www.psycopg.org/features/) and [GeeksForGeeks comparison](https://www.geeksforgeeks.org/python/comparing-psycopg2-vs-psycopg-in-python/) confirm psycopg2 receives no new features. **HIGH confidence.**
 
 ---
-*Stack research for: Qdrant wrapper addition to rag-memento*
-*Researched: 2026-03-24*
+*Stack research for: corpulse v1.1 pluggable storage backends*
+*Researched: 2026-04-08*

@@ -1,115 +1,161 @@
 # Pitfalls Research
 
-**Domain:** RAG corpus analytics library — vector DB wrapper, observability layer, Python packaging
-**Researched:** 2026-03-24
-**Confidence:** HIGH (pitfalls derived from direct code inspection + verified community patterns)
+**Domain:** Pluggable storage backends — adding SQLite/Postgres/InMemory abstraction to an existing Python library
+**Researched:** 2026-04-08
+**Confidence:** HIGH (derived from direct codebase inspection + verified community patterns)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Async/Sync Mismatch in the Qdrant Wrapper
+### Pitfall 1: SQLite BLOB → PostgreSQL BYTEA Type Mismatch
 
 **What goes wrong:**
-The Qdrant Python client ships two entirely separate classes: `QdrantClient` (sync) and `AsyncQdrantClient`. If the wrapper only subclasses or wraps `QdrantClient`, any user running an async RAG pipeline (LangChain async, FastAPI, etc.) will hit either a `RuntimeError: This event loop is already running` or a blocking call inside a coroutine. The wrapper silently works in tests (which are typically sync) but breaks in production.
+`db.py` stores numpy float32 embeddings via `np.array(vec, dtype=np.float32).tobytes()` and reads them back via `np.frombuffer(b, dtype=np.float32)`. In SQLite, a BLOB column is a raw bytes buffer. In PostgreSQL with psycopg, BYTEA columns are returned as `memoryview` objects, not `bytes`. Passing a `memoryview` to `np.frombuffer()` technically works but is brittle — any intermediate step that calls `bytes(row["embedding_vec"])` or `len(row["embedding_vec"])` to check length will silently succeed, while `.tobytes()` without explicit decode will not. More critically, psycopg2 additionally applies hex-escaping to BYTEA values unless you explicitly call `psycopg2.extras.register_default_jsonb()` or use the binary format, making the raw bytes look like `\x3f...` strings on retrieval. psycopg3 (psycopg) improves this but the type returned is still `memoryview`, not `bytes`.
 
 **Why it happens:**
-Developers write the wrapper against the sync client because it is simpler, test it in a plain script, ship it, and only discover the async incompatibility when a user opens an issue. The two client classes have identical method names but different return types (`Coroutine[...]` vs the result directly), so a single wrapper cannot transparently serve both.
+The `_bytes_to_vec()` helper in `core.py` uses `np.frombuffer(b, dtype=np.float32)`, which works with both `bytes` and `memoryview` — so it appears to work. The bug only manifests when the embedding is passed through any code that treats it as `bytes` (e.g., length checks, logging, passing to other libraries). Tests written against SQLiteBackend never see the memoryview type.
 
 **How to avoid:**
-Design the wrapper to support both clients from the start. Concrete approach: accept `client: QdrantClient | AsyncQdrantClient` in `__init__`; in each intercepted method, detect the return type with `inspect.iscoroutine()` and either await it (inside an async wrapper method) or return it directly. Alternatively, provide two wrapper classes — `QdrantMementoClient` and `AsyncQdrantMementoClient` — that mirror the upstream split. The second approach is more explicit and easier to test.
+The StorageBackend interface should specify that `embedding_vec` is always returned as `bytes`, not `memoryview`. PostgresBackend must convert on read: `bytes(row["embedding_vec"])`. InMemoryBackend should store and return `bytes`. Add a test that calls `isinstance(result["embedding_vec"], bytes)` across all backend implementations.
 
 **Warning signs:**
-- Wrapper tests only use `QdrantClient` in a `__main__` block, never `pytest-asyncio`
-- `async def` versions of intercepted methods are absent from the wrapper class
-- Issue titles mentioning "event loop", "RuntimeError", or "not awaitable"
+- Duplicate detection silently returns no pairs after switching backends
+- `np.frombuffer()` crashes with `ValueError: buffer is smaller than requested size`
+- Postgres backend passes unit tests but fails integration tests that check embedding round-trips
 
 **Phase to address:**
-Qdrant wrapper phase — must be decided before writing the first line of wrapper code.
+Phase 1 (StorageBackend interface definition) — the return type contract for `embedding_vec` must be `bytes`, not `Any`, in the Protocol definition.
 
 ---
 
-### Pitfall 2: Silent Data Loss When Qdrant Returns No `doc_id`
+### Pitfall 2: Unix Float Timestamps vs PostgreSQL Native Timestamps
 
 **What goes wrong:**
-Qdrant `ScoredPoint` objects use an integer or UUID `.id` field — not a `doc_id` string key. The existing `log_retrieval` API expects `{"doc_id": ..., "filename": ..., "score": ...}` dicts. If the wrapper maps `point.id` to `doc_id` and the collection stores doc identifiers inside the payload (e.g. `point.payload["document_id"]` or `point.payload["source"]`), the wrapper will silently log Qdrant's internal integer IDs instead of the document identifiers the user actually cares about. All downstream ghost/duplicate/stale detection then runs against meaningless integer IDs, and `filename` columns will all read as the integer ID string.
+The existing schema stores all timestamps as `REAL` (Unix epoch float, e.g. `1712518400.0`). The queries `retrieval_counts(since: float)` and `engagement_counts(since: float)` use `WHERE retrieved_at >= ?` with a float. PostgreSQL does not have a native float-epoch timestamp type — if you keep the columns as `DOUBLE PRECISION` in Postgres, comparisons work but you lose all native Postgres date/time capabilities (indexing with `BRIN`, `now()`, timezone awareness). If you instead migrate to `TIMESTAMP WITH TIME ZONE`, the existing Python code that produces `time.time()` floats must be converted at the boundary using `datetime.fromtimestamp(ts, tz=timezone.utc)`, otherwise inserts will fail with `DataError: invalid input syntax for type timestamp`.
 
 **Why it happens:**
-There is no single convention for payload field names in Qdrant. Users store doc IDs under `"id"`, `"doc_id"`, `"source"`, `"filename"`, `"metadata.source"`, and so on. A hardcoded mapping breaks silently rather than raising an error.
+The SQLite schema was designed for zero-infrastructure simplicity. Unix floats are SQLite-idiomatic. The Postgres backend is tempting to design by copying the same schema, but doing so means either (a) keeping `DOUBLE PRECISION` columns and accepting no native date indexing, or (b) adding a timestamp conversion layer that is invisible to callers but required for correctness.
 
 **How to avoid:**
-Add a `payload_id_field` parameter to the wrapper (default `"doc_id"`), and a `payload_filename_field` (default `"filename"`). Fall back to the point's integer `.id` only when the payload field is absent, and emit a `warnings.warn()` the first time the fallback fires so users know to configure the field names. Document the convention prominently in the docstring.
+Use `DOUBLE PRECISION` in the Postgres schema for `retrieved_at`, `engaged_at`, `embedded_at`, and `source_updated_at`. This keeps the interface identical across backends — callers always pass Unix floats, the backend stores Unix floats, the `since` queries filter on `>= ?`. Add an explicit comment in the schema migration stating this is intentional and not a future-proofing oversight. If native timestamp types are later needed, that is a separate migration concern.
 
 **Warning signs:**
-- Analytics show every document has a short integer filename like `"12345"`
-- All documents are identified as ghosts immediately after wrapper setup
-- No duplicates are detected despite obviously similar content
+- Postgres schema uses `TIMESTAMP` columns without a conversion layer in `insert_retrieval()`
+- `DataError: invalid input syntax for type timestamp` in Postgres integration tests
+- The `since` parameter is documented as `float` in the interface but the Postgres backend passes it through `datetime.fromtimestamp()` before the query, hiding the conversion from callers
 
 **Phase to address:**
-Qdrant wrapper phase — the `payload_id_field` parameter should be part of the wrapper's constructor API from day one.
+Phase 1 (interface definition) — pin the timestamp convention (`float` = Unix epoch) in the Protocol docstring; Phase 2 (PostgresBackend) — verify schema uses `DOUBLE PRECISION`.
 
 ---
 
-### Pitfall 3: Per-Query SQLite Write Creates a Lock-Per-Search Bottleneck
+### Pitfall 3: `ON CONFLICT` / Upsert Dialect Incompatibility
 
 **What goes wrong:**
-The current `DB._conn()` opens a new `sqlite3.connect()` on every call. Under the wrapper, every Qdrant search triggers two or more DB writes (upsert_document + insert_retrieval per result). In a high-throughput async service making dozens of queries per second, concurrent coroutines all try to acquire the write lock simultaneously, producing `sqlite3.OperationalError: database is locked` errors in the user's application.
+`db.py` uses SQLite's `INSERT ... ON CONFLICT(doc_id) DO UPDATE SET ...` upsert syntax (available in SQLite 3.24+). PostgreSQL uses identical syntax (`INSERT ... ON CONFLICT (doc_id) DO UPDATE SET ...`), so this looks portable — but there is a subtle difference: SQLite uses `excluded.column_name` and PostgreSQL also uses `EXCLUDED.column_name` (uppercase by convention). This particular case happens to work across both. However, `COALESCE(excluded.embedding_vec, embedding_vec)` in the upsert is SQLite-style. In PostgreSQL, `EXCLUDED` refers to the proposed-for-insert row, so `COALESCE(EXCLUDED.embedding_vec, documents.embedding_vec)` is the correct Postgres form — note the table-qualified reference to the existing row value. Using the unqualified form is ambiguous in PostgreSQL and may raise `ERROR: column reference "embedding_vec" is ambiguous`.
 
 **Why it happens:**
-SQLite's default journal mode serializes all writers. The existing synchronous, single-request-at-a-time usage pattern hides this completely — the demo script never runs two `log_retrieval` calls concurrently.
+The SQLite and PostgreSQL upsert syntaxes look nearly identical. Developers copy the SQLite SQL string into the Postgres backend, tests pass with simple inserts, and the ambiguity error only appears when an upsert actually needs to fall back to the existing value (i.e., when `embedding_vec` is `NULL` in the new insert). This only triggers in the `upsert_document()` path when a document is re-inserted without an embedding.
 
 **How to avoid:**
-Enable WAL mode (`PRAGMA journal_mode=WAL`) in `DB._init()` — this is a one-line addition and drops the contention dramatically for the typical read-heavy, occasional-write pattern. Additionally, set `timeout` on the connection (e.g. `sqlite3.connect(..., timeout=10)`) so writes queue rather than fail immediately. For very high throughput, a background write queue (queue + dedicated writer thread) is the correct pattern, but WAL mode is sufficient for v1 given the project's zero-infrastructure constraint.
+In the PostgresBackend upsert, use fully table-qualified references in the `COALESCE`: `COALESCE(EXCLUDED.embedding_vec, documents.embedding_vec)`. Write a test that inserts a document with an embedding, then re-inserts the same `doc_id` without an embedding (passing `embedding=None`), and asserts the stored embedding is preserved.
 
 **Warning signs:**
-- `sqlite3.OperationalError: database is locked` in user bug reports
-- The DB `_conn()` method has no `timeout` argument
-- `PRAGMA journal_mode` is not set anywhere in `DB._init()`
+- `ProgrammingError: column reference "embedding_vec" is ambiguous` in Postgres tests
+- The error only appears after the second insert of the same `doc_id`
+- SQLiteBackend tests pass but PostgresBackend upsert test is absent or only tests the initial insert path
 
 **Phase to address:**
-SQLite/DB layer phase (or packaging phase when tests are added) — add a test with `threading.Thread` + concurrent `log_retrieval` calls to surface this before shipping.
+Phase 2 (PostgresBackend implementation) — write the upsert test explicitly covering the `embedding=None` re-insert case.
 
 ---
 
-### Pitfall 4: O(n²) Cosine Similarity Blows Up for Large Corpora
+### Pitfall 4: asyncio.to_thread for SQLite Inside an Async Qdrant Wrapper Creates Hidden Blocking
 
 **What goes wrong:**
-`get_duplicates()` loads all embeddings into memory and runs `cosine_similarity(vecs)` — a full n×n matrix computation. At 1,000 documents this is fine (1M operations). At 50,000 documents it allocates ~10 GB of RAM and stalls for minutes. If the Qdrant wrapper auto-captures embeddings from every search result, corpora will grow past safe threshold without any user action.
+The existing `AsyncQdrantCorpulseClient` calls `await asyncio.to_thread(self._corpulse.log_retrieval, results, query=query)` to avoid blocking the event loop on SQLite writes. This pattern is correct as stated. The hidden danger comes when PostgresBackend is added: if a caller instantiates `AsyncQdrantCorpulseClient` with a `Corpulse(backend=PostgresBackend(...))`, the `asyncio.to_thread` wrapping sends a **synchronous** psycopg call into a thread — which is safe but defeats the purpose of using asyncpg. Conversely, if they use `AsyncPostgresBackend` (which returns coroutines), calling it via `asyncio.to_thread()` will pass a coroutine object to a thread that cannot `await` it, silently returning the unawaited coroutine instead of executing it.
 
 **Why it happens:**
-The current v0.1 code was written for small corpora (demo uses 13 docs). The n² scaling is intentional for accuracy but becomes a hidden footgun as users onboard real production collections.
+The Qdrant wrapper's async path was designed for SQLite (which has no native async API). When pluggable backends arrive, the wrapper's async dispatch logic becomes backend-type-aware — but nothing in the current design enforces this awareness. The backend interface says nothing about whether methods return values or coroutines.
 
 **How to avoid:**
-Add a `max_docs_for_exact_duplicate_check` threshold (default 5,000) in `corpus_health()` and `get_duplicates()`. When the doc count exceeds it, either skip the exact check and emit a warning, or use approximate nearest-neighbour sampling (random sample of 5k docs). Document the scaling limitation clearly in the docstring. This is not a rewrite — it is a guard clause and a config parameter.
+Define two Protocol variants: `StorageBackend` (sync, all methods return values) and `AsyncStorageBackend` (async, all methods are coroutines). The `AsyncQdrantCorpulseClient` should accept only `AsyncStorageBackend` when async execution is needed. Keep `asyncio.to_thread()` for sync backends (SQLite). Do not mix. The `Corpulse` facade should have a parallel `AsyncCorpulse` variant, or clearly document that `Corpulse` is sync-only and `AsyncQdrantCorpulseClient` requires an async backend. Pick one; document it explicitly.
 
 **Warning signs:**
-- Users report `get_duplicates()` hanging or OOM-killing their process
-- No `max_docs` parameter exists on `get_duplicates()`
-- `corpus_health()` calls `get_duplicates()` twice (it currently does — lines 328–334 in memento.py)
+- `AsyncQdrantCorpulseClient` accepts any `backend=` without type checking
+- The async wrapper path uses `asyncio.to_thread()` regardless of backend type
+- No test verifies that `AsyncPostgresBackend` methods are actually awaited (not sent to a thread)
 
 **Phase to address:**
-Test suite phase — add a test with 10,000 synthetic embeddings to verify the guard fires. Also fixable as a known-issue note in documentation.
+Phase 1 (interface definition) — the sync vs. async backend split must be explicit in the Protocol. Phase 3 (AsyncPostgresBackend) — write a test that verifies the async backend's methods are awaited, not thread-dispatched.
 
 ---
 
-### Pitfall 5: Wrapper Swallows the Qdrant Client's Interface
+### Pitfall 5: InMemoryBackend Behavioral Divergence from SQLite
 
 **What goes wrong:**
-If the wrapper subclasses `QdrantClient` and overrides only `search()`, users who call `client.query_points()`, `client.scroll()`, or future methods will bypass the wrapper entirely and get no observability. Alternatively, if the wrapper delegates via `__getattr__` to an inner client instance, calls like `type(client)` will return the wrapper class, breaking any code that does `isinstance(client, QdrantClient)` (common in LangChain's vector store internals).
+The `InMemoryBackend` is the primary tool for unit testing. If it is implemented as a simple dict store, it will diverge from SQLite behavior in subtle ways:
+
+1. `retrieval_counts(since)` requires aggregation by `doc_id` with `COUNT`, `AVG(rank)`, `AVG(score)`. A dict implementation that counts per-doc visits will produce the right `cnt` but return `None` for `avg_rank` and `avg_score` if not explicitly computed — callers in `core.py` access `r["avg_rank"]` and `r["avg_score"]` by key, which will raise `KeyError` or silently return `None`.
+2. `all_documents()` in SQLite returns `sqlite3.Row` objects (subscriptable by column name). `InMemoryBackend` will return plain dicts or dataclasses — callers that use `row["doc_id"]` work with both, but callers that call `dict(row)` explicitly (e.g., logging, pandas export) may get different structures.
+3. Ordering: SQLite returns documents in insertion order; a dict backend in Python 3.7+ preserves insertion order, so this is consistent — but relying on it is fragile.
 
 **Why it happens:**
-Both common proxy approaches (subclassing vs. composition with `__getattr__`) have this blind spot. Subclassing misses non-overridden methods silently; composition breaks `isinstance` checks.
+The InMemoryBackend is written to be "just enough to pass tests" without cross-checking behavior against SQLiteBackend. Divergence only surfaces when a test that passes with InMemoryBackend fails in production with a real backend.
 
 **How to avoid:**
-Use composition (not subclassing) and also register the wrapper against `QdrantClient` via `QdrantClient.register(MementoQdrantClient)` if the upstream ABC supports it, or just document the limitation. For the v1 scope, intercept only `search()` and `query_points()` explicitly — do not attempt transparent full-proxy interception. Document which methods are instrumented and which are pass-through. This is the honest, maintainable choice.
+Write a shared test suite (parametrized fixture over all backend implementations) that tests every backend method against identical inputs and asserts identical outputs. This is the most effective guard against InMemoryBackend drift. The InMemoryBackend must implement `retrieval_counts()` with full aggregation (cnt, avg_rank, avg_score), not just a count.
 
 **Warning signs:**
-- Wrapper class has a `__getattr__` that delegates everything to `self._client`
-- No explicit list of "instrumented methods" in the class docstring
-- Tests only call `client.search()`, never `client.query_points()` or `client.scroll()`
+- `InMemoryBackend` tests pass but `get_suspects()` raises `KeyError: 'avg_rank'` with a real backend
+- Backend tests are not parametrized — each backend has its own separate test file with duplicated assertions
+- `retrieval_counts()` in InMemoryBackend returns `[{"doc_id": ..., "cnt": ...}]` without `avg_rank` and `avg_score`
 
 **Phase to address:**
-Qdrant wrapper phase — architectural decision that must be explicit in the wrapper's docstring/README.
+Phase 1 (InMemoryBackend) — implement full aggregate behavior, not just counts. Write the shared parametrized test fixture immediately and run it against InMemoryBackend and SQLiteBackend before PostgresBackend work begins.
+
+---
+
+### Pitfall 6: Abstraction Leaks Through the `Corpulse` Facade
+
+**What goes wrong:**
+`core.py` currently calls `self.db.all_documents()`, `self.db.retrieval_counts(since)`, etc. directly. If any backend-specific error (e.g., `psycopg.OperationalError: connection refused`, `asyncpg.TooManyConnectionsError`) propagates through the facade, the caller receives a backend-specific exception type. A caller catching `sqlite3.OperationalError` for error handling will not catch `psycopg.OperationalError` — they are unrelated exception hierarchies. The abstraction appears clean at the interface level but leaks backend identity through its error types.
+
+**Why it happens:**
+The StorageBackend Protocol defines method signatures but not exception behavior. Backends raise their native DB errors; the facade does not translate them.
+
+**How to avoid:**
+Define a `StorageBackendError` base exception in the corpulse package. Each backend wraps its native DB exceptions in `StorageBackendError` before raising. The facade catches only `StorageBackendError`. This is a deliberate design choice that must be made in Phase 1 and enforced in every backend's error handling.
+
+**Warning signs:**
+- `Corpulse.get_ghosts()` callers must import `psycopg` to handle database errors
+- Backend implementations have bare `raise` with no wrapping
+- The Protocol definition has no mention of what exceptions methods may raise
+
+**Phase to address:**
+Phase 1 (interface definition) — define `StorageBackendError` alongside the Protocol. All backends wrap native exceptions in it.
+
+---
+
+### Pitfall 7: Connection Pool Exhaustion in AsyncPostgresBackend Under Concurrent Load
+
+**What goes wrong:**
+asyncpg uses a connection pool with a default `max_size=10`. The `AsyncQdrantCorpulseClient` logs every search result as a separate write. In a production service handling 50 concurrent searches, each search triggering `n` result writes (typically 5-10 per query), the pool is exhausted immediately. asyncpg's default behavior when the pool is exhausted is to block until a connection becomes available or raise `asyncpg.TooManyConnectionsError` if a timeout is configured. Without explicit pool sizing and timeout configuration, the service hangs silently under load — requests queue in the pool's internal queue with no visibility.
+
+**Why it happens:**
+Development and tests use a single connection (not a pool) or a pool with default settings. The write pattern of "one DB call per search result" is fine for SQLite (which serializes writes anyway) but creates amplified pool pressure for Postgres under concurrency.
+
+**How to avoid:**
+`AsyncPostgresBackend` must accept `min_size` and `max_size` pool parameters and expose a `connect()` / `close()` lifecycle for pool initialization and teardown. Use `asyncpg.create_pool()` rather than single connections. Set a sensible `timeout` on `pool.acquire()` (e.g., 5 seconds) so requests fail fast with a clear error rather than queuing indefinitely. Document the pool sizing recommendation: `max_size >= (expected_concurrent_searches * avg_results_per_search)`.
+
+**Warning signs:**
+- `AsyncPostgresBackend` uses `asyncpg.connect()` (single connection) rather than `asyncpg.create_pool()`
+- No `min_size` / `max_size` exposed in the backend constructor
+- Load tests pass at 1 concurrent request but hang at 10
+
+**Phase to address:**
+Phase 3 (AsyncPostgresBackend) — pool design must be explicit from the start; do not add it as an afterthought.
 
 ---
 
@@ -117,11 +163,11 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Hardcode `"doc_id"` and `"filename"` as payload field names | Simpler first wrapper | Silent wrong data for 80% of real-world Qdrant collections | Never — add `payload_id_field` param from day one |
-| Skip WAL mode in SQLite | Zero extra code | `database is locked` errors for any async user | Never — it is a one-line pragma |
-| Only wrap `search()`, not `query_points()` | Faster to ship | Users on qdrant-client ≥1.7 (which prefers `query_points`) get no instrumentation | Acceptable for v1 if documented clearly |
-| No upper bound on embedding storage | Simpler inserts | DB grows unbounded; duplicate detection OOMs | Acceptable for v1 if the O(n²) guard exists |
-| Use `from __future__ import annotations` + `TYPE_CHECKING` for qdrant-client types | Avoids hard import dep | Type checkers silently skip validation if import guard is wrong | Acceptable — but test with and without qdrant-client installed |
+| Store timestamps as `DOUBLE PRECISION` in Postgres instead of `TIMESTAMP WITH TIME ZONE` | No conversion layer needed; interface stays identical | No native Postgres date indexing; `now()` comparisons awkward | Acceptable for v1 — document intentionally |
+| Copy SQLite SQL strings verbatim into PostgresBackend | Fast to write | Subtle dialect differences (COALESCE ambiguity, AUTOINCREMENT vs SERIAL) will surface only in edge-case tests | Never — always validate each SQL against Postgres separately |
+| Use `asyncio.to_thread()` for PostgresBackend's sync variant | Reuse existing async dispatch in the Qdrant wrapper | Defeats async I/O; creates unnecessary thread overhead | Acceptable for PostgresBackend (sync) only — async backend must use asyncpg natively |
+| Skip `StorageBackendError` wrapping in backends | Less boilerplate | Callers handle backend-specific exceptions; abstraction leaks | Never — define the wrapper exception in Phase 1 |
+| InMemoryBackend returns partial rows (no `avg_rank`/`avg_score`) | Faster to implement | Diverges from real backends; tests pass but production fails | Never — implement full aggregation from the start |
 
 ---
 
@@ -129,12 +175,12 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Qdrant `ScoredPoint` | Accessing `.id` and assuming it's a doc identifier | Check `point.payload` first; `.id` is Qdrant's internal integer/UUID |
-| Qdrant `search()` vs `query_points()` | Only wrapping `search()` — deprecated in qdrant-client ≥1.7.4 | Wrap both; `query_points()` is the current recommended API |
-| qdrant-client optional install | Importing `qdrant_client` at module top-level, failing on import even without wrapper | Guard with `TYPE_CHECKING` import + lazy import inside wrapper `__init__` |
-| SQLite + Python threads | `sqlite3` connections are not thread-safe by default | Pass `check_same_thread=False` OR create a new connection per thread (current pattern); current code opens per-call which is safe but slow |
-| Optional scikit-learn | Raising `RuntimeError` at call-time (current pattern, correct) vs raising at import | Current pattern is correct; preserve it for qdrant-client too |
-| pyproject.toml extras | Using underscores in extra names (`qdrant_support`) | Use hyphens: `qdrant-support`; pip normalizes but mixing causes confusion |
+| psycopg (psycopg3) BYTEA | Assuming returned value is `bytes` | Always call `bytes(row["embedding_vec"])` — psycopg3 returns `memoryview` for BYTEA |
+| asyncpg BYTEA | asyncpg returns `bytes` natively for BYTEA columns | No conversion needed; but verify with `isinstance(val, bytes)` in tests |
+| psycopg upsert | Using `COALESCE(excluded.col, col)` (unqualified) | Use `COALESCE(EXCLUDED.col, table_name.col)` to avoid column ambiguity error |
+| asyncpg pool | Calling `asyncpg.connect()` for the async backend | Use `asyncpg.create_pool()` with explicit min/max size |
+| psycopg sync pool | Not calling `pool.open()` before use | psycopg3's `ConnectionPool` requires explicit `.open()` or use as async context manager |
+| SQLiteBackend WAL | WAL mode set via `PRAGMA` in `executescript()` | WAL pragma must run in a separate `conn.execute()` call — `executescript()` issues an implicit `COMMIT` before running, which may interfere with WAL activation on first open |
 
 ---
 
@@ -142,11 +188,10 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| O(n²) duplicate matrix | `get_duplicates()` hangs / OOM | Add doc-count guard, skip or sample above threshold | ~5,000 docs at 1536-dim (OpenAI) embeddings |
-| New SQLite connection per write | Latency spikes under concurrent load | WAL mode + connection pool or single writer thread | ~10 concurrent writers |
-| Loading all embeddings into RAM | `all_embeddings()` returns 500MB BLOB | Add pagination or explicit limit to `all_embeddings()` | ~100k docs with 1536-dim floats |
-| `corpus_health()` calls `get_duplicates()` twice | Report generation takes 2× as long as necessary | Cache result or compute once and reuse | Already a bug at any scale above ~1k docs |
-| No embedding stored in wrapper (pass-through only retrieval scores) | Duplicate detection never fires | Ensure wrapper extracts `vectors` from `ScoredPoint` when `with_vectors=True` | From day 1 if wrapper forgets to pass `with_vectors=True` |
+| One DB call per search result in async backend | Pool exhaustion at moderate concurrency | Batch `insert_retrieval()` calls; add a `insert_retrievals_bulk()` method to the interface | ~10 concurrent searches with 10 results each |
+| psycopg3 pipeline mode not used | 3-5× slower than necessary for bulk inserts | Use `conn.pipeline()` context manager for multi-row inserts | Any bulk insert above ~100 rows |
+| InMemoryBackend holds all data in a Python list | Slow `retrieval_counts()` scan at large test data volumes | Acceptable for tests — document expected scale ceiling (~10k rows) | Not a production concern; only matters if tests use huge synthetic datasets |
+| SQLiteBackend creates new connection per call | Fine under low concurrency; serialization under high concurrency | WAL mode already in schema; existing pattern is acceptable for v1 | ~10 concurrent writes |
 
 ---
 
@@ -154,36 +199,22 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Writing the SQLite DB to the current working directory by default (`./memento.db`) | DB may be created inside a web-serving directory and exposed | Default path is acceptable for a library; document that production deployments should configure an explicit `db_path` outside web root |
-| Storing raw query hashes (SHA-256 truncated) | Query content is partially reconstructable if hashes are shared | The 16-char truncation is intentional for privacy; document that full queries are never persisted |
-| Qdrant API key passed through wrapper | If wrapper logs kwargs for debugging, API key may appear in logs | Never log `**kwargs` passed to the inner client; only log intercepted search metadata |
-
----
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Wrapper raises `ImportError` at import time if qdrant-client is absent | Users who installed `rag-memento` without the `[qdrant]` extra see a confusing top-level import failure | Lazy-import qdrant-client inside wrapper `__init__`; raise a clear `ImportError("pip install rag-memento[qdrant]")` only when the wrapper is instantiated |
-| Wrapper requires users to also call `memento.log_retrieval()` | Users adopted the wrapper precisely to avoid manual instrumentation; double-calling creates duplicate entries | Wrapper must be self-contained; document that `log_retrieval()` should NOT be called alongside the wrapper |
-| `cleanup_report()` prints to stdout with emoji | Breaks in CI environments without UTF-8 terminals; not machine-readable | Preserve for interactive use; add a `get_cleanup_report() -> dict` programmatic alternative |
-| No indication that observability only starts from wrapper instantiation (no historical data) | Users expect ghost detection to work from day 1 but they have zero retrieval history | Add a warning in `report()` when total retrieval count is below a minimum threshold (e.g. `< 10`) |
-| Extra name inconsistency between docs and actual package | Users try `pip install rag-memento[qdrant_support]` vs `rag-memento[qdrant]` | Pick one canonical extra name in `pyproject.toml` (`qdrant`) and use it everywhere |
+| Postgres connection string stored in `Corpulse(backend=PostgresBackend("postgres://user:pass@host/db"))` | Connection string (with password) appears in tracebacks, logs, repr() | Accept `dsn` parameter but do not include it in `__repr__`; document that env-var-based config (e.g., `PGPASSWORD`) is preferred |
+| Passing user-controlled strings as table/column names | SQL injection via backend configuration | Never use f-strings to build SQL; all column/table names are hardcoded in backend implementations |
+| asyncpg `max_inactive_connection_lifetime` not set | Idle connections accumulate and are not recycled on network failures | Set `max_inactive_connection_lifetime=300` in `create_pool()` |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Qdrant wrapper:** `query_points()` instrumented, not just `search()` — verify both method names have interceptors
-- [ ] **Qdrant wrapper:** Async client path tested, not just sync — verify `pytest-asyncio` test exists
-- [ ] **Qdrant wrapper:** `payload_id_field` is configurable — verify constructor accepts it
-- [ ] **SQLite:** WAL mode enabled — verify `PRAGMA journal_mode=WAL` in `DB._init()`
-- [ ] **Optional import:** `qdrant_client` is not imported at the top of the wrapper module — verify with `python -c "import rag_memento"` without qdrant-client installed
-- [ ] **corpus_health():** `get_duplicates()` called only once — verify by reading lines 328–334 of memento.py (currently called twice)
-- [ ] **Packaging:** `qdrant-client` declared under `[project.optional-dependencies]` in pyproject.toml, not `[project.dependencies]` — verify with `pip install rag-memento` (no Qdrant) succeeds
-- [ ] **Wrapper docs:** States which methods are instrumented and which are pass-through — verify docstring explicitly lists them
-- [ ] **Python 3.10+ types:** `X | Y` union syntax and `match` statements compile on 3.10 — verify `python_requires = ">=3.10"` is in pyproject.toml
-- [ ] **Test suite:** Concurrent `log_retrieval()` test exists — verify no `database is locked` under threading
+- [ ] **embedding_vec round-trip:** `bytes(backend.all_embeddings()[0]["embedding_vec"])` returns identical bytes across all backends — verify with a shared parametrized test
+- [ ] **upsert preserves existing embedding:** Insert doc with embedding; re-insert same `doc_id` with `embedding=None`; assert embedding is preserved — verify for both SQLiteBackend and PostgresBackend
+- [ ] **retrieval_counts returns avg_rank and avg_score:** Assert `"avg_rank"` and `"avg_score"` keys present in every backend's `retrieval_counts()` return rows
+- [ ] **StorageBackendError raised on connection failure:** Mock a connection failure; assert `StorageBackendError` is raised (not `psycopg.OperationalError` or `sqlite3.OperationalError`)
+- [ ] **Corpulse() with no args still works:** `Corpulse()` instantiates with SQLiteBackend default, creates `./corpulse.db` — verify backwards compat after refactor
+- [ ] **asyncio.to_thread not used for AsyncPostgresBackend:** Verify the async wrapper path calls `await backend.insert_retrieval()` directly, not `await asyncio.to_thread(backend.insert_retrieval, ...)`
+- [ ] **Postgres connection pool closed on teardown:** `AsyncPostgresBackend` exposes a `close()` / `aclose()` method and it is documented; verify pool is not leaked in tests
+- [ ] **psycopg extras installed:** `pip install corpulse` (without extras) must succeed; `PostgresBackend` raises `ImportError("pip install corpulse[postgres]")` on instantiation if psycopg is absent
 
 ---
 
@@ -191,11 +222,12 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Async/sync mismatch discovered post-release | HIGH | Add `AsyncQdrantMementoClient`; bump minor version; update docs with migration note |
-| Silent wrong doc IDs (no payload field config) | HIGH | Add `payload_id_field`; data in existing DBs is unrecoverable (wrong IDs logged); users must reset DB |
-| `database is locked` in production | LOW | Add WAL pragma + timeout in a patch release; existing DBs automatically use WAL on next open |
-| O(n²) OOM for large corpus | MEDIUM | Add guard clause in patch release; no data migration needed |
-| `corpus_health()` double-calling `get_duplicates()` | LOW | One-line fix: cache result in local variable |
+| BYTEA returned as memoryview breaks embedding round-trips | MEDIUM | Add `bytes()` cast in backend's `all_embeddings()` and `all_documents()` reads; no data migration needed |
+| Upsert ambiguity silently corrupts embeddings in Postgres | HIGH | Fix SQL to use table-qualified COALESCE; existing rows with lost embeddings must be re-registered |
+| asyncio.to_thread + async backend produces unawaited coroutines | HIGH | Requires redesign of the async dispatch layer; existing logs have no data (writes silently failed) |
+| InMemoryBackend divergence causes false-passing tests | MEDIUM | Add shared parametrized test suite; no production data loss but investigation cost is high |
+| Connection pool exhaustion in production | LOW | Increase `max_size`; restart service; no data loss |
+| StorageBackendError not defined — callers catch wrong exceptions | LOW | Add wrapper exception class; patch release; no data loss |
 
 ---
 
@@ -203,27 +235,29 @@ Qdrant wrapper phase — architectural decision that must be explicit in the wra
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Async/sync mismatch | Qdrant wrapper | `pytest-asyncio` test: wrap `AsyncQdrantClient`, call async search, verify retrieval logged |
-| Silent wrong doc IDs | Qdrant wrapper | Unit test: collection with `payload["source"]` field; assert logged `doc_id == payload["source"]` not point integer id |
-| SQLite lock under concurrency | Packaging / test suite | Threading test: 10 threads each call `log_retrieval()` 100×; assert zero `OperationalError` |
-| O(n²) duplicate OOM | Test suite | Performance test: insert 10k docs; assert `get_duplicates()` returns in <5s or emits warning |
-| Wrapper swallows interface | Qdrant wrapper | Test: call `client.scroll()` on the wrapper; assert it does not raise and returns Qdrant results |
-| qdrant-client import at top-level | Packaging | `pip install rag-memento` (no qdrant extra) in a fresh venv; `python -c "import rag_memento"` must succeed |
-| `corpus_health()` double-duplication call | Test suite | Assert `get_duplicates()` mock called exactly once when `corpus_health()` is invoked |
+| BYTEA memoryview type mismatch | Phase 1 (interface) + Phase 2 (PostgresBackend) | Shared test: `isinstance(backend.all_embeddings()[0]["embedding_vec"], bytes)` |
+| Unix float vs Postgres timestamp | Phase 1 (interface definition, doc the convention) + Phase 2 | Integration test: insert float timestamp, retrieve with `since` filter, assert correct count |
+| Upsert COALESCE ambiguity | Phase 2 (PostgresBackend) | Test: re-insert doc with `embedding=None`, assert embedding preserved |
+| asyncio.to_thread + async backend mismatch | Phase 1 (Protocol split sync/async) + Phase 3 (AsyncPostgresBackend) | Test: verify async backend method is awaited, not thread-dispatched |
+| InMemoryBackend behavioral drift | Phase 1 (InMemoryBackend) | Shared parametrized fixture run against all 3 backends with identical inputs |
+| Abstraction leak via exception types | Phase 1 (define StorageBackendError) | Test: mock DB failure; assert `StorageBackendError` at Corpulse call site |
+| Async pool exhaustion | Phase 3 (AsyncPostgresBackend) | Load test: 20 concurrent async searches; assert zero `TooManyConnectionsError` |
+| Backwards compat broken | Phase 2 (SQLiteBackend refactor) | `Corpulse()` no-args test must remain green throughout refactor |
 
 ---
 
 ## Sources
 
-- Qdrant Python client source: `QdrantClient` vs `AsyncQdrantClient` split — [qdrant-client GitHub](https://github.com/qdrant/qdrant-client) (HIGH confidence)
-- Qdrant `ScoredPoint` structure with `.id`, `.payload`, `.score` — [Qdrant Client docs](https://python-client.qdrant.tech/qdrant_client.qdrant_client) (HIGH confidence)
-- `query_points()` as the current recommended search API — [Qdrant API reference](https://api.qdrant.tech/api-reference/search/query-points) (HIGH confidence)
-- SQLite WAL mode and single-writer bottleneck — [SQLite WAL docs](https://www.sqlite.org/wal.html), [SkyPilot blog on SQLite concurrency](https://blog.skypilot.co/abusing-sqlite-to-handle-concurrency/) (HIGH confidence)
-- pyproject.toml optional dependencies and extra name normalization — [Python Packaging User Guide](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) (HIGH confidence)
-- Optional import UX pattern — [Python.org discussion](https://discuss.python.org/t/optional-imports-for-optional-dependencies/104760) (MEDIUM confidence)
-- O(n²) duplicate check, double-call in `corpus_health()` — direct code inspection of `/Users/arkady/src/rag-memento/memento.py` lines 328–334 (HIGH confidence)
-- Per-call `sqlite3.connect()` pattern — direct code inspection of `/Users/arkady/src/rag-memento/db.py` (HIGH confidence)
+- psycopg3 BYTEA return type (memoryview): [psycopg3 type adaptation docs](https://www.psycopg.org/psycopg3/docs/basic/adapt.html) (HIGH confidence)
+- asyncpg pool design and exhaustion behavior: [asyncpg GitHub](https://github.com/MagicStack/asyncpg), [asyncpg connection pool docs](https://magicstack.github.io/asyncpg/current/api/pool.html) (HIGH confidence)
+- psycopg3 pool design and blocking behavior: [psycopg3 pool docs](https://www.psycopg.org/psycopg3/docs/advanced/pool.html) (HIGH confidence)
+- Upsert COALESCE column ambiguity in PostgreSQL: direct SQL dialect analysis (HIGH confidence)
+- asyncio.to_thread pitfalls with mixed sync/async code: [Python asyncio-dev docs](https://docs.python.org/3/library/asyncio-dev.html), [aiosqlite design notes](https://github.com/omnilib/aiosqlite) (HIGH confidence)
+- SQLite WAL mode and PRAGMA in executescript: [SQLite WAL docs](https://www.sqlite.org/wal.html), [Python bug tracker issue 29228](https://bugs.python.org/issue29228) (HIGH confidence)
+- NumPy BYTEA storage and shape loss: [psycopg issue #336](https://github.com/psycopg/psycopg/issues/336), [community analysis](https://copyprogramming.com/howto/best-way-to-insert-python-numpy-array-into-postgresql-database) (MEDIUM confidence — verified against psycopg3 docs)
+- Repository pattern and exception abstraction: [Architecture Patterns with Python](https://www.cosmicpython.com/book/chapter_02_repository.html) (MEDIUM confidence)
+- Direct code inspection: `/Users/arkady/src/corpulse/corpulse/db.py`, `core.py`, `integrations/qdrant.py` (HIGH confidence)
 
 ---
-*Pitfalls research for: RAG corpus analytics library (rag-memento) — Qdrant wrapper + packaging milestone*
-*Researched: 2026-03-24*
+*Pitfalls research for: corpulse v1.1 — Pluggable Storage Backends milestone*
+*Researched: 2026-04-08*
