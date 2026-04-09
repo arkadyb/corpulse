@@ -70,14 +70,14 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 - [x] **BACK-02**: db.py becomes a one-line compat shim importing SQLiteBackend as DB
 - [x] **BACK-03**: InMemoryBackend (dict-based, no deps) with full aggregate behavior
 - [x] **BACK-04**: PostgresBackend (sync) via psycopg>=3.2 with schema auto-init
-- [ ] **BACK-05**: AsyncPostgresBackend via asyncpg>=0.29 with async initialize() and connection pool
+- [x] **BACK-05**: AsyncPostgresBackend via asyncpg>=0.29 with async initialize() and connection pool
 - [x] **BACK-06**: All backends implement close() and context manager protocol
 
 ### Integration
 
 - [x] **INT-01**: Corpulse(backend=...) accepts explicit backend; defaults to SQLiteBackend when omitted
 - [ ] **INT-02**: pyproject.toml extras: [postgres] for psycopg, [postgres-async] for asyncpg
-- [ ] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
+- [x] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
 
 ## v2 Requirements
 
@@ -166,11 +166,11 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 | BACK-02 | Phase 6 | Complete |
 | BACK-03 | Phase 6 | Complete |
 | BACK-04 | Phase 9 | Complete |
-| BACK-05 | Phase 10 | Pending |
+| BACK-05 | Phase 10 | Complete |
 | BACK-06 | Phase 6 | Complete |
 | INT-01 | Phase 6 | Complete |
 | INT-02 | Phases 7-8 | Pending |
-| INT-03 | Phases 9-10 | Pending |
+| INT-03 | Phases 9-10 | Complete |
 
 **Coverage:**
 - v1 requirements: 30 total (all complete)

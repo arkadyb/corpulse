@@ -165,10 +165,11 @@ Plans:
   2. The shared backend contract or equivalent async integration suite passes against `AsyncPostgresBackend`
   3. Phase 8/10 verification artifacts prove the async backend path works in a real async usage flow
   4. Requirement traceability and milestone evidence show `BACK-05` closed by verified implementation rather than code-only claims
-**Plans**: 0/0 plans complete
+**Plans**: 1/2 plans complete
 
 Plans:
-- None yet
+- [x] 10-01-PLAN.md — Add a narrow AsyncCorpulse facade plus deterministic and live async integration tests
+- [ ] 10-02-PLAN.md — Refresh Phase 8/10 verification artifacts and close async traceability on recorded proof
 
 ## Progress
 
@@ -186,4 +187,4 @@ Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 | 7. PostgresBackend (Sync) | v1.1 | 1/1 | Complete | 2026-04-09 |
 | 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
 | 9. Harden Sync Postgres Backend | v1.1 | 3/3 | Complete | 2026-04-09 |
-| 10. Make Async Backend Usable From Corpulse | v1.1 | 0/0 | Planned | - |
+| 10. Make Async Backend Usable From Corpulse | v1.1 | 1/2 | In Progress | - |

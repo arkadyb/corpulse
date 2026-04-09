@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
 status: in_progress
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-04-09T11:56:05.693Z"
-last_activity: "2026-04-09 - Executed 09-03: remapped INT-03 traceability to pending async verification"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-04-09T12:27:57.654Z"
+last_activity: "2026-04-09 - Executed 10-01: added AsyncCorpulse facade and async integration coverage"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Current Position
 
-Phase: 09-harden-sync-postgres-backend complete
-Plan: 03 complete; Phase 10 planning pending
+Phase: 10-async-backend-corpulse-integration in progress
+Plan: 01 complete; 10-02 pending
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Plan: 03 complete; Phase 10 planning pending
 | Phase 09-harden-sync-postgres-backend P01 | 11 min | 2 tasks | 6 files |
 | Phase 09-harden-sync-postgres-backend P02 | 4 min | 2 tasks | 4 files |
 | Phase 09-harden-sync-postgres-backend P03 | 9 min | 2 tasks | 3 files |
+| Phase 10 P01 | 1 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Recent decisions affecting current work:
 - [Phase 09-harden-sync-postgres-backend]: Keep the sync Corpulse facade unchanged in verification artifacts and tie pooling proof to PostgresBackend internals plus passed live parity.
 - [Phase 09]: Keep BACK-04 closed on recorded sync pooling evidence instead of reopening already-verified sync work.
 - [Phase 09]: Reopen INT-03 and hand final closure to later async verification work rather than fabricating proof inside Phase 9.
+- [Phase 10]: Kept AsyncCorpulse backend-agnostic and dependency-free so package import stays lazy and sync Corpulse remains unchanged.
+- [Phase 10]: Reused core helper functions in AsyncCorpulse so async ingestion and ghost semantics stay aligned with the sync facade.
 
 ### Pending Todos
 
@@ -139,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-09 - Executed 09-03: remapped INT-03 traceability to pending async verification
-Stopped at: Completed 09-03-PLAN.md
+Last activity: 2026-04-09 - Executed 10-01: added AsyncCorpulse facade and async integration coverage
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
