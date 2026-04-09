@@ -115,6 +115,10 @@ def test_shared_backend_fixture_runs_for_sqlite_and_memory(backend, request):
         assert isinstance(backend, DB)
         return
 
+    if request.node.callspec.params["backend"] == "postgres":
+        assert backend.__class__.__name__ == "PostgresBackend"
+        return
+
     assert isinstance(backend, InMemoryBackend)
 
 

@@ -32,3 +32,27 @@ def test_corpulse_class_importable():
     from corpulse import Corpulse
     # Just verify the class is accessible; don't instantiate (needs filesystem)
     assert callable(Corpulse)
+
+
+def test_import_backends_does_not_eagerly_load_psycopg():
+    """corpulse.backends import succeeds without importing psycopg."""
+    sys.modules.pop("psycopg", None)
+    import corpulse.backends as backends
+
+    importlib.reload(backends)
+
+    assert hasattr(backends, "SQLiteBackend")
+    assert "psycopg" not in sys.modules
+
+
+def test_postgres_backend_lazy_export_does_not_import_psycopg():
+    """Accessing the lazy export should load the backend module, not the driver."""
+    sys.modules.pop("psycopg", None)
+    import corpulse.backends as backends
+
+    importlib.reload(backends)
+
+    postgres_backend = backends.PostgresBackend
+
+    assert postgres_backend.__name__ == "PostgresBackend"
+    assert "psycopg" not in sys.modules

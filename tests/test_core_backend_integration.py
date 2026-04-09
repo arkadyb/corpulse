@@ -1,4 +1,6 @@
 import sys
+import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -89,3 +91,24 @@ def test_corpulse_constructor_conflict_raises_value_error(tmp_path):
 
     with pytest.raises(ValueError, match="db_path|backend"):
         Corpulse(db_path=str(tmp_path / "other.db"), backend=backend)
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CORPULSE_POSTGRES_TEST_CONNINFO")
+    or importlib.util.find_spec("psycopg") is None,
+    reason="requires CORPULSE_POSTGRES_TEST_CONNINFO and psycopg",
+)
+def test_corpulse_postgres_backend_records_retrievals_when_conninfo_available():
+    from corpulse.backends import PostgresBackend
+
+    with PostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as backend:
+        backend._conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
+        backend._conn.commit()
+
+        corpulse = Corpulse(backend=backend)
+        corpulse.log_retrieval(
+            [{"doc_id": "ghost", "filename": "ghost.md", "score": 0.2}],
+            query="status",
+        )
+
+        assert corpulse.get_ghosts() == []
