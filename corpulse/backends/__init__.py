@@ -12,6 +12,7 @@ from .memory import InMemoryBackend
 from .sqlite import SQLiteBackend
 
 __all__ = [
+    "AsyncPostgresBackend",
     "DocumentRow",
     "EmbeddingRow",
     "EngagementRow",
@@ -25,6 +26,11 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name == "AsyncPostgresBackend":
+        from .postgres_async import AsyncPostgresBackend
+
+        globals()["AsyncPostgresBackend"] = AsyncPostgresBackend
+        return AsyncPostgresBackend
     if name == "PostgresBackend":
         from .postgres import PostgresBackend
 
