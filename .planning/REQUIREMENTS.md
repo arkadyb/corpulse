@@ -180,4 +180,4 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-09 after milestone gap closure planning*
+*Last updated: 2026-04-09 after verified sync Postgres milestone evidence refresh*

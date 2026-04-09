@@ -184,5 +184,5 @@ Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 | 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
 | 7. PostgresBackend (Sync) | v1.1 | 1/1 | In progress | - |
 | 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
-| 9. Harden Sync Postgres Backend | v1.1 | 0/0 | Planned | - |
+| 9. Harden Sync Postgres Backend | v1.1 | 0/2 | Planned | - |
 | 10. Make Async Backend Usable From Corpulse | v1.1 | 0/0 | Planned | - |
