@@ -2,6 +2,8 @@
 import importlib
 import sys
 
+import pytest
+
 
 def test_import_corpulse():
     """PKG-04: import corpulse succeeds."""
@@ -56,3 +58,30 @@ def test_postgres_backend_lazy_export_does_not_import_psycopg():
 
     assert postgres_backend.__name__ == "PostgresBackend"
     assert "psycopg" not in sys.modules
+
+
+def test_import_backends_does_not_eagerly_load_asyncpg():
+    """corpulse.backends import succeeds without importing asyncpg."""
+    sys.modules.pop("asyncpg", None)
+    import corpulse.backends as backends
+
+    importlib.reload(backends)
+
+    assert hasattr(backends, "SQLiteBackend")
+    assert "asyncpg" not in sys.modules
+
+
+def test_async_postgres_backend_lazy_export_does_not_import_asyncpg():
+    """Accessing the async lazy export should load the backend module, not the driver."""
+    sys.modules.pop("asyncpg", None)
+    import corpulse.backends as backends
+
+    importlib.reload(backends)
+
+    if not hasattr(backends, "AsyncPostgresBackend"):
+        pytest.skip("AsyncPostgresBackend not yet implemented")
+
+    async_pg_backend = backends.AsyncPostgresBackend
+
+    assert async_pg_backend.__name__ == "AsyncPostgresBackend"
+    assert "asyncpg" not in sys.modules
