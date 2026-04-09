@@ -102,8 +102,8 @@ def test_corpulse_postgres_backend_records_retrievals_when_conninfo_available():
     from corpulse.backends import PostgresBackend
 
     with PostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as backend:
-        backend._conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
-        backend._conn.commit()
+        with backend._pool.connection() as conn:
+            conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
 
         corpulse = Corpulse(backend=backend)
         corpulse.log_retrieval(

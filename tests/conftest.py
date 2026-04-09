@@ -49,17 +49,13 @@ def backend(request, tmp_path):
         from corpulse.backends import PostgresBackend
 
         with PostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as storage_backend:
-            storage_backend._conn.execute(
-                "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
-            )
-            storage_backend._conn.commit()
+            with storage_backend._pool.connection() as conn:
+                conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
             try:
                 yield storage_backend
             finally:
-                storage_backend._conn.execute(
-                    "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
-                )
-                storage_backend._conn.commit()
+                with storage_backend._pool.connection() as conn:
+                    conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
         return
 
     with InMemoryBackend() as storage_backend:

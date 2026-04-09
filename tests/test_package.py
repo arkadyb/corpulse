@@ -35,7 +35,7 @@ def test_postgres_extra_declared():
     """INT-02: Optional [postgres] extra declares psycopg."""
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
     content = pyproject.read_text()
-    assert 'postgres = ["psycopg>=3.2"]' in content, "Missing psycopg postgres extra"
+    assert 'postgres = ["psycopg[pool]>=3.2"]' in content, "Missing psycopg pool postgres extra"
 
 
 def test_postgres_async_extra_declared():
