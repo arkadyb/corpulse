@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
-status: in_progress
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-04-09T12:27:57.654Z"
-last_activity: "2026-04-09 - Executed 10-01: added AsyncCorpulse facade and async integration coverage"
+status: complete
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-04-09T12:39:06.453Z"
+last_activity: "2026-04-09 - Executed 10-02: refreshed async verification artifacts and closed traceability on recorded proof"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health — no manual instrumentation
-**Current focus:** Milestone v1.1 — Pluggable Storage Backends
+**Current focus:** Milestone v1.1 — Pluggable Storage Backends complete
 
 ## Current Position
 
-Phase: 10-async-backend-corpulse-integration in progress
-Plan: 01 complete; 10-02 pending
+Phase: 10-async-backend-corpulse-integration complete
+Plan: 01 complete; 10-02 complete
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 01 complete; 10-02 pending
 | Phase 09-harden-sync-postgres-backend P02 | 4 min | 2 tasks | 4 files |
 | Phase 09-harden-sync-postgres-backend P03 | 9 min | 2 tasks | 3 files |
 | Phase 10 P01 | 1 min | 2 tasks | 4 files |
+| Phase 10 P02 | 10 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 09]: Reopen INT-03 and hand final closure to later async verification work rather than fabricating proof inside Phase 9.
 - [Phase 10]: Kept AsyncCorpulse backend-agnostic and dependency-free so package import stays lazy and sync Corpulse remains unchanged.
 - [Phase 10]: Reused core helper functions in AsyncCorpulse so async ingestion and ghost semantics stay aligned with the sync facade.
+- [Phase 10]: BACK-05 and INT-03 stay evidence-gated until the live AsyncCorpulse command is recorded with exit status 0 and an observed result.
+- [Phase 10]: Phase 10 scope is the narrow AsyncCorpulse integration path for async ingestion plus a minimal read proof; the broader async analytics facade remains deferred to v2.
 
 ### Pending Todos
 
@@ -128,7 +131,6 @@ None yet.
 
 - [Research]: Default `payload_id_field` value is a guess ("doc_id") — validate against demo.py before finalizing wrapper API in Phase 3
 - [Research]: async SQLite write latency via asyncio.to_thread() is unbenchmarked — acceptable for now, document as known trade-off
-- [Phase 08]: Live async PostgreSQL round-trip tests are implemented but unverified in this workspace until `CORPULSE_POSTGRES_TEST_CONNINFO` and `asyncpg` are available.
 
 ### Quick Tasks Completed
 
@@ -142,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-09 - Executed 10-01: added AsyncCorpulse facade and async integration coverage
-Stopped at: Completed 10-01-PLAN.md
+Last activity: 2026-04-09 - Executed 10-02: refreshed async verification artifacts and closed traceability on recorded proof
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
