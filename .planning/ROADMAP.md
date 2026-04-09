@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 — Qdrant Wrapper + Packaging** - Phases 1-5 (shipped 2026-04-07)
-- 🚧 **v1.1 — Pluggable Storage Backends** - Phases 6-8 (in progress)
+- 🚧 **v1.1 — Pluggable Storage Backends** - Phases 6-10 (in progress)
 
 ## Phases
 
@@ -118,10 +118,10 @@ Plans:
   2. `Corpulse(backend=PostgresBackend(conninfo="..."))` auto-creates the schema on first connection and records retrievals
   3. The shared parametrized test fixture passes for PostgresBackend (same assertions as SQLite and InMemory)
   4. psycopg is only imported when PostgresBackend is instantiated — not at `import corpulse` time
-**Plans**: TBD
+**Plans**: 1/1 plans complete
 
 Plans:
-- [ ] 07-01-PLAN.md — Implement PostgresBackend with psycopg3, schema auto-init, BYTEA handling, and add [postgres] extra
+- [x] 07-01-PLAN.md — Implement PostgresBackend with psycopg3, schema auto-init, BYTEA handling, and add [postgres] extra
 
 #### Phase 8: AsyncPostgresBackend
 **Goal**: An async service (FastAPI, etc.) can use corpulse with PostgreSQL without blocking the event loop — async pool, async initialize(), and optional extras for both Postgres backends
@@ -133,15 +133,46 @@ Plans:
   3. The shared parametrized test fixture passes for AsyncPostgresBackend
   4. Both PostgresBackend and AsyncPostgresBackend support connection pooling with configurable pool size
   5. asyncpg is only imported when AsyncPostgresBackend is instantiated — not at `import corpulse` time
-**Plans**: TBD
+**Plans**: 1/1 plans complete
 
 Plans:
-- [ ] 08-01-PLAN.md — Implement AsyncPostgresBackend with asyncpg, async pool, async initialize(), and add [postgres-async] extra
+- [x] 08-01-PLAN.md — Implement AsyncPostgresBackend with asyncpg, async pool, async initialize(), and add [postgres-async] extra
+
+#### Phase 9: Harden Sync Postgres Backend
+**Goal**: The sync Postgres backend meets the milestone pooling requirement and has current verification evidence that proves the production Postgres path is actually complete
+**Depends on**: Phase 8
+**Requirements**: BACK-04, INT-03
+**Gap Closure**: Closes milestone audit gaps for stale Phase 7 evidence and missing sync pooling support
+**Success Criteria** (what must be TRUE):
+  1. `Corpulse(backend=PostgresBackend(conninfo="..."))` still auto-creates the schema and passes the shared backend parity suite
+  2. `PostgresBackend` uses configurable connection pooling rather than a single long-lived psycopg connection
+  3. Pooling behavior is covered by automated tests or equivalent deterministic verification artifacts
+  4. Phase 7/9 verification artifacts provide milestone-grade evidence that the sync Postgres path is complete
+**Plans**: 0/2 plans complete
+
+Plans:
+- [ ] 09-01-PLAN.md — Refactor PostgresBackend to use configurable sync pooling and update parity coverage
+- [ ] 09-02-PLAN.md — Refresh Phase 7/9 verification artifacts and close BACK-04/INT-03 traceability
+
+#### Phase 10: Make Async Backend Usable From Corpulse
+**Goal**: The async Postgres backend is reachable through a supported Corpulse integration path, with verification artifacts that prove async usage works end to end
+**Depends on**: Phase 9
+**Requirements**: BACK-05
+**Gap Closure**: Closes milestone audit gaps for async facade incompatibility, missing Phase 8 verification, and broken async backend injection flow
+**Success Criteria** (what must be TRUE):
+  1. Corpulse exposes a supported async integration path for `AsyncPostgresBackend.create(...)` that matches the documented milestone contract
+  2. The shared backend contract or equivalent async integration suite passes against `AsyncPostgresBackend`
+  3. Phase 8/10 verification artifacts prove the async backend path works in a real async usage flow
+  4. Requirement traceability and milestone evidence show `BACK-05` closed by verified implementation rather than code-only claims
+**Plans**: 0/0 plans complete
+
+Plans:
+- None yet
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 6 → 7 → 8
+Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -151,5 +182,7 @@ Phases execute in numeric order: 6 → 7 → 8
 | 4. Documentation | v1.0 | 2/2 | Complete | 2026-04-07 |
 | 5. Address Review Findings | v1.0 | 3/3 | Complete | 2026-04-07 |
 | 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
-| 7. PostgresBackend (Sync) | v1.1 | 0/1 | Not started | - |
-| 8. AsyncPostgresBackend | v1.1 | 0/1 | Not started | - |
+| 7. PostgresBackend (Sync) | v1.1 | 1/1 | In progress | - |
+| 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
+| 9. Harden Sync Postgres Backend | v1.1 | 0/0 | Planned | - |
+| 10. Make Async Backend Usable From Corpulse | v1.1 | 0/0 | Planned | - |

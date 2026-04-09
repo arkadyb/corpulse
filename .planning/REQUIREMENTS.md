@@ -69,7 +69,7 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 - [x] **BACK-01**: SQLiteBackend refactors existing DB class with zero behavioral change (41 tests pass)
 - [x] **BACK-02**: db.py becomes a one-line compat shim importing SQLiteBackend as DB
 - [x] **BACK-03**: InMemoryBackend (dict-based, no deps) with full aggregate behavior
-- [ ] **BACK-04**: PostgresBackend (sync) via psycopg>=3.2 with schema auto-init
+- [x] **BACK-04**: PostgresBackend (sync) via psycopg>=3.2 with schema auto-init
 - [ ] **BACK-05**: AsyncPostgresBackend via asyncpg>=0.29 with async initialize() and connection pool
 - [x] **BACK-06**: All backends implement close() and context manager protocol
 
@@ -77,7 +77,7 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 - [x] **INT-01**: Corpulse(backend=...) accepts explicit backend; defaults to SQLiteBackend when omitted
 - [ ] **INT-02**: pyproject.toml extras: [postgres] for psycopg, [postgres-async] for asyncpg
-- [ ] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
+- [x] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
 
 ## v2 Requirements
 
@@ -161,23 +161,23 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 | ABS-01 | Phase 6 | Complete |
 | ABS-02 | Phase 6 | Complete |
 | ABS-03 | Phase 6 | Complete |
-| ABS-04 | — | Complete |
+| ABS-04 | Phase 6 | Complete |
 | BACK-01 | Phase 6 | Complete |
 | BACK-02 | Phase 6 | Complete |
-| BACK-03 | — | Complete |
-| BACK-04 | — | Pending |
-| BACK-05 | — | Pending |
+| BACK-03 | Phase 6 | Complete |
+| BACK-04 | Phase 9 | Complete |
+| BACK-05 | Phase 10 | Pending |
 | BACK-06 | Phase 6 | Complete |
 | INT-01 | Phase 6 | Complete |
-| INT-02 | — | Pending |
-| INT-03 | — | Pending |
+| INT-02 | Phases 7-8 | Pending |
+| INT-03 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 30 total (all complete)
 - v1.1 requirements: 13 total
-- Mapped to phases: 3
-- Unmapped: 10 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-08 after milestone v1.1 requirements definition*
+*Last updated: 2026-04-09 after milestone gap closure planning*

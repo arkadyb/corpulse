@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
 status: in_progress
-stopped_at: Completed 06-storage-foundation-03-PLAN.md
-last_updated: "2026-04-08T11:49:46.244Z"
-last_activity: "2026-04-08 - Completed 06-03: In-memory backend and shared parity coverage"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-04-09T11:30:24.887Z"
+last_activity: 2026-04-09 - Executed 09-01: pooled sync Postgres backend and parity updates
 progress:
-  total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 6
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Current Position
 
-Phase: 07-postgresbackend-sync (next)
-Plan: 01 next
+Phase: 09-harden-sync-postgres-backend
+Plan: 01 complete, 02 pending
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 01 next
 | Phase 06-storage-foundation P01 | 3 min | 2 tasks | 4 files |
 | Phase 06-storage-foundation P02 | 3 min | 2 tasks | 7 files |
 | Phase 06-storage-foundation P03 | 3 min | 2 tasks | 5 files |
+| Phase 09-harden-sync-postgres-backend P01 | 11 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,13 @@ Recent decisions affecting current work:
 - [Phase 06-storage-foundation]: Reject non-default db_path when backend is provided so Corpulse has a single authoritative storage configuration.
 - [Phase 06-storage-foundation]: Kept SQLite-private WAL verification separate from the shared backend parity test so the contract suite stays backend-agnostic.
 - [Phase 06-storage-foundation]: Used a parametrized backend fixture with backend ids sqlite and memory to prove identical public semantics across implementations.
+- [Phase 07-postgresbackend-sync]: PostgresBackend loads psycopg only via a private loader and `corpulse.backends.__getattr__` so base package imports remain dependency-free.
+- [Phase 07-postgresbackend-sync]: Real Postgres parity coverage is gated behind `CORPULSE_POSTGRES_TEST_CONNINFO`; default local test runs use fake-driver coverage and skip live DB assertions cleanly.
+- [Phase 08-asyncpostgresbackend]: AsyncPostgresBackend lazy-loads `asyncpg` and is exported via `corpulse.backends.__getattr__` so base imports stay dependency-free.
+- [Phase 08-asyncpostgresbackend]: Reused the sync Postgres `SCHEMA` constant but split it into individual statements because `asyncpg` does not accept multi-statement `execute()` calls.
+- [Phase 08-asyncpostgresbackend]: Added `async_backend` as an env-gated fixture for shared async parity while keeping default local runs green without a live database.
+- [Phase 09-harden-sync-postgres-backend]: PostgresBackend now owns a psycopg_pool.ConnectionPool and checks out a connection per public operation so the sync Corpulse facade stays unchanged while meeting INT-03.
+- [Phase 09-harden-sync-postgres-backend]: The [postgres] extra now uses psycopg[pool]>=3.2 so the optional install surface matches the separate psycopg_pool runtime package.
 
 ### Pending Todos
 
@@ -111,6 +119,8 @@ None yet.
 
 - [Research]: Default `payload_id_field` value is a guess ("doc_id") — validate against demo.py before finalizing wrapper API in Phase 3
 - [Research]: async SQLite write latency via asyncio.to_thread() is unbenchmarked — acceptable for now, document as known trade-off
+- [Phase 07]: Live PostgreSQL parity tests are implemented but unverified in this workspace until `CORPULSE_POSTGRES_TEST_CONNINFO` is provided.
+- [Phase 08]: Live async PostgreSQL round-trip tests are implemented but unverified in this workspace until `CORPULSE_POSTGRES_TEST_CONNINFO` and `asyncpg` are available.
 
 ### Quick Tasks Completed
 
@@ -124,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-08 - Completed 06-03: In-memory backend and shared parity coverage
-Stopped at: Completed 06-storage-foundation-03-PLAN.md
+Last activity: 2026-04-09 - Executed 09-01: pooled sync Postgres backend and parity updates
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
