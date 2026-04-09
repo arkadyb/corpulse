@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
 status: in_progress
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-04-09T11:30:24.887Z"
-last_activity: 2026-04-09 - Executed 09-01: pooled sync Postgres backend and parity updates
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-04-09T11:40:27.855Z"
+last_activity: "2026-04-09 - Executed 09-02: refreshed sync Postgres verification evidence and traceability"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Current Position
 
-Phase: 09-harden-sync-postgres-backend
-Plan: 01 complete, 02 pending
+Phase: 09-harden-sync-postgres-backend complete
+Plan: 02 complete; Phase 10 planning pending
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Plan: 01 complete, 02 pending
 | Phase 06-storage-foundation P02 | 3 min | 2 tasks | 7 files |
 | Phase 06-storage-foundation P03 | 3 min | 2 tasks | 5 files |
 | Phase 09-harden-sync-postgres-backend P01 | 11 min | 2 tasks | 6 files |
+| Phase 09-harden-sync-postgres-backend P02 | 4 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 08-asyncpostgresbackend]: Added `async_backend` as an env-gated fixture for shared async parity while keeping default local runs green without a live database.
 - [Phase 09-harden-sync-postgres-backend]: PostgresBackend now owns a psycopg_pool.ConnectionPool and checks out a connection per public operation so the sync Corpulse facade stays unchanged while meeting INT-03.
 - [Phase 09-harden-sync-postgres-backend]: The [postgres] extra now uses psycopg[pool]>=3.2 so the optional install surface matches the separate psycopg_pool runtime package.
+- [Phase 09-harden-sync-postgres-backend]: Treat BACK-04 and INT-03 as evidence-closure work: requirements stay closed only when deterministic and live pooled pytest runs are recorded on disk.
+- [Phase 09-harden-sync-postgres-backend]: Keep the sync Corpulse facade unchanged in verification artifacts and tie pooling proof to PostgresBackend internals plus passed live parity.
 
 ### Pending Todos
 
@@ -119,7 +122,6 @@ None yet.
 
 - [Research]: Default `payload_id_field` value is a guess ("doc_id") — validate against demo.py before finalizing wrapper API in Phase 3
 - [Research]: async SQLite write latency via asyncio.to_thread() is unbenchmarked — acceptable for now, document as known trade-off
-- [Phase 07]: Live PostgreSQL parity tests are implemented but unverified in this workspace until `CORPULSE_POSTGRES_TEST_CONNINFO` is provided.
 - [Phase 08]: Live async PostgreSQL round-trip tests are implemented but unverified in this workspace until `CORPULSE_POSTGRES_TEST_CONNINFO` and `asyncpg` are available.
 
 ### Quick Tasks Completed
@@ -135,5 +137,5 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-09 - Executed 09-01: pooled sync Postgres backend and parity updates
-Stopped at: Completed 09-01-PLAN.md
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
