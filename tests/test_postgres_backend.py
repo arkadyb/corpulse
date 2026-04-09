@@ -28,9 +28,6 @@ class FakeCursor:
 class FakeConnection:
     def __init__(self):
         self.calls: list[tuple[str, tuple | None]] = []
-        self.commits = 0
-        self.rollbacks = 0
-        self.closed = 0
         self.rows: dict[str, list[dict]] = {}
         self.error: Exception | None = None
 
@@ -41,81 +38,139 @@ class FakeConnection:
             raise self.error
         return FakeCursor(self.rows.get(normalized, []))
 
-    def commit(self):
-        self.commits += 1
 
-    def rollback(self):
-        self.rollbacks += 1
+class FakePoolConnectionContext:
+    def __init__(self, pool: FakeConnectionPool):
+        self.pool = pool
+
+    def __enter__(self):
+        self.pool.checkout_count += 1
+        if self.pool._queued_connections:
+            self.connection = self.pool._queued_connections.pop(0)
+        else:
+            self.connection = FakeConnection()
+        self.pool.connections.append(self.connection)
+        return self.connection
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class FakeConnectionPool:
+    def __init__(self, conninfo: str, min_size: int, max_size: int, kwargs: dict, open: bool):
+        self.conninfo = conninfo
+        self.min_size = min_size
+        self.max_size = max_size
+        self.kwargs = kwargs
+        self.open = open
+        self.wait_calls = 0
+        self.close_calls = 0
+        self.checkout_count = 0
+        self.connections: list[FakeConnection] = []
+        self._queued_connections: list[FakeConnection] = []
+
+    def wait(self):
+        self.wait_calls += 1
+
+    def connection(self):
+        return FakePoolConnectionContext(self)
 
     def close(self):
-        self.closed += 1
+        self.close_calls += 1
+
+    def queue_connection(self, connection: FakeConnection) -> None:
+        self._queued_connections.append(connection)
 
 
-class FakePsycopgModule:
-    Error = FakePsycopgError
+class FakeConnectionPoolFactory:
+    def __init__(self):
+        self.calls: list[tuple[str, int, int, dict, bool]] = []
+        self.pools: list[FakeConnectionPool] = []
 
-    def __init__(self, connection: FakeConnection):
-        self.connection = connection
-        self.connect_calls = []
+    def __call__(self, conninfo: str, min_size: int, max_size: int, kwargs: dict, open: bool):
+        self.calls.append((conninfo, min_size, max_size, kwargs, open))
+        pool = FakeConnectionPool(conninfo, min_size, max_size, kwargs, open)
+        self.pools.append(pool)
+        return pool
 
-    def connect(self, conninfo: str, row_factory):
-        self.connect_calls.append((conninfo, row_factory))
-        return self.connection
+
+def _make_backend(monkeypatch, pool_factory: FakeConnectionPoolFactory | None = None):
+    if pool_factory is None:
+        pool_factory = FakeConnectionPoolFactory()
+    dict_row = object()
+    monkeypatch.setattr(
+        "corpulse.backends.postgres._load_psycopg_pool",
+        lambda: (pool_factory, dict_row, FakePsycopgError),
+    )
+    return PostgresBackend("postgresql://example"), pool_factory, dict_row
 
 
 def test_postgres_backend_requires_psycopg(monkeypatch):
     def raising_loader():
         raise ImportError("Install corpulse[postgres].")
 
-    monkeypatch.setattr("corpulse.backends.postgres._load_psycopg", raising_loader)
+    monkeypatch.setattr("corpulse.backends.postgres._load_psycopg_pool", raising_loader)
 
     with pytest.raises(ImportError, match=r"corpulse\[postgres\]"):
         PostgresBackend("postgresql://example")
 
 
-def test_postgres_backend_initializes_schema_and_uses_lazy_driver(monkeypatch):
-    connection = FakeConnection()
-    psycopg = FakePsycopgModule(connection)
-    dict_row = object()
-    monkeypatch.setattr(
-        "corpulse.backends.postgres._load_psycopg",
-        lambda: (psycopg, dict_row, FakePsycopgError),
+def test_postgres_backend_initializes_schema_through_pool_checkout(monkeypatch):
+    backend, pool_factory, dict_row = _make_backend(monkeypatch)
+
+    assert pool_factory.calls == [
+        ("postgresql://example", 1, 10, {"row_factory": dict_row}, True)
+    ]
+    pool = pool_factory.pools[0]
+    assert pool.wait_calls == 1
+    assert pool.checkout_count == 1
+    assert len(pool.connections) == 1
+    assert any(
+        "CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in pool.connections[0].calls
     )
 
-    backend = PostgresBackend("postgresql://example")
-
-    assert psycopg.connect_calls == [("postgresql://example", dict_row)]
-    assert any("CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in connection.calls)
-    assert connection.commits == 1
     backend.close()
+    assert pool.close_calls == 1
+
+
+def test_postgres_backend_accepts_pool_size_kwargs(monkeypatch):
+    custom_factory = FakeConnectionPoolFactory()
+    dict_row = object()
+    monkeypatch.setattr(
+        "corpulse.backends.postgres._load_psycopg_pool",
+        lambda: (custom_factory, dict_row, FakePsycopgError),
+    )
+    custom_backend = PostgresBackend(
+        "postgresql://custom",
+        min_size=3,
+        max_size=7,
+    )
+
+    assert custom_factory.calls == [
+        ("postgresql://custom", 3, 7, {"row_factory": dict_row}, True)
+    ]
+    custom_backend.close()
 
 
 def test_postgres_backend_translates_driver_errors(monkeypatch):
-    connection = FakeConnection()
-    psycopg = FakePsycopgModule(connection)
-    monkeypatch.setattr(
-        "corpulse.backends.postgres._load_psycopg",
-        lambda: (psycopg, object(), FakePsycopgError),
-    )
-    backend = PostgresBackend("postgresql://example")
-    connection.error = FakePsycopgError("boom")
+    backend, pool_factory, _ = _make_backend(monkeypatch)
+    pool = pool_factory.pools[0]
+    error_connection = FakeConnection()
+    error_connection.error = FakePsycopgError("boom")
+    pool.queue_connection(error_connection)
 
     with pytest.raises(StorageBackendError, match="boom") as exc_info:
         backend.all_documents()
 
     assert isinstance(exc_info.value.__cause__, FakePsycopgError)
-    assert connection.rollbacks == 1
 
 
 def test_postgres_backend_returns_mapping_rows(monkeypatch):
-    connection = FakeConnection()
-    psycopg = FakePsycopgModule(connection)
-    monkeypatch.setattr(
-        "corpulse.backends.postgres._load_psycopg",
-        lambda: (psycopg, object(), FakePsycopgError),
-    )
+    backend, pool_factory, _ = _make_backend(monkeypatch)
+    pool = pool_factory.pools[0]
 
-    connection.rows[_normalize_sql("SELECT * FROM documents")] = [
+    documents_conn = FakeConnection()
+    documents_conn.rows[_normalize_sql("SELECT * FROM documents")] = [
         {
             "doc_id": "doc-1",
             "filename": "doc-1.md",
@@ -124,7 +179,8 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             "source_updated_at": 40.0,
         }
     ]
-    connection.rows[
+    retrievals_conn = FakeConnection()
+    retrievals_conn.rows[
         _normalize_sql(
             """
             SELECT doc_id, COUNT(*) AS cnt,
@@ -135,7 +191,8 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}]
-    connection.rows[
+    engagements_conn = FakeConnection()
+    engagements_conn.rows[
         _normalize_sql(
             """
             SELECT doc_id, COUNT(*) AS cnt
@@ -145,7 +202,8 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "cnt": 1}]
-    connection.rows[
+    embeddings_conn = FakeConnection()
+    embeddings_conn.rows[
         _normalize_sql(
             """
             SELECT doc_id, filename, embedding_vec
@@ -154,8 +212,10 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}]
-
-    backend = PostgresBackend("postgresql://example")
+    pool.queue_connection(documents_conn)
+    pool.queue_connection(retrievals_conn)
+    pool.queue_connection(engagements_conn)
+    pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [
         {
@@ -175,6 +235,20 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     ]
 
 
+def test_postgres_backend_checks_out_a_connection_for_each_operation(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch)
+    pool = pool_factory.pools[0]
+
+    backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=1.0)
+    backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
+    backend.insert_engagement("doc-1", "opened", 3.0)
+    backend.update_source_timestamp("doc-1", 4.0)
+    backend.all_documents()
+
+    assert pool.checkout_count == 6
+    assert not hasattr(backend, "_conn")
+
+
 @pytest.mark.skipif(
     not os.environ.get("CORPULSE_POSTGRES_TEST_CONNINFO")
     or importlib.util.find_spec("psycopg") is None,
@@ -184,8 +258,8 @@ def test_live_postgres_backend_round_trip():
     from corpulse.backends import PostgresBackend as LivePostgresBackend
 
     with LivePostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as backend:
-        backend._conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
-        backend._conn.commit()
+        with backend._pool.connection() as conn:
+            conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
 
         backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=12.5)
         backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
