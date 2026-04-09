@@ -102,6 +102,8 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 ### Async Facade
 
+- Phase 10 delivered the narrow async integration path: `AsyncCorpulse` supports async ingestion plus a minimal async read proof on top of `AsyncPostgresBackend`.
+- The broader async analytics facade remains deferred to v2 so milestone v1.1 closes on recorded proof without over-claiming full async parity.
 - **ASYNC-01**: AsyncCorpulse facade with async analytics methods
 - **ASYNC-02**: Native async support without asyncio.to_thread() bridge
 
@@ -121,7 +123,7 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 | PyPI publishing | GitHub-only until API stabilizes |
 | SQLAlchemy/ORM abstraction | Library uses raw SQL by design; ORM adds heavy dependency for 3 tables |
 | Schema migration (Alembic) | 3 stable tables; CREATE TABLE IF NOT EXISTS is sufficient |
-| AsyncCorpulse facade | Async analytics layer is a separate milestone; v1.1 focuses on storage only |
+| Broader async analytics facade | Phase 10 delivered the narrow async integration path, but the broader async analytics facade stays deferred to v2 |
 | MySQL/MariaDB backend | PostgreSQL is the priority for the service repo |
 
 ## Traceability
@@ -180,4 +182,4 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-09 after Phase 9 sync-only evidence was narrowed and INT-03 was remapped to pending async verification*
+*Last updated: 2026-04-09 after Phase 10 async verification closed BACK-05 and INT-03 on recorded proof*

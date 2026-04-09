@@ -129,7 +129,7 @@ Plans:
 **Requirements**: BACK-05, INT-02, INT-03
 **Success Criteria** (what must be TRUE):
   1. `pip install "corpulse[postgres-async]"` installs asyncpg>=0.29 as an optional dependency
-  2. `Corpulse(backend=await AsyncPostgresBackend.create(dsn="..."))` works in async context with a connection pool
+  2. `await AsyncPostgresBackend.create(dsn="...")` works in async context with a connection pool
   3. The shared parametrized test fixture passes for AsyncPostgresBackend
   4. Both PostgresBackend and AsyncPostgresBackend support connection pooling with configurable pool size
   5. asyncpg is only imported when AsyncPostgresBackend is instantiated — not at `import corpulse` time
@@ -156,20 +156,20 @@ Plans:
 - [x] 09-03-PLAN.md — Reopen or remap INT-03 traceability so Phase 9 claims only verified sync closure
 
 #### Phase 10: Make Async Backend Usable From Corpulse
-**Goal**: The async Postgres backend is reachable through a supported Corpulse integration path, with verification artifacts that prove async usage works end to end
+**Goal**: `AsyncCorpulse` provides the supported corpulse-facing async integration path to the pooled async Postgres backend, with verification artifacts proving end-to-end async usage
 **Depends on**: Phase 9
 **Requirements**: BACK-05, INT-03
 **Gap Closure**: Closes milestone audit gaps for async facade incompatibility, missing Phase 8 verification, and broken async backend injection flow
 **Success Criteria** (what must be TRUE):
-  1. Corpulse exposes a supported async integration path for `AsyncPostgresBackend.create(...)` that matches the documented milestone contract
+  1. `AsyncCorpulse` exposes the supported async integration path for `AsyncPostgresBackend.create(...)` that matches the documented milestone contract
   2. The shared backend contract or equivalent async integration suite passes against `AsyncPostgresBackend`
   3. Phase 8/10 verification artifacts prove the async backend path works in a real async usage flow
   4. Requirement traceability and milestone evidence show `BACK-05` closed by verified implementation rather than code-only claims
-**Plans**: 1/2 plans complete
+**Plans**: 2/2 plans complete
 
 Plans:
 - [x] 10-01-PLAN.md — Add a narrow AsyncCorpulse facade plus deterministic and live async integration tests
-- [ ] 10-02-PLAN.md — Refresh Phase 8/10 verification artifacts and close async traceability on recorded proof
+- [x] 10-02-PLAN.md — Refresh Phase 8/10 verification artifacts and close async traceability on recorded proof
 
 ## Progress
 
@@ -185,6 +185,6 @@ Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 | 5. Address Review Findings | v1.0 | 3/3 | Complete | 2026-04-07 |
 | 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
 | 7. PostgresBackend (Sync) | v1.1 | 1/1 | Complete | 2026-04-09 |
-| 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
+| 8. AsyncPostgresBackend | v1.1 | 1/1 | Complete | 2026-04-09 |
 | 9. Harden Sync Postgres Backend | v1.1 | 3/3 | Complete | 2026-04-09 |
-| 10. Make Async Backend Usable From Corpulse | v1.1 | 1/2 | In Progress | - |
+| 10. Make Async Backend Usable From Corpulse | v1.1 | 2/2 | Complete | 2026-04-09 |
