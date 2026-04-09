@@ -28,6 +28,16 @@ def _backend_params() -> list[str]:
     return params
 
 
+def _async_backend_params() -> list[str]:
+    params = []
+    if (
+        os.environ.get("CORPULSE_POSTGRES_TEST_CONNINFO")
+        and importlib.util.find_spec("asyncpg") is not None
+    ):
+        params.append("async_postgres")
+    return params or ["skip"]
+
+
 @pytest.fixture(params=_backend_params())
 def backend(request, tmp_path):
     if request.param == "sqlite":
@@ -54,3 +64,25 @@ def backend(request, tmp_path):
 
     with InMemoryBackend() as storage_backend:
         yield storage_backend
+
+
+@pytest.fixture(params=_async_backend_params())
+async def async_backend(request):
+    if request.param == "skip":
+        pytest.skip("requires CORPULSE_POSTGRES_TEST_CONNINFO and asyncpg")
+
+    from corpulse.backends import AsyncPostgresBackend
+
+    backend = await AsyncPostgresBackend.create(
+        os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]
+    )
+    async with backend._pool.acquire() as conn:
+        await conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
+    try:
+        yield backend
+    finally:
+        async with backend._pool.acquire() as conn:
+            await conn.execute(
+                "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
+            )
+        await backend.close()
