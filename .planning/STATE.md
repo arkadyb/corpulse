@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — Pluggable Storage Backends
 status: in_progress
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-09T11:40:27.855Z"
-last_activity: "2026-04-09 - Executed 09-02: refreshed sync Postgres verification evidence and traceability"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-04-09T11:56:05.693Z"
+last_activity: "2026-04-09 - Executed 09-03: remapped INT-03 traceability to pending async verification"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 09-harden-sync-postgres-backend complete
-Plan: 02 complete; Phase 10 planning pending
+Plan: 03 complete; Phase 10 planning pending
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 02 complete; Phase 10 planning pending
 | Phase 06-storage-foundation P03 | 3 min | 2 tasks | 5 files |
 | Phase 09-harden-sync-postgres-backend P01 | 11 min | 2 tasks | 6 files |
 | Phase 09-harden-sync-postgres-backend P02 | 4 min | 2 tasks | 4 files |
+| Phase 09-harden-sync-postgres-backend P03 | 9 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Recent decisions affecting current work:
 - [Phase 09-harden-sync-postgres-backend]: The [postgres] extra now uses psycopg[pool]>=3.2 so the optional install surface matches the separate psycopg_pool runtime package.
 - [Phase 09-harden-sync-postgres-backend]: Treat BACK-04 and INT-03 as evidence-closure work: requirements stay closed only when deterministic and live pooled pytest runs are recorded on disk.
 - [Phase 09-harden-sync-postgres-backend]: Keep the sync Corpulse facade unchanged in verification artifacts and tie pooling proof to PostgresBackend internals plus passed live parity.
+- [Phase 09]: Keep BACK-04 closed on recorded sync pooling evidence instead of reopening already-verified sync work.
+- [Phase 09]: Reopen INT-03 and hand final closure to later async verification work rather than fabricating proof inside Phase 9.
 
 ### Pending Todos
 
@@ -136,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-09 - Executed 09-01: pooled sync Postgres backend and parity updates
-Stopped at: Completed 09-02-PLAN.md
+Last activity: 2026-04-09 - Executed 09-03: remapped INT-03 traceability to pending async verification
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None

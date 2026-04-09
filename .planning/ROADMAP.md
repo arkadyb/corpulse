@@ -102,7 +102,7 @@ Plans:
   3. `Corpulse(backend=InMemoryBackend())` records retrievals and produces analytics from in-memory state with no file I/O
   4. Any native DB exception raised inside a backend surfaces as `StorageBackendError` at the caller boundary
   5. All backends support `with Corpulse(...) as c:` context manager and explicit `.close()`
-**Plans**: 2/3 plans complete
+**Plans**: 3/3 plans complete
 
 Plans:
 - [x] 06-01-PLAN.md — Freeze the backend contract and add shared backend contract/core integration test scaffolding
@@ -148,12 +148,12 @@ Plans:
   2. `PostgresBackend` uses configurable connection pooling rather than a single long-lived psycopg connection
   3. Pooling behavior is covered by automated tests or equivalent deterministic verification artifacts
   4. Phase 7/9 verification artifacts provide milestone-grade evidence that the sync Postgres path is complete
-**Plans**: 2/3 plans complete
+**Plans**: 3/3 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — Refactor PostgresBackend to use configurable sync pooling and update parity coverage
 - [x] 09-02-PLAN.md — Refresh Phase 7/9 verification artifacts and close BACK-04 traceability while surfacing the INT-03 gap
-- [ ] 09-03-PLAN.md — Reopen or remap INT-03 traceability so Phase 9 claims only verified sync closure
+- [x] 09-03-PLAN.md — Reopen or remap INT-03 traceability so Phase 9 claims only verified sync closure
 
 #### Phase 10: Make Async Backend Usable From Corpulse
 **Goal**: The async Postgres backend is reachable through a supported Corpulse integration path, with verification artifacts that prove async usage works end to end
@@ -185,5 +185,5 @@ Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 | 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
 | 7. PostgresBackend (Sync) | v1.1 | 1/1 | Complete | 2026-04-09 |
 | 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
-| 9. Harden Sync Postgres Backend | v1.1 | 2/3 | In progress | - |
+| 9. Harden Sync Postgres Backend | v1.1 | 3/3 | Complete | 2026-04-09 |
 | 10. Make Async Backend Usable From Corpulse | v1.1 | 0/0 | Planned | - |
