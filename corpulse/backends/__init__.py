@@ -19,5 +19,15 @@ __all__ = [
     "StorageBackend",
     "StorageBackendError",
     "InMemoryBackend",
+    "PostgresBackend",
     "SQLiteBackend",
 ]
+
+
+def __getattr__(name: str):
+    if name == "PostgresBackend":
+        from .postgres import PostgresBackend
+
+        globals()["PostgresBackend"] = PostgresBackend
+        return PostgresBackend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
