@@ -77,7 +77,7 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 - [x] **INT-01**: Corpulse(backend=...) accepts explicit backend; defaults to SQLiteBackend when omitted
 - [ ] **INT-02**: pyproject.toml extras: [postgres] for psycopg, [postgres-async] for asyncpg
-- [x] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
+- [ ] **INT-03**: PostgresBackend and AsyncPostgresBackend support connection pooling
 
 ## v2 Requirements
 
@@ -170,7 +170,7 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 | BACK-06 | Phase 6 | Complete |
 | INT-01 | Phase 6 | Complete |
 | INT-02 | Phases 7-8 | Pending |
-| INT-03 | Phase 9 | Complete |
+| INT-03 | Phases 9-10 | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total (all complete)
@@ -180,4 +180,4 @@ Requirements for milestone v1.1: Pluggable Storage Backends.
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-09 after verified sync Postgres milestone evidence refresh*
+*Last updated: 2026-04-09 after Phase 9 sync-only evidence was narrowed and INT-03 was remapped to pending async verification*
