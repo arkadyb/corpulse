@@ -85,3 +85,15 @@ def test_async_postgres_backend_lazy_export_does_not_import_asyncpg():
 
     assert async_pg_backend.__name__ == "AsyncPostgresBackend"
     assert "asyncpg" not in sys.modules
+
+
+def test_package_root_async_corpulse_export_does_not_import_asyncpg():
+    """corpulse.AsyncCorpulse should be available without importing asyncpg."""
+    sys.modules.pop("asyncpg", None)
+    import corpulse
+
+    importlib.reload(corpulse)
+
+    assert hasattr(corpulse, "AsyncCorpulse")
+    assert corpulse.AsyncCorpulse.__name__ == "AsyncCorpulse"
+    assert "asyncpg" not in sys.modules
