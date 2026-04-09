@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from .base import (
@@ -42,38 +43,44 @@ CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
 """
 
 
-def _load_psycopg() -> tuple[Any, Any, type[BaseException]]:
+def _load_psycopg_pool() -> tuple[Any, Any, type[BaseException]]:
     try:
-        import psycopg
         from psycopg.rows import dict_row
+        import psycopg
+        from psycopg_pool import ConnectionPool
     except ImportError as exc:
         raise ImportError(
-            "psycopg is required to use PostgresBackend. "
+            "psycopg_pool is required to use PostgresBackend. "
             "Install corpulse[postgres]."
         ) from exc
 
-    return psycopg, dict_row, psycopg.Error
+    return ConnectionPool, dict_row, psycopg.Error
 
 
 class PostgresBackend(StorageBackend):
-    def __init__(self, conninfo: str):
-        psycopg, dict_row, error_cls = _load_psycopg()
+    def __init__(self, conninfo: str, *, min_size: int = 1, max_size: int = 10):
+        connection_pool, dict_row, error_cls = _load_psycopg_pool()
         self._error_cls = error_cls
-        self._conn = psycopg.connect(conninfo, row_factory=dict_row)
+        self._pool = connection_pool(
+            conninfo=conninfo,
+            min_size=min_size,
+            max_size=max_size,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        )
         self._closed = False
+        self._pool.wait()
         self._init()
 
-    def _run(self, operation):
+    def _run(self, operation: Callable[[Any], Any]):
         try:
-            result = operation()
-            self._conn.commit()
-            return result
+            with self._pool.connection() as conn:
+                return operation(conn)
         except self._error_cls as exc:
-            self._conn.rollback()
             raise StorageBackendError(str(exc)) from exc
 
     def _init(self) -> None:
-        self._run(lambda: self._conn.execute(SCHEMA))
+        self._run(lambda conn: conn.execute(SCHEMA))
 
     def upsert_document(
         self,
@@ -83,7 +90,7 @@ class PostgresBackend(StorageBackend):
         embedded_at: float | None = None,
     ) -> None:
         self._run(
-            lambda: self._conn.execute(
+            lambda conn: conn.execute(
                 """
                 INSERT INTO documents (doc_id, filename, embedding_vec, embedded_at)
                 VALUES (%s, %s, %s, %s)
@@ -105,7 +112,7 @@ class PostgresBackend(StorageBackend):
         retrieved_at: float,
     ) -> None:
         self._run(
-            lambda: self._conn.execute(
+            lambda conn: conn.execute(
                 """
                 INSERT INTO retrievals (doc_id, query_hash, rank, score, retrieved_at)
                 VALUES (%s, %s, %s, %s, %s)
@@ -121,7 +128,7 @@ class PostgresBackend(StorageBackend):
         engaged_at: float,
     ) -> None:
         self._run(
-            lambda: self._conn.execute(
+            lambda conn: conn.execute(
                 """
                 INSERT INTO engagements (doc_id, event_type, engaged_at)
                 VALUES (%s, %s, %s)
@@ -132,7 +139,7 @@ class PostgresBackend(StorageBackend):
 
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         self._run(
-            lambda: self._conn.execute(
+            lambda conn: conn.execute(
                 """
                 UPDATE documents SET source_updated_at = %s WHERE doc_id = %s
                 """,
@@ -142,17 +149,17 @@ class PostgresBackend(StorageBackend):
 
     def all_documents(self) -> list[DocumentRow]:
         return self._run(
-            lambda: [
+            lambda conn: [
                 dict(row)
-                for row in self._conn.execute("SELECT * FROM documents").fetchall()
+                for row in conn.execute("SELECT * FROM documents").fetchall()
             ]
         )
 
     def retrieval_counts(self, since: float) -> list[RetrievalRow]:
         return self._run(
-            lambda: [
+            lambda conn: [
                 dict(row)
-                for row in self._conn.execute(
+                for row in conn.execute(
                     """
                     SELECT doc_id, COUNT(*) AS cnt,
                            AVG(rank) AS avg_rank, AVG(score) AS avg_score
@@ -167,9 +174,9 @@ class PostgresBackend(StorageBackend):
 
     def engagement_counts(self, since: float) -> list[EngagementRow]:
         return self._run(
-            lambda: [
+            lambda conn: [
                 dict(row)
-                for row in self._conn.execute(
+                for row in conn.execute(
                     """
                     SELECT doc_id, COUNT(*) AS cnt
                     FROM engagements
@@ -183,9 +190,9 @@ class PostgresBackend(StorageBackend):
 
     def all_embeddings(self) -> list[EmbeddingRow]:
         return self._run(
-            lambda: [
+            lambda conn: [
                 dict(row)
-                for row in self._conn.execute(
+                for row in conn.execute(
                     """
                     SELECT doc_id, filename, embedding_vec
                     FROM documents
@@ -198,5 +205,5 @@ class PostgresBackend(StorageBackend):
     def close(self) -> None:
         if self._closed:
             return
-        self._conn.close()
+        self._pool.close()
         self._closed = True
