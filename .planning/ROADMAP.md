@@ -141,23 +141,24 @@ Plans:
 #### Phase 9: Harden Sync Postgres Backend
 **Goal**: The sync Postgres backend meets the milestone pooling requirement and has current verification evidence that proves the production Postgres path is actually complete
 **Depends on**: Phase 8
-**Requirements**: BACK-04, INT-03
+**Requirements**: BACK-04
 **Gap Closure**: Closes milestone audit gaps for stale Phase 7 evidence and missing sync pooling support
 **Success Criteria** (what must be TRUE):
   1. `Corpulse(backend=PostgresBackend(conninfo="..."))` still auto-creates the schema and passes the shared backend parity suite
   2. `PostgresBackend` uses configurable connection pooling rather than a single long-lived psycopg connection
   3. Pooling behavior is covered by automated tests or equivalent deterministic verification artifacts
   4. Phase 7/9 verification artifacts provide milestone-grade evidence that the sync Postgres path is complete
-**Plans**: 2/2 plans complete
+**Plans**: 2/3 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — Refactor PostgresBackend to use configurable sync pooling and update parity coverage
-- [x] 09-02-PLAN.md — Refresh Phase 7/9 verification artifacts and close BACK-04/INT-03 traceability
+- [x] 09-02-PLAN.md — Refresh Phase 7/9 verification artifacts and close BACK-04 traceability while surfacing the INT-03 gap
+- [ ] 09-03-PLAN.md — Reopen or remap INT-03 traceability so Phase 9 claims only verified sync closure
 
 #### Phase 10: Make Async Backend Usable From Corpulse
 **Goal**: The async Postgres backend is reachable through a supported Corpulse integration path, with verification artifacts that prove async usage works end to end
 **Depends on**: Phase 9
-**Requirements**: BACK-05
+**Requirements**: BACK-05, INT-03
 **Gap Closure**: Closes milestone audit gaps for async facade incompatibility, missing Phase 8 verification, and broken async backend injection flow
 **Success Criteria** (what must be TRUE):
   1. Corpulse exposes a supported async integration path for `AsyncPostgresBackend.create(...)` that matches the documented milestone contract
@@ -184,5 +185,5 @@ Phases execute in numeric order: 6 → 7 → 8 → 9 → 10
 | 6. Storage Foundation | v1.1 | 3/3 | Complete | 2026-04-08 |
 | 7. PostgresBackend (Sync) | v1.1 | 1/1 | Complete | 2026-04-09 |
 | 8. AsyncPostgresBackend | v1.1 | 1/1 | In progress | - |
-| 9. Harden Sync Postgres Backend | v1.1 | 2/2 | Complete | 2026-04-09 |
+| 9. Harden Sync Postgres Backend | v1.1 | 2/3 | In progress | - |
 | 10. Make Async Backend Usable From Corpulse | v1.1 | 0/0 | Planned | - |
