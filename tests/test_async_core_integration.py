@@ -8,8 +8,14 @@ import numpy as np
 import pytest
 
 from corpulse import AsyncCorpulse, Corpulse
-from corpulse.core import _hash_query, _vec_to_bytes
-from tests.report_fixtures import build_report_fixture_snapshot
+from corpulse.core import (
+    _build_cleanup_payload,
+    _build_report_rows,
+    _build_report_summary,
+    _hash_query,
+    _vec_to_bytes,
+)
+from tests.report_fixtures import build_report_fixture_snapshot, helper_inputs
 
 
 class FakeAsyncBackend:
@@ -412,6 +418,118 @@ async def test_async_to_dataframe_raises_without_pandas(monkeypatch):
 
     with pytest.raises(RuntimeError, match="^pip install pandas to use to_dataframe\\(\\)$"):
         await async_corpulse.to_dataframe()
+
+
+async def test_async_report_returns_helper_derived_payload(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    inputs = helper_inputs(window_days=30)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    expected = {
+        "summary": _build_report_summary(
+            inputs["all_docs"],
+            inputs["window_days"],
+            inputs["health"],
+        ),
+        "rows": _build_report_rows(
+            inputs["all_docs"],
+            inputs["r_map"],
+            inputs["e_map"],
+            inputs["ghost_ids"],
+            inputs["obsolete_ids"],
+            inputs["stale_ids"],
+            corpulse.top_k_report,
+        ),
+    }
+
+    assert await corpulse.report(window_days=30) == expected
+
+
+async def test_async_report_preserves_low_engagement_threshold_parity(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    payload = await corpulse.report(window_days=30)
+
+    noisy_row = next(row for row in payload["rows"] if row["filename"] == "noisy.md")
+    assert noisy_row["status"] == "low_engagement"
+    assert noisy_row["status_display"] == "◌  low eng."
+    assert noisy_row["engagement_rate"] == "10%"
+
+
+async def test_async_cleanup_report_returns_helper_derived_payload(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    inputs = helper_inputs(window_days=30)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    expected = _build_cleanup_payload(
+        inputs["health"],
+        inputs["ghosts"],
+        inputs["obsolete"],
+        inputs["stale"],
+        inputs["suspects"],
+        corpulse.ghost_threshold_days,
+    )
+
+    assert await corpulse.cleanup_report() == expected
+
+
+async def test_async_cleanup_report_matches_counts_top5_and_metadata(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    payload = await corpulse.cleanup_report()
+
+    assert payload["total_docs"] == 10
+    assert payload["noise_pct"] == 70.0
+    assert payload["bloat_warning"] is True
+    assert payload["recommendation"] == "Consider pruning ~7 low-signal documents."
+    assert payload["ghost_threshold_days"] == 30
+    assert payload["ghosts"] == {
+        "count": 2,
+        "top5": [
+            {"doc_id": "ghost-a", "filename": "ghost_a.md"},
+            {"doc_id": "ghost-b", "filename": "ghost_b.md"},
+        ],
+        "overflow": 0,
+    }
+    assert payload["obsolete"] == {
+        "count": 2,
+        "top5": [
+            {"doc_id": "api-v1", "filename": "api-v1.md", "superseded_by": "api-v2.md"},
+            {"doc_id": "guide-v1", "filename": "guide-v1.md", "superseded_by": "guide-v2.md"},
+        ],
+        "overflow": 0,
+    }
+    assert payload["stale"] == {
+        "count": 1,
+        "top5": [
+            {
+                "doc_id": "stale-doc",
+                "filename": "stale.md",
+                "source_updated": "2023-11-04",
+                "last_embedded": "2023-09-25",
+                "days_behind": 40,
+            }
+        ],
+        "overflow": 0,
+    }
+    assert payload["suspects"] == {
+        "count": 1,
+        "top5": [
+            {
+                "doc_id": "noisy-doc",
+                "filename": "noisy.md",
+                "retrievals": 10,
+                "engagement_rate": 0.1,
+            }
+        ],
+        "overflow": 0,
+    }
 
 
 async def test_async_analysis_methods_await_expected_backend_reads(monkeypatch):

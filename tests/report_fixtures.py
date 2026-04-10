@@ -5,7 +5,13 @@ from typing import Any
 import numpy as np
 
 from corpulse.backends.memory import InMemoryBackend
-from corpulse.core import _vec_to_bytes
+from corpulse.core import (
+    Corpulse,
+    _build_cleanup_payload,
+    _build_report_rows,
+    _build_report_summary,
+    _vec_to_bytes,
+)
 
 FROZEN = 1_700_000_000.0
 _DAY = 86_400
@@ -191,3 +197,62 @@ def build_report_fixture_snapshot(window_days: int = 30) -> dict[str, Any]:
         "engagement_rows": backend.engagement_counts(since=since),
         "embedding_rows": backend.all_embeddings(),
     }
+
+
+def helper_inputs(window_days: int = 30) -> dict[str, Any]:
+    corpulse = Corpulse(backend=build_report_fixture_backend())
+    since = FROZEN - window_days * _DAY
+    all_docs = corpulse.db.all_documents()
+    retrieval_rows = corpulse.db.retrieval_counts(since=since)
+    engagement_rows = corpulse.db.engagement_counts(since=since)
+    ghosts = corpulse.get_ghosts()
+    obsolete = corpulse.get_obsolete()
+    stale = corpulse.get_stale_embeddings()
+    suspects = corpulse.get_suspects()
+    health = corpulse.corpus_health()
+    return {
+        "window_days": window_days,
+        "all_docs": all_docs,
+        "r_map": {row["doc_id"]: row for row in retrieval_rows},
+        "e_map": {row["doc_id"]: row["cnt"] for row in engagement_rows},
+        "ghosts": ghosts,
+        "obsolete": obsolete,
+        "stale": stale,
+        "suspects": suspects,
+        "ghost_ids": {row["doc_id"] for row in ghosts},
+        "obsolete_ids": {row["doc_id"] for row in obsolete},
+        "stale_ids": {row["doc_id"] for row in stale},
+        "health": health,
+    }
+
+
+def expected_report_payload(window_days: int = 30, top_k: int = 20) -> dict[str, Any]:
+    inputs = helper_inputs(window_days=window_days)
+    return {
+        "summary": _build_report_summary(
+            inputs["all_docs"],
+            inputs["window_days"],
+            inputs["health"],
+        ),
+        "rows": _build_report_rows(
+            inputs["all_docs"],
+            inputs["r_map"],
+            inputs["e_map"],
+            inputs["ghost_ids"],
+            inputs["obsolete_ids"],
+            inputs["stale_ids"],
+            top_k,
+        ),
+    }
+
+
+def expected_cleanup_payload(window_days: int = 30, ghost_threshold_days: int = 30) -> dict[str, Any]:
+    inputs = helper_inputs(window_days=window_days)
+    return _build_cleanup_payload(
+        inputs["health"],
+        inputs["ghosts"],
+        inputs["obsolete"],
+        inputs["stale"],
+        inputs["suspects"],
+        ghost_threshold_days,
+    )
