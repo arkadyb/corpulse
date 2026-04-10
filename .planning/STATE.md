@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Full Async Parity
 status: executing
-stopped_at: Completed 11-01-characterization-tests-PLAN.md
-last_updated: "2026-04-10T07:17:48.747Z"
-last_activity: 2026-04-10 -- Phase 11 Plan 01 completed
+stopped_at: Completed 11-02-helper-extraction-PLAN.md
+last_updated: "2026-04-10T07:26:06.986Z"
+last_activity: 2026-04-10
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 ## Current Position
 
 Phase: 11 (shared-report-helpers) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-04-10 -- Phase 11 Plan 01 completed
+Last activity: 2026-04-10
 
-Progress bar: [███░░░░░░░] 1/3 plans complete
+Progress bar: [███████░░░] 2/3 plans complete
 
 ## Pending Todos
 
@@ -52,15 +52,18 @@ None.
 
 - [Phase 11]: Pin sync report and cleanup_report stdout baselines before helper extraction.
 - [Phase 11]: Use a frozen InMemoryBackend fixture for byte-for-byte report regression tests.
+- [Phase 11]: Keep the new helper layer pure by accepting only pre-fetched lists, maps, and IDs rather than backend objects or formatter dependencies. — This keeps the payload builders reusable for the later async consumer without coupling them to sync-only backend calls or formatting.
+- [Phase 11]: Represent the low-engagement divergence test with a tiny epsilon because Python evaluates 3 / 20 as exactly 0.15, which would not exercise the raw-vs-rounded split described in research. — The epsilon keeps the synthetic fixture aligned with the plan intent while preserving the existing helper behavior exactly.
 
 ## Performance Metrics
 
 | Phase | Plan | Duration (s) | Tasks | Files |
 |-------|------|--------------|-------|-------|
 | 11 | 01 | 191 | 1 | 2 |
+| Phase 11 P02 | 6 min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last activity: 2026-04-10 - Phase 11 Plan 01 completed; Plan 02 is next
-Stopped at: Completed 11-01-characterization-tests-PLAN.md
+Last activity: 2026-04-10 - Phase 11 Plan 02 completed; Plan 03 is next
+Stopped at: Completed 11-02-helper-extraction-PLAN.md
 Resume file: None
