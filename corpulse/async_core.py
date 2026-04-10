@@ -6,11 +6,14 @@ import numpy as np
 
 from .core import (
     _SKLEARN,
+    _build_cleanup_payload,
     _build_corpus_health,
     _build_dataframe_rows,
     _build_duplicate_pairs,
     _build_ghosts,
     _build_obsolete_documents,
+    _build_report_rows,
+    _build_report_summary,
     _build_stale_embeddings,
     _build_suspects,
     _days_ago,
@@ -157,6 +160,48 @@ class AsyncCorpulse:
             stale_ids,
         )
         return pd.DataFrame(rows).sort_values("retrievals", ascending=False)
+
+    async def cleanup_report(self) -> dict[str, Any]:
+        health = await self.corpus_health()
+        ghosts = await self.get_ghosts()
+        obsolete = await self.get_obsolete()
+        stale = await self.get_stale_embeddings()
+        suspects = await self.get_suspects()
+        return _build_cleanup_payload(
+            health,
+            ghosts,
+            obsolete,
+            stale,
+            suspects,
+            self.ghost_threshold_days,
+        )
+
+    async def report(self, window_days: int | None = None) -> dict[str, Any]:
+        report_window_days = window_days or self.ghost_threshold_days
+        since = _days_ago(report_window_days)
+        all_docs = await self.db.all_documents()
+        retrieval_rows = await self.db.retrieval_counts(since=since)
+        engagement_rows = await self.db.engagement_counts(since=since)
+        ghosts = await self.get_ghosts()
+        obsolete = await self.get_obsolete()
+        stale = await self.get_stale_embeddings()
+        health = await self.corpus_health()
+        return {
+            "summary": _build_report_summary(
+                all_docs,
+                report_window_days,
+                health,
+            ),
+            "rows": _build_report_rows(
+                all_docs,
+                {row["doc_id"]: row for row in retrieval_rows},
+                {row["doc_id"]: row["cnt"] for row in engagement_rows},
+                {row["doc_id"] for row in ghosts},
+                {row["doc_id"] for row in obsolete},
+                {row["doc_id"] for row in stale},
+                self.top_k_report,
+            ),
+        }
 
     async def close(self) -> None:
         await self.db.close()

@@ -6,10 +6,16 @@ import numpy as np
 
 from corpulse.backends.memory import InMemoryBackend
 from corpulse.core import (
-    Corpulse,
+    _SKLEARN,
     _build_cleanup_payload,
+    _build_corpus_health,
+    _build_duplicate_pairs,
+    _build_ghosts,
+    _build_obsolete_documents,
     _build_report_rows,
     _build_report_summary,
+    _build_stale_embeddings,
+    _build_suspects,
     _vec_to_bytes,
 )
 
@@ -200,16 +206,24 @@ def build_report_fixture_snapshot(window_days: int = 30) -> dict[str, Any]:
 
 
 def helper_inputs(window_days: int = 30) -> dict[str, Any]:
-    corpulse = Corpulse(backend=build_report_fixture_backend())
-    since = FROZEN - window_days * _DAY
-    all_docs = corpulse.db.all_documents()
-    retrieval_rows = corpulse.db.retrieval_counts(since=since)
-    engagement_rows = corpulse.db.engagement_counts(since=since)
-    ghosts = corpulse.get_ghosts()
-    obsolete = corpulse.get_obsolete()
-    stale = corpulse.get_stale_embeddings()
-    suspects = corpulse.get_suspects()
-    health = corpulse.corpus_health()
+    snapshot = build_report_fixture_snapshot(window_days=window_days)
+    all_docs = snapshot["documents"]
+    retrieval_rows = snapshot["retrieval_rows"]
+    engagement_rows = snapshot["engagement_rows"]
+    ghosts = _build_ghosts(all_docs, retrieval_rows)
+    obsolete = _build_obsolete_documents(all_docs, r"v\d+")
+    stale = _build_stale_embeddings(all_docs, 14)
+    suspects = _build_suspects(all_docs, retrieval_rows, engagement_rows)
+    duplicate_pairs: list[dict[str, Any]] = []
+    if _SKLEARN:
+        duplicate_pairs = _build_duplicate_pairs(snapshot["embedding_rows"], 0.92)
+    health = _build_corpus_health(
+        all_docs,
+        ghosts,
+        obsolete,
+        stale,
+        duplicate_pairs,
+    )
     return {
         "window_days": window_days,
         "all_docs": all_docs,
