@@ -7,6 +7,7 @@ import numpy as np
 from .core import (
     _SKLEARN,
     _build_corpus_health,
+    _build_dataframe_rows,
     _build_duplicate_pairs,
     _build_ghosts,
     _build_obsolete_documents,
@@ -133,6 +134,29 @@ class AsyncCorpulse:
             stale,
             duplicate_pairs,
         )
+
+    async def to_dataframe(self, window_days: int | None = None):
+        try:
+            import pandas as pd
+        except ImportError:
+            raise RuntimeError("pip install pandas to use to_dataframe()")
+
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        all_docs = await self.db.all_documents()
+        retrieval_rows = await self.db.retrieval_counts(since=since)
+        engagement_rows = await self.db.engagement_counts(since=since)
+        ghost_ids = {doc["doc_id"] for doc in await self.get_ghosts()}
+        obsolete_ids = {doc["doc_id"] for doc in await self.get_obsolete()}
+        stale_ids = {doc["doc_id"] for doc in await self.get_stale_embeddings()}
+        rows = _build_dataframe_rows(
+            all_docs,
+            {row["doc_id"]: row for row in retrieval_rows},
+            {row["doc_id"]: row["cnt"] for row in engagement_rows},
+            ghost_ids,
+            obsolete_ids,
+            stale_ids,
+        )
+        return pd.DataFrame(rows).sort_values("retrievals", ascending=False)
 
     async def close(self) -> None:
         await self.db.close()
