@@ -4,7 +4,19 @@ from typing import Any
 
 import numpy as np
 
-from .core import _days_ago, _hash_query, _now, _vec_to_bytes
+from .core import (
+    _SKLEARN,
+    _build_corpus_health,
+    _build_duplicate_pairs,
+    _build_ghosts,
+    _build_obsolete_documents,
+    _build_stale_embeddings,
+    _build_suspects,
+    _days_ago,
+    _hash_query,
+    _now,
+    _vec_to_bytes,
+)
 
 
 class AsyncCorpulse:
@@ -75,16 +87,52 @@ class AsyncCorpulse:
 
     async def get_ghosts(self) -> list[dict]:
         cutoff = _days_ago(self.ghost_threshold_days)
-        recent_ids = {
-            row["doc_id"]
-            for row in await self.db.retrieval_counts(since=cutoff)
-        }
+        retrieval_rows = await self.db.retrieval_counts(since=cutoff)
         all_docs = await self.db.all_documents()
-        return [
-            {"doc_id": doc["doc_id"], "filename": doc["filename"]}
-            for doc in all_docs
-            if doc["doc_id"] not in recent_ids
-        ]
+        return _build_ghosts(all_docs, retrieval_rows)
+
+    async def get_duplicates(
+        self,
+        threshold: float | None = None,
+    ) -> list[dict]:
+        duplicate_threshold = threshold or self.duplicate_threshold
+        embedding_rows = await self.db.all_embeddings()
+        return _build_duplicate_pairs(embedding_rows, duplicate_threshold)
+
+    async def get_obsolete(self) -> list[dict]:
+        all_docs = await self.db.all_documents()
+        return _build_obsolete_documents(all_docs, self.obsolete_pattern)
+
+    async def get_stale_embeddings(self) -> list[dict]:
+        all_docs = await self.db.all_documents()
+        return _build_stale_embeddings(all_docs, self.stale_threshold_days)
+
+    async def get_suspects(self, window_days: int | None = None) -> list[dict]:
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        all_docs = await self.db.all_documents()
+        retrieval_rows = await self.db.retrieval_counts(since=since)
+        engagement_rows = await self.db.engagement_counts(since=since)
+        return _build_suspects(all_docs, retrieval_rows, engagement_rows)
+
+    async def corpus_health(self) -> dict:
+        all_docs = await self.db.all_documents()
+        if not all_docs:
+            return _build_corpus_health([], [], [], [], [])
+
+        ghosts = await self.get_ghosts()
+        obsolete = await self.get_obsolete()
+        stale = await self.get_stale_embeddings()
+        duplicate_pairs: list[dict[str, Any]] = []
+        if _SKLEARN:
+            duplicate_pairs = await self.get_duplicates()
+
+        return _build_corpus_health(
+            all_docs,
+            ghosts,
+            obsolete,
+            stale,
+            duplicate_pairs,
+        )
 
     async def close(self) -> None:
         await self.db.close()
