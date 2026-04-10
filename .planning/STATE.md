@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 11 — shared-report-helpers
+**Current focus:** v1.2 Full Async Parity — Phase 12 is next
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 12 — Async Parity Methods + Unit Tests (not started)
+Plan: —
+Status: Ready for planning
 Last activity: 2026-04-10
 
-Progress bar: [███████░░░] 2/3 plans complete
+Progress bar: [██▌□□□□□□□] 1/4 phases complete
 
 ## Pending Todos
 
@@ -67,6 +67,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-04-10 - Phase 11 Plan 02 completed; Plan 03 is next
-Stopped at: Completed 11-03-sync-formatter-refactor-PLAN.md
+Last activity: 2026-04-10 - Phase 11 completed and verified; Phase 12 is next
+Stopped at: Phase 11 execution complete
 Resume file: None
