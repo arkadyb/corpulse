@@ -6,6 +6,7 @@ import numpy as np
 
 from corpulse import AsyncCorpulse, Corpulse
 from corpulse.core import _hash_query, _vec_to_bytes
+from tests.report_fixtures import build_report_fixture_snapshot
 
 
 class FakeAsyncBackend:
@@ -96,6 +97,22 @@ class FakeSyncBackend:
 
     def all_embeddings(self) -> list[dict]:
         return self.embedding_rows
+
+
+def _shared_report_fixture_backends() -> tuple[FakeSyncBackend, FakeAsyncBackend]:
+    snapshot = build_report_fixture_snapshot()
+    async_backend = FakeAsyncBackend()
+    async_backend.documents = snapshot["documents"]
+    async_backend.retrieval_rows = snapshot["retrieval_rows"]
+    async_backend.engagement_rows = snapshot["engagement_rows"]
+    async_backend.embedding_rows = snapshot["embedding_rows"]
+    sync_backend = FakeSyncBackend(
+        documents=snapshot["documents"],
+        retrieval_rows=snapshot["retrieval_rows"],
+        engagement_rows=snapshot["engagement_rows"],
+        embedding_rows=snapshot["embedding_rows"],
+    )
+    return sync_backend, async_backend
 
 
 def _analysis_fixture_rows() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
