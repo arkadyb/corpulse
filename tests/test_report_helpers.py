@@ -11,8 +11,53 @@ from corpulse.backends.memory import InMemoryBackend
 
 FROZEN = 1_700_000_000.0
 
-EXPECTED_REPORT_OUTPUT = "PASTE CAPTURED STRING HERE"
-EXPECTED_CLEANUP_OUTPUT = "PASTE CAPTURED STRING HERE"
+EXPECTED_REPORT_OUTPUT = (
+    "\n"
+    "  corpulse — Corpus Health Report\n"
+    "  10 documents · last 30 days · ⚠ corpus bloat detected (70% noise est.)\n"
+    "  Document                             Retrieved   Engagement  Status\n"
+    "  ──────────────────────────────────────────────────────────────────────\n"
+    "  noisy.md                                    10          10%  ◌  low eng.\n"
+    "  healthy_a.md                                 8          38%  ✓  healthy\n"
+    "  healthy_b.md                                 7          29%  ✓  healthy\n"
+    "  guide-v2.md                                  6          33%  ✓  healthy\n"
+    "  api-v2.md                                    5          20%  ✓  healthy\n"
+    "  stale.md                                     3           0%  🕓 stale emb.\n"
+    "  api-v1.md                                    2           0%  ⚠  obsolete\n"
+    "  guide-v1.md                                  1           0%  ⚠  obsolete\n"
+    "  ghost_a.md                                   0            —  👻 ghost\n"
+    "  ghost_b.md                                   0            —  👻 ghost\n"
+    "\n"
+    "  👻 ghosts: 2  💀 obsolete: 2  ⚠ duplicates: 4  🕓 stale: 1\n"
+    "  Run corpulse.cleanup_report() for a prioritised action list.\n"
+    "\n"
+)
+EXPECTED_CLEANUP_OUTPUT = (
+    "\n"
+    "────────────────────────────────────────────────────────────\n"
+    "  corpulse — Cleanup Report\n"
+    "────────────────────────────────────────────────────────────\n"
+    "  Total documents : 10\n"
+    "  Noise estimate  : 70%\n"
+    "  ⚠  Consider pruning ~7 low-signal documents.\n"
+    "\n"
+    "  👻  GHOSTS  (2 docs — never retrieved in 30d)\n"
+    "      · ghost_a.md\n"
+    "      · ghost_b.md\n"
+    "\n"
+    "  💀  OBSOLETE  (2 docs)\n"
+    "      · api-v1.md  →  superseded by api-v2.md\n"
+    "      · guide-v1.md  →  superseded by guide-v2.md\n"
+    "\n"
+    "  🕓  STALE EMBEDDINGS  (1 docs)\n"
+    "      · stale.md  (40d behind — source 2023-11-04, embedded 2023-09-25)\n"
+    "\n"
+    "  🔁  RE-CHUNK CANDIDATES  (1 docs — high retrieval, low engagement)\n"
+    "      · noisy.md  (10 retrievals, 10% engagement)\n"
+    "\n"
+    "────────────────────────────────────────────────────────────\n"
+    "\n"
+)
 
 
 @pytest.fixture(autouse=True)
