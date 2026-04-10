@@ -52,6 +52,143 @@ def _bytes_to_vec(b: bytes) -> np.ndarray:
     return np.frombuffer(b, dtype=np.float32)
 
 
+_STATUS_ICON = {
+    "ghost": "👻 ghost",
+    "obsolete": "⚠  obsolete",
+    "stale": "🕓 stale emb.",
+    "low_engagement": "◌  low eng.",
+    "healthy": "✓  healthy",
+}
+
+
+def _build_dataframe_rows(
+    all_docs: list[dict[str, Any]],
+    r_map: dict[str, dict[str, Any]],
+    e_map: dict[str, int],
+    ghost_ids: set[str],
+    obsolete_ids: set[str],
+    stale_ids: set[str],
+) -> list[dict[str, Any]]:
+    rows = []
+    for doc in all_docs:
+        doc_id = doc["doc_id"]
+        retrievals = r_map[doc_id]["cnt"] if doc_id in r_map else 0
+        engagements = e_map.get(doc_id, 0)
+        engagement_rate = round(engagements / retrievals, 2) if retrievals > 0 else 0.0
+
+        # Preserve the existing dataframe path's rounded threshold behavior.
+        if doc_id in ghost_ids:
+            status = "ghost"
+        elif doc_id in obsolete_ids:
+            status = "obsolete"
+        elif doc_id in stale_ids:
+            status = "stale"
+        elif retrievals > 0 and engagement_rate < 0.15:
+            status = "low_engagement"
+        else:
+            status = "healthy"
+
+        rows.append({
+            "doc_id": doc_id,
+            "filename": doc["filename"],
+            "retrievals": retrievals,
+            "engagements": engagements,
+            "engagement_rate": engagement_rate,
+            "status": status,
+        })
+
+    return rows
+
+
+def _build_report_rows(
+    all_docs: list[dict[str, Any]],
+    r_map: dict[str, dict[str, Any]],
+    e_map: dict[str, int],
+    ghost_ids: set[str],
+    obsolete_ids: set[str],
+    stale_ids: set[str],
+    top_k: int,
+) -> list[dict[str, Any]]:
+    rows = []
+    for doc in sorted(
+        all_docs,
+        key=lambda d: r_map.get(d["doc_id"], {"cnt": 0})["cnt"],
+        reverse=True,
+    )[:top_k]:
+        doc_id = doc["doc_id"]
+        retrievals = r_map[doc_id]["cnt"] if doc_id in r_map else 0
+        engagements = e_map.get(doc_id, 0)
+        engagement_rate = f"{engagements / retrievals * 100:.0f}%" if retrievals > 0 else "—"
+
+        # Preserve the existing report path's unrounded threshold behavior.
+        if doc_id in ghost_ids:
+            status = "ghost"
+        elif doc_id in obsolete_ids:
+            status = "obsolete"
+        elif doc_id in stale_ids:
+            status = "stale"
+        elif retrievals > 0 and (e_map.get(doc_id, 0) / retrievals) < 0.15:
+            status = "low_engagement"
+        else:
+            status = "healthy"
+
+        rows.append({
+            "filename": doc["filename"],
+            "retrievals": retrievals,
+            "engagement_rate": engagement_rate,
+            "status": status,
+            "status_display": _STATUS_ICON[status],
+        })
+
+    return rows
+
+
+def _build_report_summary(
+    all_docs: list[dict[str, Any]],
+    window_days: int,
+    health: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "total_docs": len(all_docs),
+        "window_days": window_days,
+        "bloat_warning": health["bloat_warning"],
+        "noise_pct": health["noise_estimate"] * 100,
+        "ghosts": health["ghosts"],
+        "obsolete": health["obsolete"],
+        "duplicates": health["duplicates"],
+        "stale": health["stale"],
+        "recommendation": health["recommendation"],
+    }
+
+
+def _build_cleanup_payload(
+    health: dict[str, Any],
+    ghosts: list[dict[str, Any]],
+    obsolete: list[dict[str, Any]],
+    stale: list[dict[str, Any]],
+    suspects: list[dict[str, Any]],
+    ghost_threshold_days: int,
+) -> dict[str, Any]:
+    def _section(items: list[dict[str, Any]]) -> dict[str, Any]:
+        return {
+            "count": len(items),
+            "top5": items[:5],
+            "overflow": max(0, len(items) - 5),
+        }
+
+    return {
+        "total_docs": health["total_docs"],
+        "noise_pct": health["noise_estimate"] * 100,
+        "bloat_warning": health["bloat_warning"],
+        "recommendation": health["recommendation"],
+        "ghost_threshold_days": ghost_threshold_days,
+        "ghosts": _section(ghosts),
+        "obsolete": _section(obsolete),
+        "stale": _section(stale),
+        "suspects": _section(suspects),
+    }
+
+
 def _build_ghosts(
     all_docs: list[dict[str, Any]],
     retrieval_rows: list[dict[str, Any]],

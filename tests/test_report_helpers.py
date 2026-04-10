@@ -223,7 +223,7 @@ def test_build_dataframe_rows():
 
     divergent_docs = [{"doc_id": "boundary", "filename": "boundary.md"}]
     r_map = {"boundary": {"doc_id": "boundary", "cnt": 20}}
-    e_map = {"boundary": 3}
+    e_map = {"boundary": 3 - 1e-9}
     dataframe_rows = _build_dataframe_rows(divergent_docs, r_map, e_map, set(), set(), set())
     assert dataframe_rows[0]["engagement_rate"] == 0.15
     assert dataframe_rows[0]["status"] != "low_engagement"
@@ -276,7 +276,7 @@ def test_build_report_rows():
 
     divergent_docs = [{"doc_id": "boundary", "filename": "boundary.md"}]
     r_map = {"boundary": {"doc_id": "boundary", "cnt": 20}}
-    e_map = {"boundary": 3}
+    e_map = {"boundary": 3 - 1e-9}
     report_rows = _build_report_rows(divergent_docs, r_map, e_map, set(), set(), set(), top_k=1)
     assert report_rows[0]["engagement_rate"] == "15%"
     assert report_rows[0]["status"] == "low_engagement"
