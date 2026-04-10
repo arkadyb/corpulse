@@ -670,28 +670,14 @@ class Corpulse:
         ghosts = {d["doc_id"] for d in self.get_ghosts()}
         obs    = {d["doc_id"] for d in self.get_obsolete()}
         stale  = {d["doc_id"] for d in self.get_stale_embeddings()}
-
-        rows = []
-        for doc in self.db.all_documents():
-            did  = doc["doc_id"]
-            ret  = r_map[did]["cnt"] if did in r_map else 0
-            eng  = e_map.get(did, 0)
-            rate = round(eng / ret, 2) if ret > 0 else 0.0
-
-            if did in ghosts:   status = "ghost"
-            elif did in obs:    status = "obsolete"
-            elif did in stale:  status = "stale"
-            elif ret > 0 and rate < 0.15: status = "low_engagement"
-            else:               status = "healthy"
-
-            rows.append({
-                "doc_id":          did,
-                "filename":        doc["filename"],
-                "retrievals":      ret,
-                "engagements":     eng,
-                "engagement_rate": rate,
-                "status":          status,
-            })
+        rows = _build_dataframe_rows(
+            self.db.all_documents(),
+            r_map,
+            e_map,
+            ghosts,
+            obs,
+            stale,
+        )
 
         return pd.DataFrame(rows).sort_values("retrievals", ascending=False)
 
@@ -710,50 +696,58 @@ class Corpulse:
         obsolete = self.get_obsolete()
         stale    = self.get_stale_embeddings()
         suspects = self.get_suspects()
+        payload = _build_cleanup_payload(
+            health,
+            ghosts,
+            obsolete,
+            stale,
+            suspects,
+            self.ghost_threshold_days,
+        )
 
         print("\n" + "─" * 60)
         print("  corpulse — Cleanup Report")
         print("─" * 60)
-        print(f"  Total documents : {health['total_docs']}")
-        print(f"  Noise estimate  : {health['noise_estimate']*100:.0f}%")
-        if health["bloat_warning"]:
-            print(f"  ⚠  {health['recommendation']}")
+        print(f"  Total documents : {payload['total_docs']}")
+        print(f"  Noise estimate  : {payload['noise_pct']:.0f}%")
+        if payload["bloat_warning"]:
+            print(f"  ⚠  {payload['recommendation']}")
         print()
 
         if ghosts:
-            print(f"  👻  GHOSTS  ({len(ghosts)} docs — never retrieved in "
-                  f"{self.ghost_threshold_days}d)")
-            for g in ghosts[:5]:
+            print(f"  👻  GHOSTS  ({payload['ghosts']['count']} docs — never retrieved in "
+                  f"{payload['ghost_threshold_days']}d)")
+            for g in payload["ghosts"]["top5"]:
                 print(f"      · {g['filename']}")
-            if len(ghosts) > 5:
-                print(f"      … and {len(ghosts)-5} more")
+            if payload["ghosts"]["overflow"] > 0:
+                print(f"      … and {payload['ghosts']['overflow']} more")
             print()
 
         if obsolete:
-            print(f"  💀  OBSOLETE  ({len(obsolete)} docs)")
-            for o in obsolete[:5]:
+            print(f"  💀  OBSOLETE  ({payload['obsolete']['count']} docs)")
+            for o in payload["obsolete"]["top5"]:
                 print(f"      · {o['filename']}  →  superseded by {o['superseded_by']}")
-            if len(obsolete) > 5:
-                print(f"      … and {len(obsolete)-5} more")
+            if payload["obsolete"]["overflow"] > 0:
+                print(f"      … and {payload['obsolete']['overflow']} more")
             print()
 
         if stale:
-            print(f"  🕓  STALE EMBEDDINGS  ({len(stale)} docs)")
-            for s in stale[:5]:
+            print(f"  🕓  STALE EMBEDDINGS  ({payload['stale']['count']} docs)")
+            for s in payload["stale"]["top5"]:
                 print(f"      · {s['filename']}  "
                       f"({s['days_behind']}d behind — "
                       f"source {s['source_updated']}, embedded {s['last_embedded']})")
-            if len(stale) > 5:
-                print(f"      … and {len(stale)-5} more")
+            if payload["stale"]["overflow"] > 0:
+                print(f"      … and {payload['stale']['overflow']} more")
             print()
 
         if suspects:
-            print(f"  🔁  RE-CHUNK CANDIDATES  ({len(suspects)} docs — high retrieval, low engagement)")
-            for s in suspects[:5]:
+            print(f"  🔁  RE-CHUNK CANDIDATES  ({payload['suspects']['count']} docs — high retrieval, low engagement)")
+            for s in payload["suspects"]["top5"]:
                 print(f"      · {s['filename']}  "
                       f"({s['retrievals']} retrievals, {s['engagement_rate']*100:.0f}% engagement)")
-            if len(suspects) > 5:
-                print(f"      … and {len(suspects)-5} more")
+            if payload["suspects"]["overflow"] > 0:
+                print(f"      … and {payload['suspects']['overflow']} more")
             print()
 
         print("─" * 60 + "\n")
@@ -780,60 +774,50 @@ class Corpulse:
 
         since    = _days_ago(window_days or self.ghost_threshold_days)
         all_docs = self.db.all_documents()
-        total    = len(all_docs)
         r_map    = {r["doc_id"]: r for r in self.db.retrieval_counts(since=since)}
         e_map    = {e["doc_id"]: e["cnt"] for e in self.db.engagement_counts(since=since)}
         ghosts   = {d["doc_id"] for d in self.get_ghosts()}
         obs      = {d["doc_id"] for d in self.get_obsolete()}
         stale    = {d["doc_id"] for d in self.get_stale_embeddings()}
-
-        STATUS_ICON = {
-            "ghost":          "👻 ghost",
-            "obsolete":       "⚠  obsolete",
-            "stale":          "🕓 stale emb.",
-            "low_engagement": "◌  low eng.",
-            "healthy":        "✓  healthy",
-        }
-
-        rows = []
-        for doc in sorted(all_docs,
-                          key=lambda d: r_map.get(d["doc_id"], {"cnt": 0})["cnt"],
-                          reverse=True)[: self.top_k_report]:
-            did = doc["doc_id"]
-            ret = r_map[did]["cnt"] if did in r_map else 0
-            eng = e_map.get(did, 0)
-            rate = f"{eng/ret*100:.0f}%" if ret > 0 else "—"
-
-            if did in ghosts:   status = "ghost"
-            elif did in obs:    status = "obsolete"
-            elif did in stale:  status = "stale"
-            elif ret > 0 and (e_map.get(did, 0) / ret) < 0.15:
-                                status = "low_engagement"
-            else:               status = "healthy"
-
-            rows.append([doc["filename"], ret, rate, STATUS_ICON[status]])
-
         health = self.corpus_health()
+        rows = _build_report_rows(
+            all_docs,
+            r_map,
+            e_map,
+            ghosts,
+            obs,
+            stale,
+            self.top_k_report,
+        )
+        summary = _build_report_summary(
+            all_docs,
+            window_days or self.ghost_threshold_days,
+            health,
+        )
+        table_rows = [
+            [row["filename"], row["retrievals"], row["engagement_rate"], row["status_display"]]
+            for row in rows
+        ]
         header = (
             f"\n  corpulse — Corpus Health Report\n"
-            f"  {total} documents · last {window_days or self.ghost_threshold_days} days"
+            f"  {summary['total_docs']} documents · last {summary['window_days']} days"
         )
-        if health["bloat_warning"]:
-            header += f" · ⚠ corpus bloat detected ({health['noise_estimate']*100:.0f}% noise est.)"
+        if summary["bloat_warning"]:
+            header += f" · ⚠ corpus bloat detected ({summary['noise_pct']:.0f}% noise est.)"
 
         print(header)
         if _tabulate:
-            print(tabulate(rows,
+            print(tabulate(table_rows,
                            headers=["Document", "Retrieved", "Engagement", "Status"],
                            tablefmt="rounded_outline"))
         else:
             print(f"  {'Document':<35} {'Retrieved':>10} {'Engagement':>12}  Status")
             print("  " + "─" * 70)
-            for r in rows:
+            for r in table_rows:
                 print(f"  {r[0]:<35} {r[1]:>10} {r[2]:>12}  {r[3]}")
 
-        print(f"\n  👻 ghosts: {health['ghosts']}  "
-              f"💀 obsolete: {health['obsolete']}  "
-              f"⚠ duplicates: {health['duplicates']}  "
-              f"🕓 stale: {health['stale']}")
+        print(f"\n  👻 ghosts: {summary['ghosts']}  "
+              f"💀 obsolete: {summary['obsolete']}  "
+              f"⚠ duplicates: {summary['duplicates']}  "
+              f"🕓 stale: {summary['stale']}")
         print(f"  Run corpulse.cleanup_report() for a prioritised action list.\n")
