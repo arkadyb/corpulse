@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Full Async Parity
-status: executing
-stopped_at: Completed 11-02-helper-extraction-PLAN.md
-last_updated: "2026-04-10T07:26:06.986Z"
+status: verifying
+stopped_at: Completed 11-03-sync-formatter-refactor-PLAN.md
+last_updated: "2026-04-10T07:32:16.866Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 11 (shared-report-helpers) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-10
 
 Progress bar: [███████░░░] 2/3 plans complete
@@ -54,6 +54,8 @@ None.
 - [Phase 11]: Use a frozen InMemoryBackend fixture for byte-for-byte report regression tests.
 - [Phase 11]: Keep the new helper layer pure by accepting only pre-fetched lists, maps, and IDs rather than backend objects or formatter dependencies. — This keeps the payload builders reusable for the later async consumer without coupling them to sync-only backend calls or formatting.
 - [Phase 11]: Represent the low-engagement divergence test with a tiny epsilon because Python evaluates 3 / 20 as exactly 0.15, which would not exercise the raw-vs-rounded split described in research. — The epsilon keeps the synthetic fixture aligned with the plan intent while preserving the existing helper behavior exactly.
+- [Phase 11]: Reused the Plan 01 golden strings as permanent regression gates for sync formatter rewiring.
+- [Phase 11]: Kept cleanup_report double-fetch behavior while moving section math into _build_cleanup_payload.
 
 ## Performance Metrics
 
@@ -61,9 +63,10 @@ None.
 |-------|------|--------------|-------|-------|
 | 11 | 01 | 191 | 1 | 2 |
 | Phase 11 P02 | 6 min | 2 tasks | 3 files |
+| Phase 11 P03 | 420 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last activity: 2026-04-10 - Phase 11 Plan 02 completed; Plan 03 is next
-Stopped at: Completed 11-02-helper-extraction-PLAN.md
+Stopped at: Completed 11-03-sync-formatter-refactor-PLAN.md
 Resume file: None

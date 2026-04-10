@@ -18,7 +18,7 @@
 
 ### Phases
 
-- [ ] **Phase 11: Shared Report Helpers** - Extract structured-payload builders into `corpulse/core.py` and refactor sync `report`/`cleanup_report` to consume them via a thin formatter
+- [x] **Phase 11: Shared Report Helpers** - Extract structured-payload builders into `corpulse/core.py` and refactor sync `report`/`cleanup_report` to consume them via a thin formatter (completed 2026-04-10)
 - [ ] **Phase 12: Async Parity Methods + Unit Tests** - Implement `AsyncCorpulse.to_dataframe()`, `report()`, `cleanup_report()` on top of shared helpers and prove parity with deterministic async tests
 - [ ] **Phase 13: Live Async Integration Tests** - Gate live asyncpg coverage over the new parity surface behind `CORPULSE_POSTGRES_TEST_CONNINFO`
 - [ ] **Phase 14: Docs and Examples** - README async section, API-quality docstrings, and a runnable `examples/` script
@@ -83,7 +83,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. Shared Report Helpers | 2/3 | In Progress|  |
+| 11. Shared Report Helpers | 3/3 | Complete   | 2026-04-10 |
 | 12. Async Parity Methods + Unit Tests | 0/? | Not started | - |
 | 13. Live Async Integration Tests | 0/? | Not started | - |
 | 14. Docs and Examples | 0/? | Not started | - |
