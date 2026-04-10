@@ -1,4 +1,5 @@
 import io
+import builtins
 from contextlib import redirect_stdout
 
 import numpy as np
@@ -185,6 +186,59 @@ def test_baseline_capture_cleanup_output():
         corpulse.cleanup_report()
 
     assert buf.getvalue() == EXPECTED_CLEANUP_OUTPUT
+
+
+def test_report_stdout_unchanged(capsys):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+
+    corpulse.report(window_days=30)
+
+    assert capsys.readouterr().out == EXPECTED_REPORT_OUTPUT
+
+
+def test_cleanup_report_stdout_unchanged(capsys):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+
+    corpulse.cleanup_report()
+
+    assert capsys.readouterr().out == EXPECTED_CLEANUP_OUTPUT
+
+
+def test_to_dataframe_raises_without_pandas(monkeypatch):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+    orig_import = builtins.__import__
+
+    def _missing_pandas(name, *args, **kwargs):
+        if name == "pandas":
+            raise ImportError("forced missing pandas")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _missing_pandas)
+
+    with pytest.raises(RuntimeError, match="^pip install pandas to use to_dataframe\\(\\)$"):
+        corpulse.to_dataframe()
+
+
+def test_report_fallback_without_tabulate(monkeypatch, capsys):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+    orig_import = builtins.__import__
+
+    def _missing_tabulate(name, *args, **kwargs):
+        if name == "tabulate":
+            raise ImportError("forced missing tabulate")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _missing_tabulate)
+
+    corpulse.report(window_days=30)
+
+    out = capsys.readouterr().out
+    assert "Document" in out
+    assert "Retrieved" in out
+    assert "Engagement" in out
+    assert "Status" in out
+    assert "👻 ghosts:" in out
+    assert "Run corpulse.cleanup_report() for a prioritised action list." in out
 
 
 def test_build_dataframe_rows():
