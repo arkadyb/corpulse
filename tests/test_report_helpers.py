@@ -1,6 +1,8 @@
 import io
 import builtins
+import sys
 from contextlib import redirect_stdout
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -219,6 +221,62 @@ def test_to_dataframe_raises_without_pandas(monkeypatch):
         corpulse.to_dataframe()
 
 
+def test_to_dataframe_happy_path(monkeypatch):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+    orig_import = builtins.__import__
+
+    class FakeSeries:
+        def __init__(self, values):
+            self._values = values
+
+        def head(self, n):
+            return self._values[:n]
+
+        def __iter__(self):
+            return iter(self._values)
+
+    class FakeILoc:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __getitem__(self, index):
+            return self._rows[index]
+
+    class FakeDataFrame:
+        def __init__(self, rows):
+            self._rows = list(rows)
+            self.columns = list(rows[0].keys()) if rows else []
+            self.iloc = FakeILoc(self._rows)
+
+        def sort_values(self, key, ascending=False):
+            return FakeDataFrame(
+                sorted(self._rows, key=lambda row: row[key], reverse=not ascending)
+            )
+
+        def __getitem__(self, key):
+            return FakeSeries([row[key] for row in self._rows])
+
+    def _fake_pandas(name, *args, **kwargs):
+        if name == "pandas":
+            return SimpleNamespace(DataFrame=FakeDataFrame)
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_pandas)
+
+    df = corpulse.to_dataframe(window_days=30)
+
+    assert list(df.columns) == [
+        "doc_id",
+        "filename",
+        "retrievals",
+        "engagements",
+        "engagement_rate",
+        "status",
+    ]
+    assert df.iloc[0]["filename"] == "noisy.md"
+    assert list(df["retrievals"].head(4)) == [10, 8, 7, 6]
+
+
 def test_report_fallback_without_tabulate(monkeypatch, capsys):
     corpulse = Corpulse(backend=_report_fixture_backend())
     orig_import = builtins.__import__
@@ -239,6 +297,34 @@ def test_report_fallback_without_tabulate(monkeypatch, capsys):
     assert "Status" in out
     assert "👻 ghosts:" in out
     assert "Run corpulse.cleanup_report() for a prioritised action list." in out
+
+
+def test_report_with_tabulate_installed(monkeypatch, capsys):
+    corpulse = Corpulse(backend=_report_fixture_backend())
+    orig_import = builtins.__import__
+    calls = {}
+
+    def _fake_tabulate(rows, headers, tablefmt):
+        calls["rows"] = rows
+        calls["headers"] = headers
+        calls["tablefmt"] = tablefmt
+        return "<tabulated>"
+
+    def _with_tabulate(name, *args, **kwargs):
+        if name == "tabulate":
+            return SimpleNamespace(tabulate=_fake_tabulate)
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _with_tabulate)
+    monkeypatch.delitem(sys.modules, "tabulate", raising=False)
+
+    corpulse.report(window_days=30)
+
+    out = capsys.readouterr().out
+    assert "<tabulated>" in out
+    assert calls["headers"] == ["Document", "Retrieved", "Engagement", "Status"]
+    assert calls["tablefmt"] == "rounded_outline"
+    assert calls["rows"][0] == ["noisy.md", 10, "10%", "◌  low eng."]
 
 
 def test_build_dataframe_rows():
