@@ -14,12 +14,13 @@ from corpulse.core import (
     _build_dataframe_rows,
     _build_report_rows,
     _build_report_summary,
-    _vec_to_bytes,
 )
-from corpulse.backends.memory import InMemoryBackend
+from tests.report_fixtures import (
+    FROZEN,
+    build_report_fixture_backend,
+    build_report_fixture_snapshot,
+)
 
-
-FROZEN = 1_700_000_000.0
 
 EXPECTED_REPORT_OUTPUT = (
     "\n"
@@ -75,75 +76,8 @@ def _freeze_now(monkeypatch):
     monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
 
 
-def _embedding(seed: int, dim: int = 8) -> bytes:
-    rng = np.random.default_rng(seed)
-    vec = rng.random(dim).astype(np.float32)
-    return _vec_to_bytes(vec / np.linalg.norm(vec))
-
-
-def _report_fixture_backend() -> InMemoryBackend:
-    backend = InMemoryBackend()
-
-    docs = [
-        ("ghost-a", "ghost_a.md", _embedding(1), FROZEN - 4 * 86400),
-        ("ghost-b", "ghost_b.md", _embedding(2), FROZEN - 5 * 86400),
-        ("api-v1", "api-v1.md", _embedding(3), FROZEN - 12 * 86400),
-        ("api-v2", "api-v2.md", _embedding(3), FROZEN - 2 * 86400),
-        ("guide-v1", "guide-v1.md", _embedding(4), FROZEN - 8 * 86400),
-        ("guide-v2", "guide-v2.md", _embedding(5), FROZEN - 1 * 86400),
-        ("stale-doc", "stale.md", _embedding(6), FROZEN - 50 * 86400),
-        ("noisy-doc", "noisy.md", _embedding(7), FROZEN - 6 * 86400),
-        ("healthy-a", "healthy_a.md", _embedding(8), FROZEN - 3 * 86400),
-        ("healthy-b", "healthy_b.md", _embedding(9), FROZEN - 3 * 86400),
-    ]
-
-    for doc_id, filename, embedding, embedded_at in docs:
-        backend.upsert_document(doc_id, filename, embedding=embedding, embedded_at=embedded_at)
-
-    backend.update_source_timestamp("ghost-a", FROZEN - 4 * 86400)
-    backend.update_source_timestamp("ghost-b", FROZEN - 5 * 86400)
-    backend.update_source_timestamp("api-v1", FROZEN - 1 * 86400)
-    backend.update_source_timestamp("api-v2", FROZEN - 1 * 86400)
-    backend.update_source_timestamp("guide-v1", FROZEN - 2 * 86400)
-    backend.update_source_timestamp("guide-v2", FROZEN - 1 * 86400)
-    backend.update_source_timestamp("stale-doc", FROZEN - 10 * 86400)
-    backend.update_source_timestamp("noisy-doc", FROZEN - 2 * 86400)
-    backend.update_source_timestamp("healthy-a", FROZEN - 2 * 86400)
-    backend.update_source_timestamp("healthy-b", FROZEN - 2 * 86400)
-
-    recent_ts = FROZEN - 5 * 86400
-
-    for i in range(2):
-        backend.insert_retrieval("api-v1", f"api-v1-q{i}", 1, 0.81, recent_ts)
-    for i in range(5):
-        backend.insert_retrieval("api-v2", f"api-v2-q{i}", 1, 0.96, recent_ts)
-    for i in range(1):
-        backend.insert_retrieval("guide-v1", f"guide-v1-q{i}", 1, 0.72, recent_ts)
-    for i in range(6):
-        backend.insert_retrieval("guide-v2", f"guide-v2-q{i}", 1, 0.95, recent_ts)
-    for i in range(3):
-        backend.insert_retrieval("stale-doc", f"stale-q{i}", 1, 0.7, recent_ts)
-    for i in range(10):
-        backend.insert_retrieval("noisy-doc", f"noisy-q{i}", 1, 0.75, recent_ts)
-    for i in range(8):
-        backend.insert_retrieval("healthy-a", f"healthy-a-q{i}", 1, 0.97, recent_ts)
-    for i in range(7):
-        backend.insert_retrieval("healthy-b", f"healthy-b-q{i}", 1, 0.91, recent_ts)
-
-    backend.insert_engagement("api-v2", "opened", recent_ts)
-    for _ in range(2):
-        backend.insert_engagement("guide-v2", "opened", recent_ts)
-    backend.insert_engagement("noisy-doc", "opened", recent_ts)
-    for _ in range(3):
-        backend.insert_engagement("healthy-a", "opened", recent_ts)
-    for _ in range(2):
-        backend.insert_engagement("healthy-b", "opened", recent_ts)
-
-    return backend
-
-
 def _helper_inputs():
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     window_days = 30
     since = c_mod._days_ago(window_days)
     all_docs = corpulse.db.all_documents()
@@ -171,7 +105,7 @@ def _helper_inputs():
 
 
 def test_baseline_capture_report_output():
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     buf = io.StringIO()
 
     with redirect_stdout(buf):
@@ -181,7 +115,7 @@ def test_baseline_capture_report_output():
 
 
 def test_baseline_capture_cleanup_output():
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     buf = io.StringIO()
 
     with redirect_stdout(buf):
@@ -191,7 +125,7 @@ def test_baseline_capture_cleanup_output():
 
 
 def test_report_stdout_unchanged(capsys):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
 
     corpulse.report(window_days=30)
 
@@ -199,7 +133,7 @@ def test_report_stdout_unchanged(capsys):
 
 
 def test_cleanup_report_stdout_unchanged(capsys):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
 
     corpulse.cleanup_report()
 
@@ -207,7 +141,7 @@ def test_cleanup_report_stdout_unchanged(capsys):
 
 
 def test_to_dataframe_raises_without_pandas(monkeypatch):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     orig_import = builtins.__import__
 
     def _missing_pandas(name, *args, **kwargs):
@@ -222,7 +156,7 @@ def test_to_dataframe_raises_without_pandas(monkeypatch):
 
 
 def test_to_dataframe_happy_path(monkeypatch):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     orig_import = builtins.__import__
 
     class FakeSeries:
@@ -278,7 +212,7 @@ def test_to_dataframe_happy_path(monkeypatch):
 
 
 def test_report_fallback_without_tabulate(monkeypatch, capsys):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     orig_import = builtins.__import__
 
     def _missing_tabulate(name, *args, **kwargs):
@@ -300,7 +234,7 @@ def test_report_fallback_without_tabulate(monkeypatch, capsys):
 
 
 def test_report_with_tabulate_installed(monkeypatch, capsys):
-    corpulse = Corpulse(backend=_report_fixture_backend())
+    corpulse = Corpulse(backend=build_report_fixture_backend())
     orig_import = builtins.__import__
     calls = {}
 
@@ -367,6 +301,19 @@ def test_build_dataframe_rows():
     dataframe_rows = _build_dataframe_rows(divergent_docs, r_map, e_map, set(), set(), set())
     assert dataframe_rows[0]["engagement_rate"] == 0.15
     assert dataframe_rows[0]["status"] != "low_engagement"
+
+
+def test_shared_report_fixture_snapshot_matches_seed_backend():
+    snapshot = build_report_fixture_snapshot()
+    backend = build_report_fixture_backend()
+
+    assert [doc["doc_id"] for doc in snapshot["documents"]] == [
+        doc["doc_id"] for doc in backend.all_documents()
+    ]
+    assert snapshot["retrieval_rows"][0]["doc_id"] == "api-v1"
+    assert snapshot["engagement_rows"] == backend.engagement_counts(
+        since=c_mod._days_ago(snapshot["window_days"])
+    )
 
 
 def test_build_report_rows():
