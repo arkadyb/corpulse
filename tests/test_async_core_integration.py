@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import builtins
 import sys
+from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from corpulse import AsyncCorpulse, Corpulse
 from corpulse.core import _hash_query, _vec_to_bytes
@@ -113,6 +116,44 @@ def _shared_report_fixture_backends() -> tuple[FakeSyncBackend, FakeAsyncBackend
         embedding_rows=snapshot["embedding_rows"],
     )
     return sync_backend, async_backend
+
+
+def _install_fake_pandas(monkeypatch):
+    orig_import = builtins.__import__
+
+    class FakeSeries:
+        def __init__(self, values):
+            self._values = values
+
+        def head(self, n):
+            return self._values[:n]
+
+        def __iter__(self):
+            return iter(self._values)
+
+    class FakeDataFrame:
+        def __init__(self, rows):
+            self._rows = list(rows)
+            self.columns = list(rows[0].keys()) if rows else []
+
+        def sort_values(self, key, ascending=False):
+            return FakeDataFrame(
+                sorted(self._rows, key=lambda row: row[key], reverse=not ascending)
+            )
+
+        def to_dict(self, orient):
+            assert orient == "records"
+            return list(self._rows)
+
+        def __getitem__(self, key):
+            return FakeSeries([row[key] for row in self._rows])
+
+    def _fake_pandas(name, *args, **kwargs):
+        if name == "pandas":
+            return SimpleNamespace(DataFrame=FakeDataFrame)
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_pandas)
 
 
 def _analysis_fixture_rows() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
@@ -327,6 +368,50 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
         "bloat_warning": True,
         "recommendation": "Consider pruning ~3 low-signal documents.",
     }
+
+
+async def test_async_to_dataframe_matches_sync_on_shared_report_fixture(monkeypatch):
+    sync_backend, async_backend = _shared_report_fixture_backends()
+    sync_corpulse = Corpulse(backend=sync_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    async_corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+
+    _install_fake_pandas(monkeypatch)
+    monkeypatch.setattr("corpulse.core._days_ago", lambda days: 123.0)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    sync_df = sync_corpulse.to_dataframe(window_days=30)
+    async_df = await async_corpulse.to_dataframe(window_days=30)
+
+    assert list(async_df.columns) == list(sync_df.columns)
+    assert async_df.to_dict("records") == sync_df.to_dict("records")
+
+
+async def test_async_to_dataframe_sorts_rows_by_retrievals_descending(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    async_corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+
+    _install_fake_pandas(monkeypatch)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    df = await async_corpulse.to_dataframe(window_days=30)
+
+    assert list(df["retrievals"].head(4)) == [10, 8, 7, 6]
+
+
+async def test_async_to_dataframe_raises_without_pandas(monkeypatch):
+    _, async_backend = _shared_report_fixture_backends()
+    async_corpulse = AsyncCorpulse(backend=async_backend)
+    orig_import = builtins.__import__
+
+    def _missing_pandas(name, *args, **kwargs):
+        if name == "pandas":
+            raise ImportError("forced missing pandas")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _missing_pandas)
+
+    with pytest.raises(RuntimeError, match="^pip install pandas to use to_dataframe\\(\\)$"):
+        await async_corpulse.to_dataframe()
 
 
 async def test_async_analysis_methods_await_expected_backend_reads(monkeypatch):
