@@ -18,3 +18,23 @@ Do not make the first slice async-first unless there is a hard requirement alrea
 - The missing work is service-oriented, not analytics-oriented: HTTP contracts, auth, deployment, operator controls, and browser-facing concerns do not belong in this repo.
 
 This makes the repo split low-risk now: the service repo can start from shipped capabilities, and `corpulse` only needs follow-up work if real integration friction appears.
+
+## Boundary Rules
+
+### Required in corpulse now
+
+- No new service-layer feature is required in `corpulse` for a sync-first service repo. The shipped sync analysis surface is enough to start.
+- If the service is mandated to be async-first, add only the minimum `AsyncCorpulse` analysis surface needed by the first endpoints. Keep that work limited to concrete endpoint needs rather than broad parity.
+
+### Defer until service repo proves the need
+
+- Defer speculative structured payload helpers until the service repo proves the actual response shapes it needs.
+- Defer broader async ergonomics until the service repo shows real friction beyond the narrow first endpoint set.
+- Defer pagination-friendly helpers, bundled snapshots, or other API-shaped conveniences unless service implementation shows they are repeatedly needed.
+
+### Keep out of corpulse entirely
+
+- REST contracts, routing, and HTTP request validation stay in the service repo.
+- Auth posture, deployment configuration, and service operations stay in the service repo.
+- Demo controls, curated demo-data workflows, and browser or UI concerns stay in the service repo.
+- No pre-emptive service-layer features should be added to `corpulse` just to make the future service feel cleaner on paper.
