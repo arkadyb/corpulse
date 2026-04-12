@@ -62,18 +62,30 @@ None.
 
 corpulse has shipped milestone `v1.2`, completing full async parity for `AsyncCorpulse`. The async facade now matches sync `Corpulse` for analysis methods plus `to_dataframe()`, `report()`, and `cleanup_report()`, all backed by shared helper logic in `corpulse/core.py`, verified by deterministic tests, live asyncpg coverage, and first-class docs/examples.
 
-## Current Milestone: v1.2 Full Async Parity
+## Next Milestone Goals
 
-**Goal:** Close the remaining gap between `AsyncCorpulse` and sync `Corpulse` so the async path is a fully at-par, documented, first-class surface for service integration.
+- Choose the next integration or distribution milestone scope.
+- Decide whether the next highest-value bet is another vector DB wrapper, packaging/distribution work, or broader async API evolution.
+- Start the next milestone with fresh requirements and roadmap artifacts rather than carrying over the completed `v1.2` scope.
 
-**Target features:**
+<details>
+<summary>Archived v1.2 milestone framing</summary>
+
+### Milestone Goal
+
+Close the remaining gap between `AsyncCorpulse` and sync `Corpulse` so the async path is a fully at-par, documented, first-class surface for service integration.
+
+### Delivered Scope
+
 - `AsyncCorpulse.to_dataframe()` with pandas kept as an optional dependency
 - `AsyncCorpulse.report()` returning a structured payload (no stdout coupling)
 - `AsyncCorpulse.cleanup_report()` returning a structured payload (no stdout coupling)
-- Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths (sync `report`/`cleanup_report` continue printing via a thin formatter over the shared payloads)
+- Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths
 - Live asyncpg integration tests (gated by `CORPULSE_POSTGRES_TEST_CONNINFO`) covering the new parity surface
 - README + docstrings that position `AsyncCorpulse` as a first-class path
 - A runnable async example under `examples/` showing ingestion → analysis → report end-to-end
+
+</details>
 
 ## Context
 
@@ -129,6 +141,8 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Evidence-gated requirement closure | Milestone claims should match recorded verification, not just landed code | Shipped in v1.1 |
 | Structured-payload async reports | Avoids coupling `AsyncCorpulse` to stdout and keeps output consumable by services/tests; sync `report`/`cleanup_report` become a thin formatter over the same payload | Shipped in Phase 12 |
 | Pandas stays optional on async path | Keeps install footprint small for async service users who don't need DataFrames; mirrors sync behavior | Shipped in Phase 12 |
+| Live async parity must be env-gated | Keeps the default suite deterministic while still allowing real-Postgres evidence for the async path | Shipped in Phase 13 |
+| Async demo defaults to in-memory adapter | Keeps the example runnable without external services or library-level async memory backend changes | Shipped in Phase 14 |
 
 ## Evolution
 
@@ -148,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-12 — Phase 14 complete in milestone v1.2 (Full Async Parity)*
+*Last updated: 2026-04-12 after v1.2 milestone archive*

@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Full Async Parity
-status: executing
-stopped_at: Phase 14 execution complete
+status: shipped
+stopped_at: Milestone v1.2 archived
 last_updated: "2026-04-12T07:17:29.577Z"
 last_activity: 2026-04-12
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Milestone v1.2 complete — ready for milestone completion/archive workflow
+**Current focus:** No active milestone — ready for `/gsd-new-milestone`
 
 ## Current Position
 
-Phase: 14 complete
+Phase: None active
 Plan: Not started
-Status: Milestone complete
+Status: Awaiting next milestone
 Last activity: 2026-04-12
 
 Progress bar: [██████████] 4/4 phases complete
@@ -70,6 +70,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-04-12 - Phase 14 completed; milestone v1.2 is ready for completion
-Stopped at: Phase 14 execution complete
+Last activity: 2026-04-12 - Milestone v1.2 archived and tagged
+Stopped at: Milestone v1.2 archived
 Resume file: None
