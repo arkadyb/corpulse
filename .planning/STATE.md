@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Full Async Parity
-status: verifying
-stopped_at: Completed 11-03-sync-formatter-refactor-PLAN.md
-last_updated: "2026-04-10T07:40:02.460Z"
-last_activity: 2026-04-10
+status: executing
+stopped_at: Phase 11 execution complete
+last_updated: "2026-04-12T06:55:54.121Z"
+last_activity: 2026-04-12
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** v1.2 Full Async Parity — Phase 12 is next
+**Current focus:** Phase 13 — live-async-integration-tests
 
 ## Current Position
 
-Phase: 12 — Async Parity Methods + Unit Tests (not started)
-Plan: —
-Status: Ready for planning
-Last activity: 2026-04-10
+Phase: 14
+Plan: Not started
+Status: Executing Phase 13
+Last activity: 2026-04-12
 
 Progress bar: [██▌□□□□□□□] 1/4 phases complete
 

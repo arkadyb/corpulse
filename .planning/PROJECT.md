@@ -33,14 +33,17 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Sync Postgres backend with pooled operation support — v1.1
 - ✓ Async Postgres backend with pooled operation support — v1.1
 - ✓ Narrow async `AsyncCorpulse` facade for async service integration — v1.1
+- ✓ `AsyncCorpulse.to_dataframe()` with pandas kept as an optional dependency — Phase 12
+- ✓ `AsyncCorpulse.report()` returning a structured payload — Phase 12
+- ✓ `AsyncCorpulse.cleanup_report()` returning a structured payload — Phase 12
+- ✓ Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths — Phase 11-12
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Define the next milestone after v1.1
-- [ ] Choose which future wrapper or distribution goal ships next
-- [ ] Decide whether the next async milestone expands `AsyncCorpulse` beyond the narrow v1.1 surface
+- ✓ Live asyncpg integration coverage for the new async parity surface — Phase 13
+- [ ] README, docstrings, and an `examples/` script positioning AsyncCorpulse as a first-class path — v1.2
 
 ### Out of Scope
 
@@ -56,13 +59,20 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
-corpulse has shipped milestone `v1.1` and now supports pluggable persistence across SQLite, in-memory, sync Postgres, and async Postgres backends. Sync services use `Corpulse` with explicit backend injection, and async services have the shipped narrow `AsyncCorpulse` path over `AsyncPostgresBackend`.
+corpulse has shipped milestone `v1.1` and is nearing completion of `v1.2`. `AsyncCorpulse` has full parity with sync `Corpulse` for analysis methods plus `to_dataframe()`, `report()`, and `cleanup_report()`, all backed by shared helper logic in `corpulse/core.py`. Live asyncpg integration tests now verify the parity surfaces end-to-end against real Postgres. The remaining v1.2 gap is the README/docstring/example pass that makes the async path fully documented.
 
-## Next Milestone Goals
+## Current Milestone: v1.2 Full Async Parity
 
-- Choose the next milestone scope and create fresh requirements.
-- Decide whether to prioritize more integrations, packaging/distribution, or broader async parity.
-- Keep the shipped v1.1 storage architecture stable while expanding product reach.
+**Goal:** Close the remaining gap between `AsyncCorpulse` and sync `Corpulse` so the async path is a fully at-par, documented, first-class surface for service integration.
+
+**Target features:**
+- `AsyncCorpulse.to_dataframe()` with pandas kept as an optional dependency
+- `AsyncCorpulse.report()` returning a structured payload (no stdout coupling)
+- `AsyncCorpulse.cleanup_report()` returning a structured payload (no stdout coupling)
+- Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths (sync `report`/`cleanup_report` continue printing via a thin formatter over the shared payloads)
+- Live asyncpg integration tests (gated by `CORPULSE_POSTGRES_TEST_CONNINFO`) covering the new parity surface
+- README + docstrings that position `AsyncCorpulse` as a first-class path
+- A runnable async example under `examples/` showing ingestion → analysis → report end-to-end
 
 ## Context
 
@@ -116,6 +126,25 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Explicit backend config over connection strings | More flexible and clearer than implicit string configuration | Shipped in v1.1 |
 | Narrow async facade for v1.1 | Async service integration was needed now; full async analytics parity was not yet justified | Shipped in v1.1 |
 | Evidence-gated requirement closure | Milestone claims should match recorded verification, not just landed code | Shipped in v1.1 |
+| Structured-payload async reports | Avoids coupling `AsyncCorpulse` to stdout and keeps output consumable by services/tests; sync `report`/`cleanup_report` become a thin formatter over the same payload | Shipped in Phase 12 |
+| Pandas stays optional on async path | Keeps install footprint small for async service users who don't need DataFrames; mirrors sync behavior | Shipped in Phase 12 |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after milestone v1.1 completion*
+*Last updated: 2026-04-12 — Phase 13 complete in milestone v1.2 (Full Async Parity)*

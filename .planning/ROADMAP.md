@@ -9,8 +9,8 @@
 ## Current Status
 
 - Active milestone: `v1.2 — Full Async Parity`
-- Phase 11 is next.
-- Next workflow step: `/gsd-plan-phase 11`
+- Phase 12 is next.
+- Next workflow step: `/gsd-execute-phase 12`
 
 ---
 
@@ -19,8 +19,8 @@
 ### Phases
 
 - [x] **Phase 11: Shared Report Helpers** - Extract structured-payload builders into `corpulse/core.py` and refactor sync `report`/`cleanup_report` to consume them via a thin formatter (completed 2026-04-10)
-- [ ] **Phase 12: Async Parity Methods + Unit Tests** - Implement `AsyncCorpulse.to_dataframe()`, `report()`, `cleanup_report()` on top of shared helpers and prove parity with deterministic async tests
-- [ ] **Phase 13: Live Async Integration Tests** - Gate live asyncpg coverage over the new parity surface behind `CORPULSE_POSTGRES_TEST_CONNINFO`
+- [x] **Phase 12: Async Parity Methods + Unit Tests** - Implement `AsyncCorpulse.to_dataframe()`, `report()`, `cleanup_report()` on top of shared helpers and prove parity with deterministic async tests (completed 2026-04-10)
+- [x] **Phase 13: Live Async Integration Tests** - Gate live asyncpg coverage over the new parity surface behind `CORPULSE_POSTGRES_TEST_CONNINFO` (completed 2026-04-12)
 - [ ] **Phase 14: Docs and Examples** - README async section, API-quality docstrings, and a runnable `examples/` script
 
 ### Phase Details
@@ -52,7 +52,10 @@ Plans:
   3. `AsyncCorpulse.cleanup_report()` returns a dict whose sections (ghosts, obsolete, stale, suspects), counts, and top-5 examples match the structured payload underlying sync `cleanup_report()` output for the same fixture — proven by a deterministic async test.
   4. Calling `AsyncCorpulse.to_dataframe()` without pandas installed raises `RuntimeError` with a clear install hint — verified by a test.
   5. `pytest tests/test_async_core_integration.py -q` passes with no failures or errors (skipped live tests are acceptable).
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] `12-01-PLAN.md` — Extract the shared report-fixture seam and land `AsyncCorpulse.to_dataframe()` parity plus pandas-guard coverage
+- [ ] `12-02-PLAN.md` — Implement `AsyncCorpulse.report()` and `cleanup_report()` as shared-helper payload wrappers with deterministic parity tests
 **UI hint**: no
 
 #### Phase 13: Live Async Integration Tests
@@ -64,7 +67,9 @@ Plans:
   1. With `CORPULSE_POSTGRES_TEST_CONNINFO` set, `pytest tests/test_async_core_integration.py -q` runs the live integration tests for `to_dataframe`, `report`, and `cleanup_report` without skip and without error.
   2. Without `CORPULSE_POSTGRES_TEST_CONNINFO` set, the same live tests are skipped cleanly — the non-live suite still passes in full.
   3. The live tests ingest fixture data, call all three new parity methods, and assert on the shape and key values of the returned payloads — not merely that the calls complete without exception.
-**Plans**: TBD
+**Plans**: 1 plans
+Plans:
+- [ ] `13-01-PLAN.md` — Add canonical live seed helpers and env-gated asyncpg round-trip assertions for `to_dataframe()`, `report()`, and `cleanup_report()` with sequential verification
 
 #### Phase 14: Docs and Examples
 
@@ -84,6 +89,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 11. Shared Report Helpers | 3/3 | Complete    | 2026-04-10 |
-| 12. Async Parity Methods + Unit Tests | 0/? | Not started | - |
-| 13. Live Async Integration Tests | 0/? | Not started | - |
+| 12. Async Parity Methods + Unit Tests | 2/2 | Complete    | 2026-04-10 |
+| 13. Live Async Integration Tests | 1/1 | Complete    | 2026-04-12 |
 | 14. Docs and Examples | 0/? | Not started | - |
