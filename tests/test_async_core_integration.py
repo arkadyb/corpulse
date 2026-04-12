@@ -15,7 +15,13 @@ from corpulse.core import (
     _hash_query,
     _vec_to_bytes,
 )
-from tests.report_fixtures import build_report_fixture_snapshot, helper_inputs
+from tests.report_fixtures import (
+    build_report_fixture_snapshot,
+    expected_cleanup_payload,
+    expected_report_payload,
+    helper_inputs,
+    seed_async_backend,
+)
 
 
 class FakeAsyncBackend:
@@ -581,6 +587,11 @@ async def test_async_get_duplicates_preserves_sklearn_guard(monkeypatch):
         raise AssertionError("expected get_duplicates() to preserve the sklearn guard")
 
 
+async def _seed_live_backend(async_backend) -> None:
+    """Seed a real async backend with the canonical report fixture corpus."""
+    await seed_async_backend(async_backend)
+
+
 async def test_live_async_corpulse_round_trip(async_backend):
     corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30)
 
@@ -593,6 +604,68 @@ async def test_live_async_corpulse_round_trip(async_backend):
     ghosts = await corpulse.get_ghosts()
 
     assert ghosts == [{"doc_id": "ghost-doc", "filename": "ghost.md"}]
+
+
+async def test_live_async_to_dataframe_shape_and_ordering(async_backend, monkeypatch):
+    """Live: to_dataframe() returns correct shape, columns, and descending retrieval order."""
+    await _seed_live_backend(async_backend)
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+
+    _install_fake_pandas(monkeypatch)
+
+    df = await corpulse.to_dataframe(window_days=30)
+    records = df.to_dict("records")
+
+    assert df.columns  # non-empty
+    assert "doc_id" in df.columns
+    assert "retrievals" in df.columns
+    assert "status" in df.columns
+    assert len(records) == 10  # canonical corpus has 10 documents
+    # top 4 retrieval counts in descending order match the canonical fixture
+    retrieval_counts = [r["retrievals"] for r in records]
+    assert retrieval_counts == sorted(retrieval_counts, reverse=True)
+    assert retrieval_counts[:4] == [10, 8, 7, 6]
+
+
+async def test_live_async_report_summary_and_representative_rows(async_backend, monkeypatch):
+    """Live: report() returns summary matching shared helpers and contains expected rows."""
+    await _seed_live_backend(async_backend)
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    payload = await corpulse.report(window_days=30)
+    expected = expected_report_payload(window_days=30, top_k=corpulse.top_k_report)
+
+    assert payload["summary"] == expected["summary"]
+    # representative row content: noisy-doc must appear as low_engagement
+    noisy_row = next((r for r in payload["rows"] if r["filename"] == "noisy.md"), None)
+    assert noisy_row is not None
+    assert noisy_row["status"] == "low_engagement"
+    assert noisy_row["retrievals"] == 10
+    # section counts match the shared helper expectation
+    assert len(payload["rows"]) == len(expected["rows"])
+
+
+async def test_live_async_cleanup_report_metadata_and_section_counts(async_backend, monkeypatch):
+    """Live: cleanup_report() returns metadata and section counts from the shared expected payload."""
+    await _seed_live_backend(async_backend)
+    corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    payload = await corpulse.cleanup_report()
+    expected = expected_cleanup_payload(window_days=30, ghost_threshold_days=30)
+
+    assert payload["total_docs"] == expected["total_docs"]
+    assert payload["ghost_threshold_days"] == expected["ghost_threshold_days"]
+    assert payload["bloat_warning"] == expected["bloat_warning"]
+    # section counts
+    assert payload["ghosts"]["count"] == expected["ghosts"]["count"]
+    assert payload["obsolete"]["count"] == expected["obsolete"]["count"]
+    assert payload["stale"]["count"] == expected["stale"]["count"]
+    assert payload["suspects"]["count"] == expected["suspects"]["count"]
+    # representative top entries
+    assert payload["ghosts"]["top5"] == expected["ghosts"]["top5"]
+    assert payload["stale"]["top5"] == expected["stale"]["top5"]
 
 
 async def test_importing_async_corpulse_from_package_root_is_lazy(monkeypatch):
