@@ -45,6 +45,19 @@ class AsyncCorpulse:
         results: list[dict[str, Any]],
         query: str = "",
     ) -> None:
+        """Record a retrieval event batch for ranked search results.
+
+        Async equivalent of :meth:`Corpulse.log_retrieval`.
+
+        Args:
+            results: Retrieved document records. Each item must include
+                ``doc_id`` and may include ``filename``, ``score``, and
+                ``embedding``.
+            query: Raw user query text used to derive the stored query hash.
+
+        Returns:
+            None.
+        """
         qhash = _hash_query(query)
         ts = _now()
 
@@ -67,6 +80,17 @@ class AsyncCorpulse:
         doc_id: str,
         event: str = "opened",
     ) -> None:
+        """Record a user engagement event for a document.
+
+        Async equivalent of :meth:`Corpulse.log_engagement`.
+
+        Args:
+            doc_id: Document identifier tied to the engagement.
+            event: Engagement type such as ``"opened"`` or ``"clicked"``.
+
+        Returns:
+            None.
+        """
         await self.db.insert_engagement(doc_id, event, _now())
 
     async def log_source_update(
@@ -74,6 +98,18 @@ class AsyncCorpulse:
         doc_id: str,
         updated_at: float | None = None,
     ) -> None:
+        """Mark a document source as updated.
+
+        Async equivalent of :meth:`Corpulse.log_source_update`.
+
+        Args:
+            doc_id: Document identifier whose source changed.
+            updated_at: Unix timestamp for the source update. Defaults to
+                the current time if omitted.
+
+        Returns:
+            None.
+        """
         await self.db.update_source_timestamp(doc_id, updated_at or _now())
 
     async def register_document(
@@ -82,6 +118,19 @@ class AsyncCorpulse:
         filename: str,
         embedding: list | np.ndarray | None = None,
     ) -> None:
+        """Register or update a document in the corpus.
+
+        Async equivalent of :meth:`Corpulse.register_document`.
+
+        Args:
+            doc_id: Stable document identifier.
+            filename: Human-readable document name shown in reports.
+            embedding: Optional embedding vector to persist with the
+                document.
+
+        Returns:
+            None.
+        """
         await self.db.upsert_document(
             doc_id=doc_id,
             filename=filename,
@@ -90,6 +139,13 @@ class AsyncCorpulse:
         )
 
     async def get_ghosts(self) -> list[dict]:
+        """Return documents not retrieved within the ghost threshold window.
+
+        Async equivalent of :meth:`Corpulse.get_ghosts`.
+
+        Returns:
+            list[dict]: Ghost document records with identifiers and filenames.
+        """
         cutoff = _days_ago(self.ghost_threshold_days)
         retrieval_rows = await self.db.retrieval_counts(since=cutoff)
         all_docs = await self.db.all_documents()
@@ -99,19 +155,57 @@ class AsyncCorpulse:
         self,
         threshold: float | None = None,
     ) -> list[dict]:
+        """Return near-duplicate document pairs by cosine similarity.
+
+        Async equivalent of :meth:`Corpulse.get_duplicates`.
+
+        Args:
+            threshold: Optional cosine-similarity cutoff. Defaults to
+                ``duplicate_threshold`` if omitted.
+
+        Returns:
+            list[dict]: Duplicate-pair records with filenames and similarity.
+        """
         duplicate_threshold = threshold or self.duplicate_threshold
         embedding_rows = await self.db.all_embeddings()
         return _build_duplicate_pairs(embedding_rows, duplicate_threshold)
 
     async def get_obsolete(self) -> list[dict]:
+        """Return documents superseded by newer versioned filenames.
+
+        Async equivalent of :meth:`Corpulse.get_obsolete`.
+
+        Returns:
+            list[dict]: Obsolete document records with replacement metadata.
+        """
         all_docs = await self.db.all_documents()
         return _build_obsolete_documents(all_docs, self.obsolete_pattern)
 
     async def get_stale_embeddings(self) -> list[dict]:
+        """Return documents whose source is newer than their embedding.
+
+        Async equivalent of :meth:`Corpulse.get_stale_embeddings`.
+
+        Returns:
+            list[dict]: Stale-embedding records including lag details.
+        """
         all_docs = await self.db.all_documents()
         return _build_stale_embeddings(all_docs, self.stale_threshold_days)
 
     async def get_suspects(self, window_days: int | None = None) -> list[dict]:
+        """Return high-retrieval, low-engagement suspect documents.
+
+        Async equivalent of :meth:`Corpulse.get_suspects`.
+
+        Args:
+            window_days: Lookback window in days for retrieval and
+                engagement counts. Defaults to ``ghost_threshold_days``
+                if ``None``.
+
+        Returns:
+            list[dict]: Suspect document records with retrieval and
+            engagement metrics.
+        """
         since = _days_ago(window_days or self.ghost_threshold_days)
         all_docs = await self.db.all_documents()
         retrieval_rows = await self.db.retrieval_counts(since=since)
@@ -119,6 +213,14 @@ class AsyncCorpulse:
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
 
     async def corpus_health(self) -> dict:
+        """Return aggregate corpus-health metrics.
+
+        Async equivalent of :meth:`Corpulse.corpus_health`.
+
+        Returns:
+            dict: Summary metrics including noise estimate, counts, and
+            bloat recommendation fields.
+        """
         all_docs = await self.db.all_documents()
         if not all_docs:
             return _build_corpus_health([], [], [], [], [])
@@ -139,6 +241,25 @@ class AsyncCorpulse:
         )
 
     async def to_dataframe(self, window_days: int | None = None):
+        """Return corpus stats as a pandas DataFrame.
+
+        Async equivalent of :meth:`Corpulse.to_dataframe`. Retrieval and
+        engagement counts are fetched from the async backend before building
+        the DataFrame.
+
+        Args:
+            window_days: Lookback window in days for retrieval/engagement
+                counts. Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            pandas.DataFrame with columns: ``doc_id``, ``filename``,
+            ``retrievals``, ``engagements``, ``engagement_rate``, ``status``.
+            Sorted by retrievals descending.
+
+        Raises:
+            RuntimeError: If pandas is not installed
+                (``pip install pandas`` to resolve).
+        """
         try:
             import pandas as pd
         except ImportError:
@@ -162,6 +283,25 @@ class AsyncCorpulse:
         return pd.DataFrame(rows).sort_values("retrievals", ascending=False)
 
     async def cleanup_report(self) -> dict[str, Any]:
+        """Return a structured cleanup action payload.
+
+        Unlike sync :meth:`Corpulse.cleanup_report` which prints to stdout,
+        this method returns the payload as a dict so callers can format, log,
+        or forward it.
+
+        Returns:
+            dict with keys:
+
+            - ``"total_docs"`` (:class:`int`)
+            - ``"noise_pct"`` (:class:`float`) -- estimated noisy document fraction.
+            - ``"bloat_warning"`` (:class:`bool`)
+            - ``"recommendation"`` (:class:`str`)
+            - ``"ghost_threshold_days"`` (:class:`int`)
+            - ``"ghosts"`` (:class:`dict`) -- ``count``, ``top5``, ``overflow``.
+            - ``"obsolete"`` (:class:`dict`) -- ``count``, ``top5``, ``overflow``.
+            - ``"stale"`` (:class:`dict`) -- ``count``, ``top5``, ``overflow``.
+            - ``"suspects"`` (:class:`dict`) -- ``count``, ``top5``, ``overflow``.
+        """
         health = await self.corpus_health()
         ghosts = await self.get_ghosts()
         obsolete = await self.get_obsolete()
@@ -177,6 +317,24 @@ class AsyncCorpulse:
         )
 
     async def report(self, window_days: int | None = None) -> dict[str, Any]:
+        """Return a structured corpus health payload.
+
+        Unlike sync :meth:`Corpulse.report` which prints to stdout, this method
+        returns the payload as a dict so callers can format, log, or forward it.
+
+        Args:
+            window_days: Lookback window in days for retrieval and engagement
+                counts. Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            dict with keys:
+
+            - ``"summary"`` (:class:`dict`) -- corpus-level health metrics
+              (total docs, noise estimate, bloat warning, recommendation).
+            - ``"rows"`` (:class:`list[dict]`) -- top-K document rows with
+              ``doc_id``, ``filename``, ``retrievals``, ``engagements``,
+              ``engagement_rate``, and ``status`` fields.
+        """
         report_window_days = window_days or self.ghost_threshold_days
         since = _days_ago(report_window_days)
         all_docs = await self.db.all_documents()
@@ -204,6 +362,11 @@ class AsyncCorpulse:
         }
 
     async def close(self) -> None:
+        """Close the underlying async backend.
+
+        Returns:
+            None.
+        """
         await self.db.close()
 
     async def __aenter__(self) -> AsyncCorpulse:
