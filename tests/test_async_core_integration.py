@@ -612,6 +612,7 @@ async def test_live_async_to_dataframe_shape_and_ordering(async_backend, monkeyp
     corpulse = AsyncCorpulse(backend=async_backend, ghost_threshold_days=30, stale_threshold_days=14)
 
     _install_fake_pandas(monkeypatch)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
 
     df = await corpulse.to_dataframe(window_days=30)
     records = df.to_dict("records")
