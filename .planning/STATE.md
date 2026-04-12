@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Full Async Parity
 status: executing
-stopped_at: Phase 11 execution complete
-last_updated: "2026-04-12T06:55:54.121Z"
+stopped_at: Phase 14 execution complete
+last_updated: "2026-04-12T07:17:29.577Z"
 last_activity: 2026-04-12
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 13 — live-async-integration-tests
+**Current focus:** Milestone v1.2 complete — ready for milestone completion/archive workflow
 
 ## Current Position
 
-Phase: 14
+Phase: 14 complete
 Plan: Not started
-Status: Executing Phase 13
+Status: Milestone complete
 Last activity: 2026-04-12
 
-Progress bar: [██▌□□□□□□□] 1/4 phases complete
+Progress bar: [██████████] 4/4 phases complete
 
 ## Pending Todos
 
@@ -56,6 +56,8 @@ None.
 - [Phase 11]: Represent the low-engagement divergence test with a tiny epsilon because Python evaluates 3 / 20 as exactly 0.15, which would not exercise the raw-vs-rounded split described in research. — The epsilon keeps the synthetic fixture aligned with the plan intent while preserving the existing helper behavior exactly.
 - [Phase 11]: Reused the Plan 01 golden strings as permanent regression gates for sync formatter rewiring.
 - [Phase 11]: Kept cleanup_report double-fetch behavior while moving section math into _build_cleanup_payload.
+- [Phase 14]: Document AsyncCorpulse as a structured-return API with explicit sync parity notes rather than stdout-oriented wording.
+- [Phase 14]: Use an inline AsyncInMemoryBackend adapter in the async demo so the example runs without external services.
 
 ## Performance Metrics
 
@@ -64,9 +66,10 @@ None.
 | 11 | 01 | 191 | 1 | 2 |
 | Phase 11 P02 | 6 min | 2 tasks | 3 files |
 | Phase 11 P03 | 420 | 2 tasks | 2 files |
+| Phase 14 P01 | 3 min | 3 tasks | 4 files |
 
 ## Session Continuity
 
-Last activity: 2026-04-10 - Phase 11 completed and verified; Phase 12 is next
-Stopped at: Phase 11 execution complete
+Last activity: 2026-04-12 - Phase 14 completed; milestone v1.2 is ready for completion
+Stopped at: Phase 14 execution complete
 Resume file: None

@@ -4,13 +4,13 @@
 
 - ✅ **v1.0 — Qdrant Wrapper + Packaging** - Phases 1-5 (shipped 2026-04-07)
 - ✅ **v1.1 — Pluggable Storage Backends** - Phases 6-10 (shipped 2026-04-09, archive: `.planning/milestones/v1.1-ROADMAP.md`)
-- 🔄 **v1.2 — Full Async Parity** - Phases 11-14 (in progress)
+- ✅ **v1.2 — Full Async Parity** - Phases 11-14 (phase execution complete 2026-04-12)
 
 ## Current Status
 
 - Active milestone: `v1.2 — Full Async Parity`
-- Phase 12 is next.
-- Next workflow step: `/gsd-execute-phase 12`
+- All planned phases are complete.
+- Next workflow step: `/gsd-complete-milestone v1.2`
 
 ---
 
@@ -21,7 +21,7 @@
 - [x] **Phase 11: Shared Report Helpers** - Extract structured-payload builders into `corpulse/core.py` and refactor sync `report`/`cleanup_report` to consume them via a thin formatter (completed 2026-04-10)
 - [x] **Phase 12: Async Parity Methods + Unit Tests** - Implement `AsyncCorpulse.to_dataframe()`, `report()`, `cleanup_report()` on top of shared helpers and prove parity with deterministic async tests (completed 2026-04-10)
 - [x] **Phase 13: Live Async Integration Tests** - Gate live asyncpg coverage over the new parity surface behind `CORPULSE_POSTGRES_TEST_CONNINFO` (completed 2026-04-12)
-- [ ] **Phase 14: Docs and Examples** - README async section, API-quality docstrings, and a runnable `examples/` script
+- [x] **Phase 14: Docs and Examples** - README async section, API-quality docstrings, and a runnable `examples/` script (completed 2026-04-12)
 
 ### Phase Details
 
@@ -81,7 +81,7 @@ Plans:
   2. Docstrings on `AsyncCorpulse.to_dataframe()`, `report()`, and `cleanup_report()` document args, return type and structure, exceptions raised, and a parity note vs the sync counterpart.
   3. `python examples/<async_script>.py` runs to completion without error using `InMemoryBackend` (no external dependencies required for the default path).
   4. The `examples/` script output includes visible proof of the report payload (e.g. printing the returned dict) so a reader can see what structured output looks like.
-**Plans**: TBD
+**Plans**: 1/1 plans complete
 **UI hint**: no
 
 ### Progress Table
@@ -91,4 +91,4 @@ Plans:
 | 11. Shared Report Helpers | 3/3 | Complete    | 2026-04-10 |
 | 12. Async Parity Methods + Unit Tests | 2/2 | Complete    | 2026-04-10 |
 | 13. Live Async Integration Tests | 1/1 | Complete    | 2026-04-12 |
-| 14. Docs and Examples | 0/? | Not started | - |
+| 14. Docs and Examples | 1/1 | Complete    | 2026-04-12 |

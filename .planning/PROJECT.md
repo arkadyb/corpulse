@@ -37,13 +37,14 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ `AsyncCorpulse.report()` returning a structured payload — Phase 12
 - ✓ `AsyncCorpulse.cleanup_report()` returning a structured payload — Phase 12
 - ✓ Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths — Phase 11-12
+- ✓ Live asyncpg integration coverage for the new async parity surface — Phase 13
+- ✓ README, docstrings, and an `examples/` script positioning AsyncCorpulse as a first-class path — Phase 14
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- ✓ Live asyncpg integration coverage for the new async parity surface — Phase 13
-- [ ] README, docstrings, and an `examples/` script positioning AsyncCorpulse as a first-class path — v1.2
+None.
 
 ### Out of Scope
 
@@ -59,7 +60,7 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
-corpulse has shipped milestone `v1.1` and is nearing completion of `v1.2`. `AsyncCorpulse` has full parity with sync `Corpulse` for analysis methods plus `to_dataframe()`, `report()`, and `cleanup_report()`, all backed by shared helper logic in `corpulse/core.py`. Live asyncpg integration tests now verify the parity surfaces end-to-end against real Postgres. The remaining v1.2 gap is the README/docstring/example pass that makes the async path fully documented.
+corpulse has shipped milestone `v1.2`, completing full async parity for `AsyncCorpulse`. The async facade now matches sync `Corpulse` for analysis methods plus `to_dataframe()`, `report()`, and `cleanup_report()`, all backed by shared helper logic in `corpulse/core.py`, verified by deterministic tests, live asyncpg coverage, and first-class docs/examples.
 
 ## Current Milestone: v1.2 Full Async Parity
 
@@ -147,4 +148,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-12 — Phase 13 complete in milestone v1.2 (Full Async Parity)*
+*Last updated: 2026-04-12 — Phase 14 complete in milestone v1.2 (Full Async Parity)*
