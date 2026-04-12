@@ -120,6 +120,45 @@ asyncio.run(main())
 
 ---
 
+## Async usage
+
+corpulse ships a fully async interface via `AsyncCorpulse`. It returns structured data instead of printing, making it ideal for web services and async pipelines.
+
+```python
+import asyncio
+from corpulse import AsyncCorpulse
+from corpulse.backends import AsyncPostgresBackend
+
+async def main():
+    backend = await AsyncPostgresBackend.create(
+        "postgresql://user:pass@localhost/mydb"
+    )
+    async with AsyncCorpulse(backend=backend) as corp:
+        # Ingest: called after every vector DB query in your RAG pipeline
+        await corp.log_retrieval(
+            [{"doc_id": "abc123", "filename": "guide.md", "score": 0.91}],
+            query="how to install?",
+        )
+        await corp.log_engagement("abc123", event="opened")
+
+        ghosts = await corp.get_ghosts()
+        print(f"Ghost docs: {len(ghosts)}")
+
+        report = await corp.report(window_days=30)
+        print(report["summary"])
+        print(report["rows"][:3])
+
+        cleanup = await corp.cleanup_report()
+        print(cleanup["ghosts"])
+        print(cleanup["suspects"])
+
+asyncio.run(main())
+```
+
+`AsyncCorpulse.report()` and `AsyncCorpulse.cleanup_report()` return dictionaries with structured payloads, so you can log them, send them over HTTP, or render them in your own UI without parsing stdout.
+
+---
+
 ## What It Measures
 
 - Ghost documents — registered but never retrieved within a time window
