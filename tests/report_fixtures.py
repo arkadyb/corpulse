@@ -270,3 +270,38 @@ def expected_cleanup_payload(window_days: int = 30, ghost_threshold_days: int = 
         inputs["suspects"],
         ghost_threshold_days,
     )
+
+
+async def seed_async_backend(backend) -> None:
+    """Seed a real async backend with the canonical report fixture corpus.
+
+    Inserts the same document, retrieval, engagement, and source-timestamp
+    rows used by the deterministic in-memory fixture so live asyncpg tests
+    exercise identical data.  Connection credentials and truncation are
+    managed by the ``async_backend`` conftest fixture; this helper only writes
+    rows.
+    """
+    for row in _document_seed_rows():
+        await backend.upsert_document(
+            row["doc_id"],
+            row["filename"],
+            embedding=_embedding(row["embedding_seed"]),
+            embedded_at=row["embedded_at"],
+        )
+        await backend.update_source_timestamp(row["doc_id"], row["source_updated_at"])
+
+    for row in _retrieval_seed_rows():
+        await backend.insert_retrieval(
+            row["doc_id"],
+            row["query_hash"],
+            row["rank"],
+            row["score"],
+            row["retrieved_at"],
+        )
+
+    for row in _engagement_seed_rows():
+        await backend.insert_engagement(
+            row["doc_id"],
+            row["event_type"],
+            row["engaged_at"],
+        )
