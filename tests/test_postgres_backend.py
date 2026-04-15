@@ -535,3 +535,35 @@ def test_live_postgres_backend_round_trip():
         assert backend.all_embeddings() == [
             {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
         ]
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CORPULSE_POSTGRES_TEST_CONNINFO")
+    or importlib.util.find_spec("psycopg") is None,
+    reason="requires CORPULSE_POSTGRES_TEST_CONNINFO and psycopg",
+)
+def test_live_postgres_backend_schema_isolation():
+    from corpulse.backends import PostgresBackend as LivePostgresBackend
+
+    conninfo = os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]
+    schema_a = f"tenant_sync_a_{os.getpid()}"
+    schema_b = f"tenant_sync_b_{os.getpid()}"
+    backend_a = LivePostgresBackend(conninfo, schema=schema_a)
+    backend_b = LivePostgresBackend(conninfo, schema=schema_b)
+
+    try:
+        backend_a.upsert_document("doc-a", "a.md", embedding=b"a", embedded_at=1.0)
+        backend_a.insert_retrieval("doc-a", "hash-a", 1, 0.9, 2.0)
+        backend_b.upsert_document("doc-b", "b.md", embedding=b"b", embedded_at=3.0)
+        backend_b.insert_retrieval("doc-b", "hash-b", 1, 0.8, 4.0)
+
+        assert [doc["doc_id"] for doc in backend_a.all_documents()] == ["doc-a"]
+        assert [doc["doc_id"] for doc in backend_b.all_documents()] == ["doc-b"]
+        assert [row["doc_id"] for row in backend_a.retrieval_counts(0.0)] == ["doc-a"]
+        assert [row["doc_id"] for row in backend_b.retrieval_counts(0.0)] == ["doc-b"]
+    finally:
+        with backend_a._pool.connection() as conn:
+            conn.execute(f"DROP SCHEMA IF EXISTS {schema_a} CASCADE")
+            conn.execute(f"DROP SCHEMA IF EXISTS {schema_b} CASCADE")
+        backend_a.close()
+        backend_b.close()

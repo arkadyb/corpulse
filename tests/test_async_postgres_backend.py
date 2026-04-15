@@ -516,3 +516,35 @@ async def test_live_async_postgres_backend_round_trip():
                 "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
             )
         await backend.close()
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CORPULSE_POSTGRES_TEST_CONNINFO")
+    or importlib.util.find_spec("asyncpg") is None,
+    reason="requires CORPULSE_POSTGRES_TEST_CONNINFO and asyncpg",
+)
+async def test_live_async_postgres_backend_schema_isolation():
+    from corpulse.backends import AsyncPostgresBackend as LiveBackend
+
+    conninfo = os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]
+    schema_a = f"tenant_async_a_{os.getpid()}"
+    schema_b = f"tenant_async_b_{os.getpid()}"
+    backend_a = await LiveBackend.create(conninfo, schema=schema_a)
+    backend_b = await LiveBackend.create(conninfo, schema=schema_b)
+
+    try:
+        await backend_a.upsert_document("doc-a", "a.md", embedding=b"a", embedded_at=1.0)
+        await backend_a.insert_retrieval("doc-a", "hash-a", 1, 0.9, 2.0)
+        await backend_b.upsert_document("doc-b", "b.md", embedding=b"b", embedded_at=3.0)
+        await backend_b.insert_retrieval("doc-b", "hash-b", 1, 0.8, 4.0)
+
+        assert [doc["doc_id"] for doc in await backend_a.all_documents()] == ["doc-a"]
+        assert [doc["doc_id"] for doc in await backend_b.all_documents()] == ["doc-b"]
+        assert [row["doc_id"] for row in await backend_a.retrieval_counts(0.0)] == ["doc-a"]
+        assert [row["doc_id"] for row in await backend_b.retrieval_counts(0.0)] == ["doc-b"]
+    finally:
+        async with backend_a._pool.acquire() as conn:
+            await conn.execute(f"DROP SCHEMA IF EXISTS {schema_a} CASCADE")
+            await conn.execute(f"DROP SCHEMA IF EXISTS {schema_b} CASCADE")
+        await backend_a.close()
+        await backend_b.close()
