@@ -39,35 +39,65 @@ def _validate_table_prefix(table_prefix: str) -> str:
     return validated
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS documents (
+def _table_name(name: str, *, prefix: str = "") -> str:
+    return f"{prefix}{name}"
+
+
+def _qualified_name(name: str, *, schema: str | None = None, prefix: str = "") -> str:
+    table_name = _table_name(name, prefix=prefix)
+    return f"{schema}.{table_name}" if schema else table_name
+
+
+def _index_name(name: str, *, prefix: str = "") -> str:
+    return f"{prefix}{name}" if prefix else name
+
+
+def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
+    schema = _validate_schema(schema)
+    prefix = _validate_table_prefix(prefix)
+
+    documents = _qualified_name("documents", schema=schema, prefix=prefix)
+    retrievals = _qualified_name("retrievals", schema=schema, prefix=prefix)
+    engagements = _qualified_name("engagements", schema=schema, prefix=prefix)
+    retrievals_doc_idx = _index_name("idx_retrievals_doc", prefix=prefix)
+    retrievals_time_idx = _index_name("idx_retrievals_time", prefix=prefix)
+    engagements_doc_idx = _index_name("idx_engagements_doc", prefix=prefix)
+
+    tables = [
+        f"""CREATE TABLE IF NOT EXISTS {documents} (
     doc_id TEXT PRIMARY KEY,
     filename TEXT,
     embedding_vec BYTEA,
     embedded_at DOUBLE PRECISION,
     source_updated_at DOUBLE PRECISION DEFAULT NULL
-);
-
-CREATE TABLE IF NOT EXISTS retrievals (
+);""",
+        f"""CREATE TABLE IF NOT EXISTS {retrievals} (
     id BIGSERIAL PRIMARY KEY,
     doc_id TEXT NOT NULL,
     query_hash TEXT NOT NULL,
     rank INTEGER,
     score DOUBLE PRECISION,
     retrieved_at DOUBLE PRECISION NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS engagements (
+);""",
+        f"""CREATE TABLE IF NOT EXISTS {engagements} (
     id BIGSERIAL PRIMARY KEY,
     doc_id TEXT NOT NULL,
     event_type TEXT NOT NULL,
     engaged_at DOUBLE PRECISION NOT NULL
-);
+);""",
+    ]
+    indexes = [
+        f"CREATE INDEX IF NOT EXISTS {retrievals_doc_idx} ON {retrievals}(doc_id);",
+        f"CREATE INDEX IF NOT EXISTS {retrievals_time_idx} ON {retrievals}(retrieved_at);",
+        f"CREATE INDEX IF NOT EXISTS {engagements_doc_idx} ON {engagements}(doc_id);",
+    ]
 
-CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON retrievals(doc_id);
-CREATE INDEX IF NOT EXISTS idx_retrievals_time ON retrievals(retrieved_at);
-CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
-"""
+    sql_sections: list[str] = []
+    if schema:
+        sql_sections.append(f"CREATE SCHEMA IF NOT EXISTS {schema};")
+    sql_sections.append("\n\n".join(tables))
+    sql_sections.append("\n".join(indexes))
+    return "\n" + "\n\n".join(sql_sections) + "\n"
 
 
 def _load_psycopg_pool() -> tuple[Any, Any, type[BaseException]]:
@@ -107,7 +137,7 @@ class PostgresBackend(StorageBackend):
             raise StorageBackendError(str(exc)) from exc
 
     def _init(self) -> None:
-        self._run(lambda conn: conn.execute(SCHEMA))
+        self._run(lambda conn: conn.execute(build_schema_sql()))
 
     def upsert_document(
         self,
