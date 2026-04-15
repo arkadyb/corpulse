@@ -6,7 +6,7 @@ import os
 import pytest
 
 from corpulse.backends.base import StorageBackendError
-from corpulse.backends.postgres import PostgresBackend
+from corpulse.backends.postgres import PostgresBackend, build_schema_sql
 
 
 def _normalize_sql(sql: str) -> str:
@@ -15,6 +15,37 @@ def _normalize_sql(sql: str) -> str:
 
 class FakePsycopgError(Exception):
     pass
+
+
+EXPECTED_DEFAULT_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS documents (
+    doc_id TEXT PRIMARY KEY,
+    filename TEXT,
+    embedding_vec BYTEA,
+    embedded_at DOUBLE PRECISION,
+    source_updated_at DOUBLE PRECISION DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS retrievals (
+    id BIGSERIAL PRIMARY KEY,
+    doc_id TEXT NOT NULL,
+    query_hash TEXT NOT NULL,
+    rank INTEGER,
+    score DOUBLE PRECISION,
+    retrieved_at DOUBLE PRECISION NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS engagements (
+    id BIGSERIAL PRIMARY KEY,
+    doc_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    engaged_at DOUBLE PRECISION NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON retrievals(doc_id);
+CREATE INDEX IF NOT EXISTS idx_retrievals_time ON retrievals(retrieved_at);
+CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
+"""
 
 
 class FakeCursor:
@@ -175,6 +206,44 @@ def test_postgres_backend_accepts_pool_size_kwargs(monkeypatch):
         ("postgresql://custom", 3, 7, {"row_factory": dict_row}, True)
     ]
     custom_backend.close()
+
+
+def test_build_schema_sql_default_output_is_backward_compatible():
+    assert build_schema_sql() == EXPECTED_DEFAULT_SCHEMA_SQL
+
+
+def test_build_schema_sql_supports_schema_qualified_output():
+    sql = build_schema_sql(schema="tenant_alpha")
+
+    assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha;" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_alpha.documents" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_alpha.retrievals" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_alpha.engagements" in sql
+    assert "CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON tenant_alpha.retrievals(doc_id);" in sql
+
+
+def test_build_schema_sql_supports_prefix_only_output():
+    sql = build_schema_sql(prefix="tenant_abc_")
+
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_retrievals" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_engagements" in sql
+    assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_retrievals_doc ON tenant_abc_retrievals(doc_id);" in sql
+    assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_engagements_doc ON tenant_abc_engagements(doc_id);" in sql
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "field"),
+    [
+        ({"schema": "bad-name"}, "schema"),
+        ({"schema": "tenant.one"}, "schema"),
+        ({"prefix": "tenant-"}, "table_prefix"),
+        ({"prefix": "1tenant_"}, "table_prefix"),
+    ],
+)
+def test_build_schema_sql_rejects_invalid_identifiers(kwargs, field):
+    with pytest.raises(ValueError, match=field):
+        build_schema_sql(**kwargs)
 
 
 def test_postgres_backend_translates_driver_errors(monkeypatch):
