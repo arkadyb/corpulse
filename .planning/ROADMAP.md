@@ -73,8 +73,8 @@ Plans:
 **Depends on**: Phase 19
 **Requirements**: FASTAPI-01, FASTAPI-02, FASTAPI-03, FASTAPI-04
 
-**Plans:** 2 plans
-- [ ] 20-01-PLAN.md — Add optional `corpulse[fastapi]` extras and implement router factory
+**Plans:** 1/2 plans executed
+- [x] 20-01-PLAN.md — Add optional `corpulse[fastapi]` extras and implement router factory
 - [ ] 20-02-PLAN.md — Implement integration tests for the FastAPI router
 
 ## Current Status

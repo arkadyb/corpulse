@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
-status: Ready
-stopped_at: Completed 18-03-PLAN.md
-last_updated: "2026-04-15T04:46:15.289Z"
-last_activity: 2026-04-15 — Implemented resilient index_document orchestration with retries and rollback
+status: completed
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-04-15T06:20:24.010Z"
+last_activity: 2026-04-15 — Centralized models in models.py and refactored backend imports
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 ## Current Position
 
-Phase: 18 — Indexing Pipeline MVP
-Plan: 03 / 03
-Status: Complete
-Last activity: 2026-04-15 — Verified indexing pipeline with comprehensive tests (happy path, retry, rollback)
+Phase: 20 — FastAPI Optional Integration
+Plan: 01 / 02
+Status: In Progress
+Last activity: 2026-04-15 — Added optional 'fastapi' extra and implemented get_corpulse_router factory in corpulse.fastapi
 
-Progress bar: [██████████] 100%
+Progress bar: [█████████░] 91%
 
 ## Pending Todos
 
@@ -74,6 +74,8 @@ Progress bar: [██████████] 100%
 - [Phase 18]: Use FakeParser, FakeChunker, and FakeEmbedder for deterministic pipeline testing without external dependencies.
 - [Phase 18]: Mock asyncio.sleep to verify retry logic without artificial delays.
 - [Phase 18]: Verify rollback via Qdrant point deletion on Corpulse registration failure.
+- [Phase 19]: Centralized all TypedDict models in corpulse/models.py and migrated backend row types to it while keeping re-exports for compatibility.
+- [Phase 20]: Added optional 'fastapi' extra and implemented get_corpulse_router factory in corpulse.fastapi
 
 ## Performance Metrics
 
@@ -88,9 +90,12 @@ Progress bar: [██████████] 100%
 | Phase 18 P01 | 300 | 2 tasks | 1 files |
 | Phase 18 P02 | 300 | 3 tasks | 1 files |
 | Phase 18 P03 | 450 | 2 tasks | 1 files |
+| Phase 19 P01 | 900 | 2 tasks | 6 files |
+| Phase 19 P02 | 1200 | 3 tasks | 3 files |
+| Phase 20 P01 | 600 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last activity: 2026-04-15 - Completed 16-03 postgres tenancy verification plan
-Stopped at: Completed 18-03-PLAN.md
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None

@@ -37,16 +37,16 @@
 
 ### Typed Async Payload Models
 
-- [ ] **MODEL-01**: Typed models mirror the current async `report()` payload shape exactly (`summary` plus `rows`) without changing the public method contract.
-- [ ] **MODEL-02**: Typed models mirror the current async `cleanup_report()` analysis payload shape exactly (`ghosts`, `obsolete`, `stale`, `suspects`, metadata) without changing the public method contract.
-- [ ] **MODEL-03**: Internal helper/model layers can expose typed payloads while `AsyncCorpulse.report()` and `AsyncCorpulse.cleanup_report()` remain backward-compatible for existing dict consumers.
-- [ ] **MODEL-04**: If a mutating cleanup API is added later, it is introduced as a new operation rather than overloading `cleanup_report()`.
+- [x] **MODEL-01**: Typed models mirror the current async `report()` payload shape exactly (`summary` plus `rows`) without changing the public method contract.
+- [x] **MODEL-02**: Typed models mirror the current async `cleanup_report()` analysis payload shape exactly (`ghosts`, `obsolete`, `stale`, `suspects`, metadata) without changing the public method contract.
+- [x] **MODEL-03**: Internal helper/model layers can expose typed payloads while `AsyncCorpulse.report()` and `AsyncCorpulse.cleanup_report()` remain backward-compatible for existing dict consumers.
+- [x] **MODEL-04**: If a mutating cleanup API is added later, it is introduced as a new operation rather than overloading `cleanup_report()`.
 
 ### FastAPI Optional Integration
 
-- [ ] **FASTAPI-01**: `corpulse[fastapi]` provides an optional router helper that wires tenant-scoped `AsyncCorpulse` instances into HTTP endpoints.
-- [ ] **FASTAPI-02**: The router exposes report, cleanup-report, ghosts, duplicates, obsolete, stale, and suspects endpoints using the milestone’s typed payload models.
-- [ ] **FASTAPI-03**: The FastAPI integration remains optional and does not add import/runtime cost for non-FastAPI consumers.
+- [x] **FASTAPI-01**: `corpulse[fastapi]` provides an optional router helper that wires tenant-scoped `AsyncCorpulse` instances into HTTP endpoints.
+- [x] **FASTAPI-02**: The router exposes report, cleanup-report, ghosts, duplicates, obsolete, stale, and suspects endpoints using the milestone’s typed payload models.
+- [x] **FASTAPI-03**: The FastAPI integration remains optional and does not add import/runtime cost for non-FastAPI consumers.
 - [ ] **FASTAPI-04**: FastAPI tests verify route wiring, status codes, and response schemas with a dummy factory.
 
 ## v2 Requirements
@@ -94,13 +94,13 @@
 | PIPE-03 | Phase 18 | Complete |
 | PIPE-04 | Phase 18 | Complete |
 | PIPE-05 | Phase 18 | Complete |
-| MODEL-01 | Phase 19 | Pending |
-| MODEL-02 | Phase 19 | Pending |
-| MODEL-03 | Phase 19 | Pending |
-| MODEL-04 | Phase 19 | Pending |
-| FASTAPI-01 | Phase 20 | Pending |
-| FASTAPI-02 | Phase 20 | Pending |
-| FASTAPI-03 | Phase 20 | Pending |
+| MODEL-01 | Phase 19 | Complete |
+| MODEL-02 | Phase 19 | Complete |
+| MODEL-03 | Phase 19 | Complete |
+| MODEL-04 | Phase 19 | Complete |
+| FASTAPI-01 | Phase 20 | Complete |
+| FASTAPI-02 | Phase 20 | Complete |
+| FASTAPI-03 | Phase 20 | Complete |
 | FASTAPI-04 | Phase 20 | Pending |
 
 **Coverage:**
