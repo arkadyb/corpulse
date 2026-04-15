@@ -84,6 +84,6 @@ Plans:
 
 - Active milestone: `v1.3 — Multi-Tenant Integrations`
 - Latest shipped milestone: `v1.2 — Full Async Parity`
-- Next workflow step: `/gsd-plan-phase 15`
+- Next workflow step: `/gsd-execute-phase 16`
 
 ---
