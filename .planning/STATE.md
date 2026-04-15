@@ -42,7 +42,7 @@ None.
 |---|-------------|------|--------|-----------|
 | 260410-mf8 | Add AsyncCorpulse analysis parity with sync Corpulse for corpus analysis methods | 2026-04-10 | 01d5842 | [260410-mf8-add-asynccorpulse-analysis-parity-with-s](./quick/260410-mf8-add-asynccorpulse-analysis-parity-with-s/) |
 | 260415-hfu | Top Corpulse Library Gaps (from showcase work): ship #1 Async Qdrant wrapper fix and #3 public delete_document API immediately | 2026-04-15 | 84b321d | [260415-hfu-top-corpulse-library-gaps-from-showcase-](./quick/260415-hfu-top-corpulse-library-gaps-from-showcase-/) |
-| 260415-hyj | Review suggested specs 1-6 for implementation effort, rationale, dependencies, and recommended execution order | 2026-04-15 | pending | [260415-hyj-review-suggested-specs-1-6-for-implement](./quick/260415-hyj-review-suggested-specs-1-6-for-implement/) |
+| 260415-hyj | Review suggested specs 1-6 for implementation effort, rationale, dependencies, and recommended execution order | 2026-04-15 | 8742c4e | [260415-hyj-review-suggested-specs-1-6-for-implement](./quick/260415-hyj-review-suggested-specs-1-6-for-implement/) |
 
 ## Roadmap Evolution
 
