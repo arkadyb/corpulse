@@ -10,9 +10,7 @@ from .base import (
     RetrievalRow,
     StorageBackendError,
 )
-from .postgres import SCHEMA
-
-_SCHEMA_STATEMENTS = [statement.strip() for statement in SCHEMA.split(";") if statement.strip()]
+from .postgres import build_schema_sql, _qualified_name, _validate_schema, _validate_table_prefix
 
 
 def _load_asyncpg() -> tuple[Any, type[BaseException]]:
@@ -27,9 +25,18 @@ def _load_asyncpg() -> tuple[Any, type[BaseException]]:
 
 
 class AsyncPostgresBackend:
-    def __init__(self, pool, error_cls):
+    def __init__(
+        self,
+        pool,
+        error_cls,
+        *,
+        schema: str | None = None,
+        table_prefix: str = "",
+    ):
         self._pool = pool
         self._error_cls = error_cls
+        self._schema = _validate_schema(schema)
+        self._table_prefix = _validate_table_prefix(table_prefix)
         self._closed = False
 
     @classmethod
@@ -39,22 +46,34 @@ class AsyncPostgresBackend:
         *,
         min_size: int = 2,
         max_size: int = 10,
+        schema: str | None = None,
+        table_prefix: str = "",
     ) -> AsyncPostgresBackend:
+        schema = _validate_schema(schema)
+        table_prefix = _validate_table_prefix(table_prefix)
         asyncpg, error_cls = _load_asyncpg()
         pool = await asyncpg.create_pool(
             _normalize_postgres_dsn(dsn),
             min_size=min_size,
             max_size=max_size,
         )
-        backend = cls(pool, error_cls)
+        backend = cls(pool, error_cls, schema=schema, table_prefix=table_prefix)
         await backend._initialize()
         return backend
+
+    def _t(self, name: str) -> str:
+        return _qualified_name(name, schema=self._schema, prefix=self._table_prefix)
 
     async def _initialize(self) -> None:
         try:
             async with self._pool.acquire() as conn:
                 async with conn.transaction():
-                    for statement in _SCHEMA_STATEMENTS:
+                    for statement in build_schema_sql(
+                        schema=self._schema, prefix=self._table_prefix
+                    ).split(";"):
+                        statement = statement.strip()
+                        if not statement:
+                            continue
                         await conn.execute(statement)
         except self._error_cls as exc:
             raise StorageBackendError(str(exc)) from exc
@@ -83,13 +102,13 @@ class AsyncPostgresBackend:
         embedded_at: float | None = None,
     ) -> None:
         await self._execute(
-            """
-            INSERT INTO documents (doc_id, filename, embedding_vec, embedded_at)
+            f"""
+            INSERT INTO {self._t("documents")} (doc_id, filename, embedding_vec, embedded_at)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (doc_id) DO UPDATE SET
                 filename = EXCLUDED.filename,
-                embedding_vec = COALESCE(EXCLUDED.embedding_vec, documents.embedding_vec),
-                embedded_at = COALESCE(EXCLUDED.embedded_at, documents.embedded_at)
+                embedding_vec = COALESCE(EXCLUDED.embedding_vec, {self._t("documents")}.embedding_vec),
+                embedded_at = COALESCE(EXCLUDED.embedded_at, {self._t("documents")}.embedded_at)
             """,
             doc_id,
             filename,
@@ -106,8 +125,8 @@ class AsyncPostgresBackend:
         retrieved_at: float,
     ) -> None:
         await self._execute(
-            """
-            INSERT INTO retrievals (doc_id, query_hash, rank, score, retrieved_at)
+            f"""
+            INSERT INTO {self._t("retrievals")} (doc_id, query_hash, rank, score, retrieved_at)
             VALUES ($1, $2, $3, $4, $5)
             """,
             doc_id,
@@ -124,8 +143,8 @@ class AsyncPostgresBackend:
         engaged_at: float,
     ) -> None:
         await self._execute(
-            """
-            INSERT INTO engagements (doc_id, event_type, engaged_at)
+            f"""
+            INSERT INTO {self._t("engagements")} (doc_id, event_type, engaged_at)
             VALUES ($1, $2, $3)
             """,
             doc_id,
@@ -135,8 +154,8 @@ class AsyncPostgresBackend:
 
     async def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         await self._execute(
-            """
-            UPDATE documents SET source_updated_at = $1 WHERE doc_id = $2
+            f"""
+            UPDATE {self._t("documents")} SET source_updated_at = $1 WHERE doc_id = $2
             """,
             updated_at,
             doc_id,
@@ -147,29 +166,29 @@ class AsyncPostgresBackend:
             async with self._pool.acquire() as conn:
                 async with conn.transaction():
                     await conn.execute(
-                        "DELETE FROM retrievals WHERE doc_id = $1",
+                        f"DELETE FROM {self._t('retrievals')} WHERE doc_id = $1",
                         doc_id,
                     )
                     await conn.execute(
-                        "DELETE FROM engagements WHERE doc_id = $1",
+                        f"DELETE FROM {self._t('engagements')} WHERE doc_id = $1",
                         doc_id,
                     )
                     await conn.execute(
-                        "DELETE FROM documents WHERE doc_id = $1",
+                        f"DELETE FROM {self._t('documents')} WHERE doc_id = $1",
                         doc_id,
                     )
         except self._error_cls as exc:
             raise StorageBackendError(str(exc)) from exc
 
     async def all_documents(self) -> list[DocumentRow]:
-        rows = await self._fetch("SELECT * FROM documents")
+        rows = await self._fetch(f"SELECT * FROM {self._t('documents')}")
         return [dict(row) for row in rows]
 
     async def retrieval_counts(self, since: float) -> list[RetrievalRow]:
         rows = await self._fetch(
-            """
+            f"""
             SELECT doc_id, COUNT(*) AS cnt, AVG(rank) AS avg_rank, AVG(score) AS avg_score
-            FROM retrievals WHERE retrieved_at >= $1 GROUP BY doc_id
+            FROM {self._t("retrievals")} WHERE retrieved_at >= $1 GROUP BY doc_id
             """,
             since,
         )
@@ -177,8 +196,8 @@ class AsyncPostgresBackend:
 
     async def engagement_counts(self, since: float) -> list[EngagementRow]:
         rows = await self._fetch(
-            """
-            SELECT doc_id, COUNT(*) AS cnt FROM engagements WHERE engaged_at >= $1 GROUP BY doc_id
+            f"""
+            SELECT doc_id, COUNT(*) AS cnt FROM {self._t("engagements")} WHERE engaged_at >= $1 GROUP BY doc_id
             """,
             since,
         )
@@ -186,8 +205,8 @@ class AsyncPostgresBackend:
 
     async def all_embeddings(self) -> list[EmbeddingRow]:
         rows = await self._fetch(
-            """
-            SELECT doc_id, filename, embedding_vec FROM documents WHERE embedding_vec IS NOT NULL
+            f"""
+            SELECT doc_id, filename, embedding_vec FROM {self._t("documents")} WHERE embedding_vec IS NOT NULL
             """
         )
         return [dict(row) for row in rows]

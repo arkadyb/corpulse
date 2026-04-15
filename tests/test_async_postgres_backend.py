@@ -169,11 +169,76 @@ async def test_async_postgres_backend_custom_pool_size(monkeypatch):
     await backend.close()
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "field"),
+    [
+        ({"schema": "bad-name"}, "schema"),
+        ({"schema": "tenant.one"}, "schema"),
+        ({"table_prefix": "tenant-"}, "table_prefix"),
+        ({"table_prefix": "1tenant_"}, "table_prefix"),
+    ],
+)
+async def test_async_postgres_backend_rejects_invalid_tenancy_identifiers_before_pool_init(
+    monkeypatch, kwargs, field
+):
+    loader_calls = 0
+
+    def fake_loader():
+        nonlocal loader_calls
+        loader_calls += 1
+        raise AssertionError("asyncpg loader should not run")
+
+    monkeypatch.setattr("corpulse.backends.postgres_async._load_asyncpg", fake_loader)
+
+    with pytest.raises(ValueError, match=field):
+        await AsyncPostgresBackend.create("postgresql://test", **kwargs)
+
+    assert loader_calls == 0
+
+
 async def test_async_postgres_backend_initializes_schema(monkeypatch):
     backend, fake_module = await _build_backend(monkeypatch)
 
     assert fake_module.pool.conn.calls
     assert any("CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in fake_module.pool.conn.calls)
+    await backend.close()
+
+
+async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
+    backend, fake_module = await _build_backend(monkeypatch, schema="tenant_alpha")
+
+    await backend.upsert_document("d1", "f1.md", b"vec", 1.0)
+    await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
+    await backend.insert_engagement("d1", "opened", 30.0)
+    await backend.update_source_timestamp("d1", 40.0)
+    await backend.delete_document("d1")
+    await backend.all_documents()
+
+    executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
+    assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
+    assert "INSERT INTO tenant_alpha.documents" in executed_sql
+    assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
+    assert "INSERT INTO tenant_alpha.engagements" in executed_sql
+    assert "UPDATE tenant_alpha.documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
+    assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = $1" in executed_sql
+    assert "SELECT * FROM tenant_alpha.documents" in executed_sql
+    await backend.close()
+
+
+async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
+    backend, fake_module = await _build_backend(monkeypatch, table_prefix="tenant_abc_")
+
+    await backend.upsert_document("d1", "f1.md", b"vec", 1.0)
+    await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
+    await backend.insert_engagement("d1", "opened", 30.0)
+    await backend.all_embeddings()
+
+    executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     await backend.close()
 
 
