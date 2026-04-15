@@ -125,7 +125,11 @@ class FakeConnectionPoolFactory:
         return pool
 
 
-def _make_backend(monkeypatch, pool_factory: FakeConnectionPoolFactory | None = None):
+def _make_backend(
+    monkeypatch,
+    pool_factory: FakeConnectionPoolFactory | None = None,
+    **kwargs,
+):
     if pool_factory is None:
         pool_factory = FakeConnectionPoolFactory()
     dict_row = object()
@@ -133,7 +137,7 @@ def _make_backend(monkeypatch, pool_factory: FakeConnectionPoolFactory | None = 
         "corpulse.backends.postgres._load_psycopg_pool",
         lambda: (pool_factory, dict_row, FakePsycopgError),
     )
-    return PostgresBackend("postgresql://example"), pool_factory, dict_row
+    return PostgresBackend("postgresql://example", **kwargs), pool_factory, dict_row
 
 
 @pytest.mark.parametrize(
@@ -206,6 +210,33 @@ def test_postgres_backend_accepts_pool_size_kwargs(monkeypatch):
         ("postgresql://custom", 3, 7, {"row_factory": dict_row}, True)
     ]
     custom_backend.close()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "field"),
+    [
+        ({"schema": "bad-name"}, "schema"),
+        ({"schema": "tenant.one"}, "schema"),
+        ({"table_prefix": "tenant-"}, "table_prefix"),
+        ({"table_prefix": "1tenant_"}, "table_prefix"),
+    ],
+)
+def test_postgres_backend_rejects_invalid_tenancy_identifiers_before_pool_init(
+    monkeypatch, kwargs, field
+):
+    loader_calls = 0
+
+    def fake_loader():
+        nonlocal loader_calls
+        loader_calls += 1
+        raise AssertionError("pool loader should not run")
+
+    monkeypatch.setattr("corpulse.backends.postgres._load_psycopg_pool", fake_loader)
+
+    with pytest.raises(ValueError, match=field):
+        PostgresBackend("postgresql://example", **kwargs)
+
+    assert loader_calls == 0
 
 
 def test_build_schema_sql_default_output_is_backward_compatible():
@@ -327,6 +358,44 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     assert backend.all_embeddings() == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
+
+
+def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch, schema="tenant_alpha")
+    pool = pool_factory.pools[0]
+
+    backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=1.0)
+    backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
+    backend.insert_engagement("doc-1", "opened", 3.0)
+    backend.update_source_timestamp("doc-1", 4.0)
+    backend.delete_document("doc-1")
+    backend.all_documents()
+
+    executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
+    assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
+    assert "INSERT INTO tenant_alpha.documents" in executed_sql
+    assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
+    assert "INSERT INTO tenant_alpha.engagements" in executed_sql
+    assert "UPDATE tenant_alpha.documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
+    assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = %s" in executed_sql
+    assert "SELECT * FROM tenant_alpha.documents" in executed_sql
+
+
+def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch, table_prefix="tenant_abc_")
+    pool = pool_factory.pools[0]
+
+    backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=1.0)
+    backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
+    backend.insert_engagement("doc-1", "opened", 3.0)
+    backend.all_embeddings()
+
+    executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
 
 
 def test_postgres_backend_checks_out_a_connection_for_each_operation(monkeypatch):

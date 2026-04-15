@@ -115,7 +115,17 @@ def _load_psycopg_pool() -> tuple[Any, Any, type[BaseException]]:
 
 
 class PostgresBackend(StorageBackend):
-    def __init__(self, conninfo: str, *, min_size: int = 1, max_size: int = 10):
+    def __init__(
+        self,
+        conninfo: str,
+        *,
+        min_size: int = 1,
+        max_size: int = 10,
+        schema: str | None = None,
+        table_prefix: str = "",
+    ):
+        self._schema = _validate_schema(schema)
+        self._table_prefix = _validate_table_prefix(table_prefix)
         connection_pool, dict_row, error_cls = _load_psycopg_pool()
         self._error_cls = error_cls
         self._pool = connection_pool(
@@ -136,8 +146,15 @@ class PostgresBackend(StorageBackend):
         except self._error_cls as exc:
             raise StorageBackendError(str(exc)) from exc
 
+    def _t(self, name: str) -> str:
+        return _qualified_name(name, schema=self._schema, prefix=self._table_prefix)
+
     def _init(self) -> None:
-        self._run(lambda conn: conn.execute(build_schema_sql()))
+        self._run(
+            lambda conn: conn.execute(
+                build_schema_sql(schema=self._schema, prefix=self._table_prefix)
+            )
+        )
 
     def upsert_document(
         self,
@@ -148,13 +165,13 @@ class PostgresBackend(StorageBackend):
     ) -> None:
         self._run(
             lambda conn: conn.execute(
-                """
-                INSERT INTO documents (doc_id, filename, embedding_vec, embedded_at)
+                f"""
+                INSERT INTO {self._t("documents")} (doc_id, filename, embedding_vec, embedded_at)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (doc_id) DO UPDATE SET
                     filename = EXCLUDED.filename,
-                    embedding_vec = COALESCE(EXCLUDED.embedding_vec, documents.embedding_vec),
-                    embedded_at = COALESCE(EXCLUDED.embedded_at, documents.embedded_at)
+                    embedding_vec = COALESCE(EXCLUDED.embedding_vec, {self._t("documents")}.embedding_vec),
+                    embedded_at = COALESCE(EXCLUDED.embedded_at, {self._t("documents")}.embedded_at)
                 """,
                 (doc_id, filename, embedding, embedded_at),
             )
@@ -170,8 +187,8 @@ class PostgresBackend(StorageBackend):
     ) -> None:
         self._run(
             lambda conn: conn.execute(
-                """
-                INSERT INTO retrievals (doc_id, query_hash, rank, score, retrieved_at)
+                f"""
+                INSERT INTO {self._t("retrievals")} (doc_id, query_hash, rank, score, retrieved_at)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (doc_id, query_hash, rank, score, retrieved_at),
@@ -186,8 +203,8 @@ class PostgresBackend(StorageBackend):
     ) -> None:
         self._run(
             lambda conn: conn.execute(
-                """
-                INSERT INTO engagements (doc_id, event_type, engaged_at)
+                f"""
+                INSERT INTO {self._t("engagements")} (doc_id, event_type, engaged_at)
                 VALUES (%s, %s, %s)
                 """,
                 (doc_id, event_type, engaged_at),
@@ -197,8 +214,8 @@ class PostgresBackend(StorageBackend):
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         self._run(
             lambda conn: conn.execute(
-                """
-                UPDATE documents SET source_updated_at = %s WHERE doc_id = %s
+                f"""
+                UPDATE {self._t("documents")} SET source_updated_at = %s WHERE doc_id = %s
                 """,
                 (updated_at, doc_id),
             )
@@ -206,9 +223,9 @@ class PostgresBackend(StorageBackend):
 
     def delete_document(self, doc_id: str) -> None:
         def operation(conn):
-            conn.execute("DELETE FROM retrievals WHERE doc_id = %s", (doc_id,))
-            conn.execute("DELETE FROM engagements WHERE doc_id = %s", (doc_id,))
-            conn.execute("DELETE FROM documents WHERE doc_id = %s", (doc_id,))
+            conn.execute(f"DELETE FROM {self._t('retrievals')} WHERE doc_id = %s", (doc_id,))
+            conn.execute(f"DELETE FROM {self._t('engagements')} WHERE doc_id = %s", (doc_id,))
+            conn.execute(f"DELETE FROM {self._t('documents')} WHERE doc_id = %s", (doc_id,))
 
         self._run(operation)
 
@@ -216,7 +233,7 @@ class PostgresBackend(StorageBackend):
         return self._run(
             lambda conn: [
                 dict(row)
-                for row in conn.execute("SELECT * FROM documents").fetchall()
+                for row in conn.execute(f"SELECT * FROM {self._t('documents')}").fetchall()
             ]
         )
 
@@ -225,10 +242,10 @@ class PostgresBackend(StorageBackend):
             lambda conn: [
                 dict(row)
                 for row in conn.execute(
-                    """
+                    f"""
                     SELECT doc_id, COUNT(*) AS cnt,
                            AVG(rank) AS avg_rank, AVG(score) AS avg_score
-                    FROM retrievals
+                    FROM {self._t("retrievals")}
                     WHERE retrieved_at >= %s
                     GROUP BY doc_id
                     """,
@@ -242,9 +259,9 @@ class PostgresBackend(StorageBackend):
             lambda conn: [
                 dict(row)
                 for row in conn.execute(
-                    """
+                    f"""
                     SELECT doc_id, COUNT(*) AS cnt
-                    FROM engagements
+                    FROM {self._t("engagements")}
                     WHERE engaged_at >= %s
                     GROUP BY doc_id
                     """,
@@ -258,9 +275,9 @@ class PostgresBackend(StorageBackend):
             lambda conn: [
                 dict(row)
                 for row in conn.execute(
-                    """
+                    f"""
                     SELECT doc_id, filename, embedding_vec
-                    FROM documents
+                    FROM {self._t("documents")}
                     WHERE embedding_vec IS NOT NULL
                     """
                 ).fetchall()
