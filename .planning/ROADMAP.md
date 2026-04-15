@@ -63,10 +63,9 @@ Plans:
 **Depends on**: Phase 18
 **Requirements**: MODEL-01, MODEL-02, MODEL-03, MODEL-04
 
-Plans:
-
-- [ ] 19-01: Define typed models for existing async report payload structures
-- [ ] 19-02: Integrate typed model builders without breaking dict-based consumers
+**Plans:** 2/2 plans complete
+- [x] 19-01-PLAN.md — Define typed models for existing async report payload structures
+- [x] 19-02-PLAN.md — Integrate typed model builders without breaking dict-based consumers
 
 ### Phase 20: FastAPI Optional Integration
 
@@ -74,15 +73,14 @@ Plans:
 **Depends on**: Phase 19
 **Requirements**: FASTAPI-01, FASTAPI-02, FASTAPI-03, FASTAPI-04
 
-Plans:
-
-- [ ] 20-01: Add optional `corpulse.fastapi` package and dependency extras
-- [ ] 20-02: Implement router factory and integration tests
+**Plans:** 2 plans
+- [ ] 20-01-PLAN.md — Add optional `corpulse[fastapi]` extras and implement router factory
+- [ ] 20-02-PLAN.md — Implement integration tests for the FastAPI router
 
 ## Current Status
 
 - Active milestone: `v1.3 — Multi-Tenant Integrations`
 - Latest shipped milestone: `v1.2 — Full Async Parity`
-- Next workflow step: `/gsd-execute-phase 18`
+- Next workflow step: `/gsd-execute-phase 20`
 
 ---
