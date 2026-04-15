@@ -15,9 +15,9 @@
 
 ### DSN Compatibility
 
-- [ ] **DSN-01**: `AsyncPostgresBackend.create()` accepts SQLAlchemy-style DSNs such as `postgresql+asyncpg://...` by normalizing them before pool creation.
-- [ ] **DSN-02**: `PostgresBackend` accepts equivalent normalized DSN variants for symmetry with the async backend.
-- [ ] **DSN-03**: Tests prove passthrough and normalized DSN forms behave identically.
+- [x] **DSN-01**: `AsyncPostgresBackend.create()` accepts SQLAlchemy-style DSNs such as `postgresql+asyncpg://...` by normalizing them before pool creation.
+- [x] **DSN-02**: `PostgresBackend` accepts equivalent normalized DSN variants for symmetry with the async backend.
+- [x] **DSN-03**: Tests prove passthrough and normalized DSN forms behave identically.
 
 ### Qdrant Tenant Helpers
 
@@ -76,9 +76,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DSN-01 | Phase 15 | Pending |
-| DSN-02 | Phase 15 | Pending |
-| DSN-03 | Phase 15 | Pending |
+| DSN-01 | Phase 15 | Complete |
+| DSN-02 | Phase 15 | Complete |
+| DSN-03 | Phase 15 | Complete |
 | PGMT-01 | Phase 16 | Complete |
 | PGMT-02 | Phase 16 | Complete |
 | PGMT-03 | Phase 16 | Complete |

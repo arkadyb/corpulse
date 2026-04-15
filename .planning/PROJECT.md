@@ -39,17 +39,18 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Shared structured-report helpers in `corpulse/core.py` consumed by both sync and async paths — Phase 11-12
 - ✓ Live asyncpg integration coverage for the new async parity surface — Phase 13
 - ✓ README, docstrings, and an `examples/` script positioning AsyncCorpulse as a first-class path — Phase 14
+- ✓ SQLAlchemy-style DSN normalization for sync and async Postgres backends — Phase 15
+- ✓ Postgres multi-tenancy via validated `schema` / `table_prefix` — Phase 16
+- ✓ Additive Qdrant tenant helper functions for collection naming, chunk IDs, delete-by-filter, and collection setup — Phase 17
+- ✓ A minimal indexing pipeline over AsyncCorpulse + Qdrant with rollback semantics — Phase 18
+- ✓ Typed async payload models that preserve current `report()` / `cleanup_report()` compatibility — Phase 19
+- ✓ Optional FastAPI router helpers built on the typed payload layer — Phase 20
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] SQLAlchemy-style DSN normalization for sync and async Postgres backends
-- [ ] Postgres multi-tenancy via validated `schema` / `table_prefix`
-- [ ] Additive Qdrant tenant helper functions for collection naming, chunk IDs, delete-by-filter, and collection setup
-- [ ] A minimal indexing pipeline over AsyncCorpulse + Qdrant with rollback semantics
-- [ ] Typed async payload models that preserve current `report()` / `cleanup_report()` compatibility
-- [ ] Optional FastAPI router helpers built on the typed payload layer
+None. Milestone v1.3 complete.
 
 ### Out of Scope
 
@@ -63,20 +64,20 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - PyPI publishing — distributing via GitHub only for now
 - Web dashboard / UI — keep it library-first
 
-## Current Milestone: v1.3 Multi-Tenant Integrations
+## Current Milestone: v1.3 Multi-Tenant Integrations (COMPLETE)
 
 **Goal:** Make corpulse easier to run as a tenant-scoped service backend by improving Postgres tenancy support, normalizing real-world DSNs, adding reusable Qdrant indexing primitives, and exposing typed integration surfaces without breaking current async payload consumers.
 
 **Target features:**
-- Native SQLAlchemy-style DSN support for sync and async Postgres backends
-- Postgres multi-tenancy via validated `schema` and `table_prefix`
-- Tenant-friendly Qdrant helpers plus an indexing pipeline MVP with rollback semantics
-- Typed async payload models that preserve current `report()` / `cleanup_report()` contracts
-- Optional FastAPI router helpers layered on the typed payloads
+- ✓ Native SQLAlchemy-style DSN support for sync and async Postgres backends
+- ✓ Postgres multi-tenancy via validated `schema` and `table_prefix`
+- ✓ Tenant-friendly Qdrant helpers plus an indexing pipeline MVP with rollback semantics
+- ✓ Typed async payload models that preserve current `report()` / `cleanup_report()` contracts
+- ✓ Optional FastAPI router helpers layered on the typed payloads
 
 ## Current State
 
-corpulse has shipped milestone `v1.2`, completing full async parity for `AsyncCorpulse`. The next milestone is not another parity pass; it is an integration-readiness milestone focused on service-oriented backend primitives and compatibility improvements discovered during the showcase work.
+corpulse has completed milestone `v1.3`, making it service-ready for multi-tenant environments with robust Qdrant primitives and a FastAPI integration layer.
 
 <details>
 <summary>Archived v1.2 milestone framing</summary>
@@ -142,10 +143,10 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Qdrant as first wrapper | Growing production adoption in RAG pipelines; good Python client | Pending |
+| Qdrant as first wrapper | Growing production adoption in RAG pipelines; good Python client | Shipped |
 | GitHub-only distribution | Keep overhead low for v1; PyPI later when stable | Pending |
-| Wrapper-first over audit-first | Query-dependent features are the most actionable; wrapper enables them automatically | Pending |
-| Keep manual API alongside wrapper | Existing API still useful for custom integrations; wrapper is additive | Pending |
+| Wrapper-first over audit-first | Query-dependent features are the most actionable; wrapper enables them automatically | Shipped |
+| Keep manual API alongside wrapper | Existing API still useful for custom integrations; wrapper is additive | Shipped |
 | Pluggable backend interface | Service repo needs Postgres; library should support multiple backends | Shipped in v1.1 |
 | Explicit backend config over connection strings | More flexible and clearer than implicit string configuration | Shipped in v1.1 |
 | Narrow async facade for v1.1 | Async service integration was needed now; full async analytics parity was not yet justified | Shipped in v1.1 |
@@ -154,8 +155,8 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Pandas stays optional on async path | Keeps install footprint small for async service users who don't need DataFrames; mirrors sync behavior | Shipped in Phase 12 |
 | Live async parity must be env-gated | Keeps the default suite deterministic while still allowing real-Postgres evidence for the async path | Shipped in Phase 13 |
 | Async demo defaults to in-memory adapter | Keeps the example runnable without external services or library-level async memory backend changes | Shipped in Phase 14 |
-| v1.3 follows integration-readiness order over showcase order | DSN normalization and Postgres tenancy reduce immediate service friction; typed models and FastAPI helpers come later after payload semantics are preserved | — Pending |
-| Typed async payload work must preserve current method semantics | README and tests already define dict payloads for `report()` and `cleanup_report()`; model layers should mirror rather than replace that contract | — Pending |
+| v1.3 follows integration-readiness order over showcase order | DSN normalization and Postgres tenancy reduce immediate service friction; typed models and FastAPI helpers come later after payload semantics are preserved | Shipped in v1.3 |
+| Typed async payload work must preserve current method semantics | README and tests already define dict payloads for `report()` and `cleanup_report()`; model layers should mirror rather than replace that contract | Shipped in Phase 19 |
 
 ## Evolution
 
@@ -175,4 +176,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-15 after milestone v1.3 definition*
+*Last updated: 2026-04-15 after milestone v1.3 completion*
