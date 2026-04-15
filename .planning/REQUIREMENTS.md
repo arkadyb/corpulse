@@ -47,7 +47,7 @@
 - [x] **FASTAPI-01**: `corpulse[fastapi]` provides an optional router helper that wires tenant-scoped `AsyncCorpulse` instances into HTTP endpoints.
 - [x] **FASTAPI-02**: The router exposes report, cleanup-report, ghosts, duplicates, obsolete, stale, and suspects endpoints using the milestone’s typed payload models.
 - [x] **FASTAPI-03**: The FastAPI integration remains optional and does not add import/runtime cost for non-FastAPI consumers.
-- [ ] **FASTAPI-04**: FastAPI tests verify route wiring, status codes, and response schemas with a dummy factory.
+- [x] **FASTAPI-04**: FastAPI tests verify route wiring, status codes, and response schemas with a dummy factory.
 
 ## v2 Requirements
 
@@ -101,7 +101,7 @@
 | FASTAPI-01 | Phase 20 | Complete |
 | FASTAPI-02 | Phase 20 | Complete |
 | FASTAPI-03 | Phase 20 | Complete |
-| FASTAPI-04 | Phase 20 | Pending |
+| FASTAPI-04 | Phase 20 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 26 total
