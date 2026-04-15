@@ -21,7 +21,7 @@
 
 Plans:
 
-- [ ] 15-01: Add DSN normalization helpers to sync and async Postgres backends with regression tests
+- [x] 15-01: Add DSN normalization helpers to sync and async Postgres backends with regression tests
 
 ### Phase 16: Postgres Multi-Tenancy
 
@@ -52,11 +52,10 @@ Plans:
 **Depends on**: Phase 17
 **Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05
 
-Plans:
-
-- [ ] 18-01: Define indexing protocols and minimal result contract
-- [ ] 18-02: Implement orchestration, retries, and rollback behavior
-- [ ] 18-03: Add fake-driven happy-path and rollback tests
+**Plans:** 1/3 plans executed
+- [x] 18-01-PLAN.md — Define indexing protocols and minimal result contract
+- [ ] 18-02-PLAN.md — Implement orchestration, retries, and rollback behavior
+- [ ] 18-03-PLAN.md — Add fake-driven happy-path and rollback tests
 
 ### Phase 19: Typed Async Payload Models
 
@@ -84,6 +83,6 @@ Plans:
 
 - Active milestone: `v1.3 — Multi-Tenant Integrations`
 - Latest shipped milestone: `v1.2 — Full Async Parity`
-- Next workflow step: `/gsd-execute-phase 16`
+- Next workflow step: `/gsd-execute-phase 18`
 
 ---

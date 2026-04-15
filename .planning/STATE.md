@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
-status: executing
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-04-15T04:22:53.177Z"
-last_activity: 2026-04-15 — Implemented Qdrant tenant helpers (naming, IDs, delete, ensure)
+status: Ready
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-04-15T04:40:47.651Z"
+last_activity: 2026-04-15 — Verified Qdrant tenant helpers with unit and integration tests
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 9
+  completed_plans: 7
+  percent: 78
 ---
 
 # Project State
@@ -26,15 +26,15 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 18 — Indexing Pipeline MVP
-Plan: 00 / 03
+Plan: 01 / 03
 Status: Ready
-Last activity: 2026-04-15 — Verified Qdrant tenant helpers with unit and integration tests
+Last activity: 2026-04-15 — Defined indexing protocols and minimal result contract in corpulse/pipelines/indexing.py
 
-Progress bar: [██████████] 100%
+Progress bar: [████████░░] 78%
 
 ## Pending Todos
 
-- Plan 18-01: Define indexing protocols and minimal result contract
+- Plan 18-02: Orchestrate parse -> chunk -> embed -> Qdrant upsert
 
 ### Quick Tasks Completed
 
@@ -68,6 +68,7 @@ Progress bar: [██████████] 100%
 - [Phase 16]: Keep fake SQL-path isolation tests alongside live coverage so tenant separation is still proven when CORPULSE_POSTGRES_TEST_CONNINFO is absent.
 - [Phase 16]: Generate unique schema names per live test run to avoid cross-test collisions while reusing a single Postgres database.
 - [Phase 17-qdrant-tenant-helpers]: Relaxed payload_schema assertion in in-memory Qdrant tests due to local mode limitations (indexes have no effect).
+- [Phase 18]: Use typing.Protocol for Parser, Chunker, and Embedder
 
 ## Performance Metrics
 
@@ -79,9 +80,10 @@ Progress bar: [██████████] 100%
 | 16 | 03 | 8 min | 2 | 2 |
 | 17 | 01 | 5 min | 2 | 1 |
 | Phase 17-qdrant-tenant-helpers P02 | 300 | 2 tasks | 1 files |
+| Phase 18 P01 | 300 | 2 tasks | 1 files |
 
 ## Session Continuity
 
 Last activity: 2026-04-15 - Completed 16-03 postgres tenancy verification plan
-Stopped at: Completed 17-02-PLAN.md
+Stopped at: Completed 18-01-PLAN.md
 Resume file: None
