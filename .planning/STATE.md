@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
 status: executing
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-04-15T03:42:22.553Z"
-last_activity: 2026-04-15 — Completed 16-02 tenant-aware sync and async Postgres query rewiring
+stopped_at: Completed 16-03-PLAN.md
+last_updated: "2026-04-15T03:52:58.887Z"
+last_activity: 2026-04-15 — Completed 16-03 tenancy regression and schema isolation coverage
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 16 — continue Postgres multi-tenancy execution with sync and async query rewiring complete
+**Current focus:** Phase 17 — Qdrant tenant helper execution can start now that Postgres tenancy coverage is complete
 
 ## Current Position
 
 Phase: 16 — Postgres Multi-Tenancy
-Plan: 16-01 and 16-02 complete; 16-03 next
-Status: Executing Phase 16
-Last activity: 2026-04-15 — Completed 16-02 tenant-aware sync and async Postgres query rewiring
+Plan: 16-01 through 16-03 complete
+Status: Phase 16 complete
+Last activity: 2026-04-15 — Completed 16-03 tenancy regression and schema isolation coverage
 
-Progress bar: [████████░░] 75%
+Progress bar: [██████████] 100%
 
 ## Pending Todos
 
@@ -65,6 +65,8 @@ None.
 - [Phase 16]: Prefix-only tenancy must namespace index names as well as table names to avoid shared-schema collisions.
 - [Phase 16]: Both Postgres backends now resolve every SQL identifier through an instance _t(...) helper that combines validated schema and table-prefix state.
 - [Phase 16]: AsyncPostgresBackend.create() now builds schema statements from build_schema_sql(...) directly so async DDL cannot drift from sync behavior.
+- [Phase 16]: Keep fake SQL-path isolation tests alongside live coverage so tenant separation is still proven when CORPULSE_POSTGRES_TEST_CONNINFO is absent.
+- [Phase 16]: Generate unique schema names per live test run to avoid cross-test collisions while reusing a single Postgres database.
 
 ## Performance Metrics
 
@@ -73,9 +75,10 @@ None.
 | 15 | 01 | <1 | 3 | 6 |
 | 16 | 01 | 1 min | 3 | 2 |
 | 16 | 02 | 5 min | 2 | 4 |
+| 16 | 03 | 8 min | 2 | 2 |
 
 ## Session Continuity
 
-Last activity: 2026-04-15 - Completed 16-02 postgres tenancy query rewire plan
-Stopped at: Completed 16-02-PLAN.md
+Last activity: 2026-04-15 - Completed 16-03 postgres tenancy verification plan
+Stopped at: Completed 16-03-PLAN.md
 Resume file: None

@@ -33,7 +33,7 @@ Plans:
 
 - [x] 16-01: Introduce shared identifier validation and public `build_schema_sql(schema=None, prefix="")`
 - [x] 16-02: Refactor sync and async Postgres queries to use qualified table helpers
-- [ ] 16-03: Add isolation, prefix-mode, and invalid-identifier coverage
+- [x] 16-03: Add isolation, prefix-mode, and invalid-identifier coverage
 
 ### Phase 17: Qdrant Tenant Helpers
 

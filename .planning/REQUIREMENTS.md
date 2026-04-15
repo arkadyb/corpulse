@@ -11,7 +11,7 @@
 - [x] **PGMT-02**: `AsyncPostgresBackend` accepts the same optional `schema` and `table_prefix` parameters with behavior matching the sync backend.
 - [x] **PGMT-03**: Postgres schema creation and table/index DDL are generated from a public `build_schema_sql(schema=None, prefix="")` helper.
 - [x] **PGMT-04**: Invalid Postgres identifiers for `schema` or `table_prefix` are rejected with `ValueError` before any SQL executes.
-- [ ] **PGMT-05**: Sync and async Postgres tests prove per-schema isolation and prefix-only mode on one database.
+- [x] **PGMT-05**: Sync and async Postgres tests prove per-schema isolation and prefix-only mode on one database.
 
 ### DSN Compatibility
 
@@ -83,7 +83,7 @@
 | PGMT-02 | Phase 16 | Complete |
 | PGMT-03 | Phase 16 | Complete |
 | PGMT-04 | Phase 16 | Complete |
-| PGMT-05 | Phase 16 | Pending |
+| PGMT-05 | Phase 16 | Complete |
 | QDRT-HELP-01 | Phase 17 | Pending |
 | QDRT-HELP-02 | Phase 17 | Pending |
 | QDRT-HELP-03 | Phase 17 | Pending |
