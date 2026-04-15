@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from .base import (
+    StorageBackend,
+)
+from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
     RetrievalRow,
-    StorageBackend,
 )
 
 

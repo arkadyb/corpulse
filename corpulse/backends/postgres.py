@@ -5,12 +5,14 @@ import re
 from typing import Any
 
 from .base import (
+    StorageBackend,
+    StorageBackendError,
+)
+from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
     RetrievalRow,
-    StorageBackend,
-    StorageBackendError,
 )
 from ._dsn import _normalize_postgres_dsn
 

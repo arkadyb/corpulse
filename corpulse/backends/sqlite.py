@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import Callable, ParamSpec, TypeVar
 
 from .base import (
+    StorageBackend,
+    StorageBackendError,
+)
+from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
     RetrievalRow,
-    StorageBackend,
-    StorageBackendError,
 )
 
 SCHEMA = """

@@ -4,11 +4,13 @@ from typing import Any
 
 from ._dsn import _normalize_postgres_dsn
 from .base import (
+    StorageBackendError,
+)
+from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
     RetrievalRow,
-    StorageBackendError,
 )
 from .postgres import build_schema_sql, _qualified_name, _validate_schema, _validate_table_prefix
 

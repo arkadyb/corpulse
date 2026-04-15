@@ -1,33 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TypedDict
-
-
-class DocumentRow(TypedDict):
-    doc_id: str
-    filename: str
-    embedding_vec: bytes | None
-    embedded_at: float | None
-    source_updated_at: float | None
-
-
-class RetrievalRow(TypedDict):
-    doc_id: str
-    cnt: int
-    avg_rank: float | None
-    avg_score: float | None
-
-
-class EngagementRow(TypedDict):
-    doc_id: str
-    cnt: int
-
-
-class EmbeddingRow(TypedDict):
-    doc_id: str
-    filename: str
-    embedding_vec: bytes
+from ..models import (
+    DocumentRow as DocumentRow,
+    RetrievalRow as RetrievalRow,
+    EngagementRow as EngagementRow,
+    EmbeddingRow as EmbeddingRow,
+)
 
 
 class StorageBackendError(RuntimeError):
