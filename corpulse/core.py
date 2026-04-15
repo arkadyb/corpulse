@@ -9,11 +9,17 @@ import hashlib
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, List, Set, Dict
 
 import numpy as np
 
 from .backends import SQLiteBackend, StorageBackend
+from .models import (
+    ReportRow, ReportSummary, CleanupPayload, GhostItem,
+    DuplicatePair, ObsoleteItem, StaleItem, SuspectItem,
+    CorpusHealth, DocumentRow, RetrievalRow, EngagementRow,
+    EmbeddingRow
+)
 
 try:
     from sklearn.metrics.pairwise import cosine_similarity
@@ -62,13 +68,13 @@ _STATUS_ICON = {
 
 
 def _build_dataframe_rows(
-    all_docs: list[dict[str, Any]],
-    r_map: dict[str, dict[str, Any]],
-    e_map: dict[str, int],
-    ghost_ids: set[str],
-    obsolete_ids: set[str],
-    stale_ids: set[str],
-) -> list[dict[str, Any]]:
+    all_docs: List[DocumentRow],
+    r_map: Dict[str, RetrievalRow],
+    e_map: Dict[str, int],
+    ghost_ids: Set[str],
+    obsolete_ids: Set[str],
+    stale_ids: Set[str],
+) -> List[Dict[str, Any]]:
     rows = []
     for doc in all_docs:
         doc_id = doc["doc_id"]
@@ -101,15 +107,15 @@ def _build_dataframe_rows(
 
 
 def _build_report_rows(
-    all_docs: list[dict[str, Any]],
-    r_map: dict[str, dict[str, Any]],
-    e_map: dict[str, int],
-    ghost_ids: set[str],
-    obsolete_ids: set[str],
-    stale_ids: set[str],
+    all_docs: List[DocumentRow],
+    r_map: Dict[str, RetrievalRow],
+    e_map: Dict[str, int],
+    ghost_ids: Set[str],
+    obsolete_ids: Set[str],
+    stale_ids: Set[str],
     top_k: int,
-) -> list[dict[str, Any]]:
-    rows = []
+) -> List[ReportRow]:
+    rows: List[ReportRow] = []
     for doc in sorted(
         all_docs,
         key=lambda d: r_map.get(d["doc_id"], {"cnt": 0})["cnt"],
@@ -144,10 +150,10 @@ def _build_report_rows(
 
 
 def _build_report_summary(
-    all_docs: list[dict[str, Any]],
+    all_docs: List[DocumentRow],
     window_days: int,
-    health: dict[str, Any],
-) -> dict[str, Any]:
+    health: CorpusHealth,
+) -> ReportSummary:
     return {
         "total_docs": len(all_docs),
         "window_days": window_days,
@@ -162,14 +168,14 @@ def _build_report_summary(
 
 
 def _build_cleanup_payload(
-    health: dict[str, Any],
-    ghosts: list[dict[str, Any]],
-    obsolete: list[dict[str, Any]],
-    stale: list[dict[str, Any]],
-    suspects: list[dict[str, Any]],
+    health: CorpusHealth,
+    ghosts: List[GhostItem],
+    obsolete: List[ObsoleteItem],
+    stale: List[StaleItem],
+    suspects: List[SuspectItem],
     ghost_threshold_days: int,
-) -> dict[str, Any]:
-    def _section(items: list[dict[str, Any]]) -> dict[str, Any]:
+) -> CleanupPayload:
+    def _section(items: List[Any]) -> CleanupSection:
         return {
             "count": len(items),
             "top5": items[:5],
@@ -190,9 +196,9 @@ def _build_cleanup_payload(
 
 
 def _build_ghosts(
-    all_docs: list[dict[str, Any]],
-    retrieval_rows: list[dict[str, Any]],
-) -> list[dict[str, str]]:
+    all_docs: List[DocumentRow],
+    retrieval_rows: List[RetrievalRow],
+) -> List[GhostItem]:
     recent_ids = {row["doc_id"] for row in retrieval_rows}
     return [
         {"doc_id": doc["doc_id"], "filename": doc["filename"]}
@@ -202,9 +208,9 @@ def _build_ghosts(
 
 
 def _build_duplicate_pairs(
-    embedding_rows: list[dict[str, Any]],
+    embedding_rows: List[EmbeddingRow],
     threshold: float,
-) -> list[dict[str, Any]]:
+) -> List[DuplicatePair]:
     if not _SKLEARN:
         raise RuntimeError(
             "scikit-learn is required for duplicate detection. "
@@ -219,7 +225,7 @@ def _build_duplicate_pairs(
     vecs = np.array([_bytes_to_vec(row["embedding_vec"]) for row in embedding_rows])
 
     sim_matrix = cosine_similarity(vecs)
-    pairs = []
+    pairs: List[DuplicatePair] = []
     for i in range(len(ids)):
         for j in range(i + 1, len(ids)):
             if sim_matrix[i, j] >= threshold:
@@ -235,22 +241,22 @@ def _build_duplicate_pairs(
 
 
 def _build_obsolete_documents(
-    all_docs: list[dict[str, Any]],
+    all_docs: List[DocumentRow],
     obsolete_pattern: str,
-) -> list[dict[str, str]]:
+) -> List[ObsoleteItem]:
     pattern = re.compile(obsolete_pattern, re.IGNORECASE)
 
-    groups: dict[str, list[dict[str, Any]]] = {}
+    groups: Dict[str, List[DocumentRow]] = {}
     for doc in all_docs:
         base = pattern.sub("", doc["filename"]).strip(" -_.")
         groups.setdefault(base, []).append(doc)
 
-    obsolete = []
+    obsolete: List[ObsoleteItem] = []
     for docs in groups.values():
         if len(docs) < 2:
             continue
 
-        def _version(doc: dict[str, Any]) -> int:
+        def _version(doc: DocumentRow) -> int:
             match = pattern.search(doc["filename"])
             nums = re.findall(r"\d+", match.group()) if match else []
             return int(nums[0]) if nums else 0
@@ -268,11 +274,11 @@ def _build_obsolete_documents(
 
 
 def _build_stale_embeddings(
-    all_docs: list[dict[str, Any]],
+    all_docs: List[DocumentRow],
     stale_threshold_days: int,
-) -> list[dict[str, Any]]:
+) -> List[StaleItem]:
     threshold_secs = stale_threshold_days * 86_400
-    stale = []
+    stale: List[StaleItem] = []
     for doc in all_docs:
         src = doc["source_updated_at"]
         emb = doc["embedded_at"]
@@ -292,15 +298,15 @@ def _build_stale_embeddings(
 
 
 def _build_suspects(
-    all_docs: list[dict[str, Any]],
-    retrieval_rows: list[dict[str, Any]],
-    engagement_rows: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    all_docs: List[DocumentRow],
+    retrieval_rows: List[RetrievalRow],
+    engagement_rows: List[EngagementRow],
+) -> List[SuspectItem]:
     doc_map = {doc["doc_id"]: doc for doc in all_docs}
     retrieval_map = {row["doc_id"]: row for row in retrieval_rows}
     engagement_map = {row["doc_id"]: row["cnt"] for row in engagement_rows}
 
-    suspects = []
+    suspects: List[SuspectItem] = []
     for doc_id, retrieval in retrieval_map.items():
         total_retrievals = retrieval["cnt"]
         if total_retrievals < 5:
@@ -320,12 +326,12 @@ def _build_suspects(
 
 
 def _build_corpus_health(
-    all_docs: list[dict[str, Any]],
-    ghosts: list[dict[str, Any]],
-    obsolete: list[dict[str, Any]],
-    stale: list[dict[str, Any]],
-    duplicate_pairs: list[dict[str, Any]],
-) -> dict[str, Any]:
+    all_docs: List[DocumentRow],
+    ghosts: List[GhostItem],
+    obsolete: List[ObsoleteItem],
+    stale: List[StaleItem],
+    duplicate_pairs: List[DuplicatePair],
+) -> CorpusHealth:
     total = len(all_docs)
     if total == 0:
         return {
@@ -541,7 +547,7 @@ class Corpulse:
 
     # ── analysis ──────────────────────────────────────────────────────────────
 
-    def get_ghosts(self) -> list[dict]:
+    def get_ghosts(self) -> List[GhostItem]:
         """Documents not retrieved in the last *ghost_threshold_days* days.
 
         Returns:
@@ -555,7 +561,7 @@ class Corpulse:
     def get_duplicates(
         self,
         threshold: float | None = None,
-    ) -> list[dict]:
+    ) -> List[DuplicatePair]:
         """
         Pairs of documents whose embedding vectors are cosine-similar above
         *threshold* — likely redundant content competing for the same queries.
@@ -579,7 +585,7 @@ class Corpulse:
         rows = self.db.all_embeddings()
         return _build_duplicate_pairs(rows, threshold)
 
-    def get_obsolete(self) -> list[dict]:
+    def get_obsolete(self) -> List[ObsoleteItem]:
         """
         Documents likely superseded by a newer version of the same file,
         detected via the *obsolete_pattern* (default: version numbers like v1, v2).
@@ -594,7 +600,7 @@ class Corpulse:
         all_docs = self.db.all_documents()
         return _build_obsolete_documents(all_docs, self.obsolete_pattern)
 
-    def get_stale_embeddings(self) -> list[dict]:
+    def get_stale_embeddings(self) -> List[StaleItem]:
         """
         Documents where the source file was updated more than
         *stale_threshold_days* days after the last embedding.
@@ -607,7 +613,7 @@ class Corpulse:
         all_docs = self.db.all_documents()
         return _build_stale_embeddings(all_docs, self.stale_threshold_days)
 
-    def get_suspects(self, window_days: int | None = None) -> list[dict]:
+    def get_suspects(self, window_days: int | None = None) -> List[SuspectItem]:
         """
         Documents with high retrieval count but low engagement rate —
         retrieved often but users don't act on them. Good re-chunking candidates.
@@ -627,7 +633,7 @@ class Corpulse:
         engagement_rows = self.db.engagement_counts(since=since)
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
 
-    def corpus_health(self) -> dict:
+    def corpus_health(self) -> CorpusHealth:
         """
         High-level corpus noise estimate and bloat warning.
 
@@ -641,7 +647,7 @@ class Corpulse:
         ghosts = self.get_ghosts()
         obsolete = self.get_obsolete()
         stale = self.get_stale_embeddings()
-        duplicate_pairs: list[dict[str, Any]] = []
+        duplicate_pairs: List[DuplicatePair] = []
         if _SKLEARN:
             duplicate_pairs = self.get_duplicates()
         return _build_corpus_health(all_docs, ghosts, obsolete, stale, duplicate_pairs)

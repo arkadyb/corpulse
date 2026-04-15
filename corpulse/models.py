@@ -34,6 +34,29 @@ class EmbeddingRow(TypedDict):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# API Models — Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DuplicatePair(TypedDict):
+    doc_id_a: str
+    filename_a: str
+    doc_id_b: str
+    filename_b: str
+    similarity: float
+
+
+class CorpusHealth(TypedDict):
+    total_docs: int
+    ghosts: int
+    obsolete: int
+    stale: int
+    duplicates: int
+    noise_estimate: float
+    bloat_warning: bool
+    recommendation: str
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # API Models — Report
 # ─────────────────────────────────────────────────────────────────────────────
 
