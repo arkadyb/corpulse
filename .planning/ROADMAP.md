@@ -42,9 +42,9 @@ Plans:
 **Requirements**: QDRT-HELP-01, QDRT-HELP-02, QDRT-HELP-03, QDRT-HELP-04, QDRT-HELP-05
 
 Plans:
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 - [x] 17-01-PLAN.md — Add additive helper functions to `corpulse.integrations.qdrant` while preserving lazy imports
-- [ ] 17-02-PLAN.md — Add deterministic and idempotency-focused helper tests
+- [x] 17-02-PLAN.md — Add deterministic and idempotency-focused helper tests
 
 ### Phase 18: Indexing Pipeline MVP
 
