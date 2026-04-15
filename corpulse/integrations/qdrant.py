@@ -12,9 +12,38 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import re
+import uuid
 from collections.abc import Sequence
 
-__all__ = ["QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
+__all__ = [
+    "QdrantCorpulseClient",
+    "AsyncQdrantCorpulseClient",
+    "collection_name_for_user",
+    "chunk_id",
+    "delete_document_points",
+    "ensure_collection",
+]
+
+CORPULSE_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "corpulse.ai")
+
+
+def collection_name_for_user(user_id: str, base: str = "corpulse") -> str:
+    """Sanitize user_id and return a collection name compliant with Qdrant.
+
+    Lowercase user_id, replace non-[a-z0-9_] with _, strip leading/trailing _.
+    Return {base}_{sanitized}.
+    """
+    sanitized = re.sub(r"[^a-z0-9_]+", "_", user_id.lower()).strip("_")
+    return f"{base}_{sanitized}"
+
+
+def chunk_id(doc_id: str, chunk_index: int | str) -> str:
+    """Return a deterministic UUIDv5 string for a document chunk.
+
+    Uses a fixed corpulse.ai namespace to ensure stability across runs.
+    """
+    return str(uuid.uuid5(CORPULSE_NAMESPACE, f"{doc_id}:{chunk_index}"))
 
 
 def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_key):
@@ -227,3 +256,85 @@ class AsyncQdrantCorpulseClient:
 
     def __getattr__(self, name):
         return getattr(self._client, name)
+
+
+def delete_document_points(
+    client,
+    collection_name: str,
+    doc_id: str | int,
+    payload_id_field: str | None = "doc_id",
+):
+    """Delete all points associated with a document.
+
+    If payload_id_field is None, deletes the point with the given doc_id.
+    Otherwise, filters points where payload_id_field matches doc_id.
+
+    Supports both sync and async clients.
+    """
+    from qdrant_client import models
+
+    if payload_id_field is None:
+        points_selector = models.PointIdsList(points=[doc_id])
+    else:
+        points_selector = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key=payload_id_field,
+                    match=models.MatchValue(value=doc_id),
+                )
+            ]
+        )
+
+    return client.delete(
+        collection_name=collection_name,
+        points_selector=points_selector,
+    )
+
+
+def ensure_collection(
+    client,
+    collection_name: str,
+    vectors_config,
+    payload_indexes: list[str] | None = None,
+):
+    """Ensure a collection exists and has required payload indexes.
+
+    Calls client.collection_exists(), client.create_collection(), and
+    client.create_payload_index() as needed.
+
+    Supports both sync and async clients. Returns a coroutine if the client
+    is async, otherwise performs operations synchronously.
+    """
+    from qdrant_client import models
+
+    def _sync_flow():
+        if not client.collection_exists(collection_name):
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=vectors_config,
+            )
+        if payload_indexes:
+            for field in payload_indexes:
+                client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+
+    async def _async_flow():
+        if not await client.collection_exists(collection_name):
+            await client.create_collection(
+                collection_name=collection_name,
+                vectors_config=vectors_config,
+            )
+        if payload_indexes:
+            for field in payload_indexes:
+                await client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+
+    if inspect.iscoroutinefunction(client.collection_exists):
+        return _async_flow()
+    return _sync_flow()
