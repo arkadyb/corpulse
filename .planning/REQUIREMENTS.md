@@ -21,11 +21,11 @@
 
 ### Qdrant Tenant Helpers
 
-- [ ] **QDRT-HELP-01**: `collection_name_for_user(user_id, base="corpulse")` returns a deterministic, sanitized collection name using only `[a-z0-9_]`.
-- [ ] **QDRT-HELP-02**: `chunk_id(doc_id, chunk_index)` returns deterministic UUIDv5 identifiers for vector chunks.
-- [ ] **QDRT-HELP-03**: `delete_document_points(...)` removes Qdrant points for one document via payload filtering and exposes a clear result contract.
-- [ ] **QDRT-HELP-04**: `ensure_collection(...)` creates tenant-ready collections idempotently, including the required payload indexes.
-- [ ] **QDRT-HELP-05**: Helper additions preserve the current lazy-import behavior of `corpulse.integrations.qdrant`.
+- [x] **QDRT-HELP-01**: `collection_name_for_user(user_id, base="corpulse")` returns a deterministic, sanitized collection name using only `[a-z0-9_]`.
+- [x] **QDRT-HELP-02**: `chunk_id(doc_id, chunk_index)` returns deterministic UUIDv5 identifiers for vector chunks.
+- [x] **QDRT-HELP-03**: `delete_document_points(...)` removes Qdrant points for one document via payload filtering and exposes a clear result contract.
+- [x] **QDRT-HELP-04**: `ensure_collection(...)` creates tenant-ready collections idempotently, including the required payload indexes.
+- [x] **QDRT-HELP-05**: Helper additions preserve the current lazy-import behavior of `corpulse.integrations.qdrant`.
 
 ### Indexing Pipeline MVP
 
@@ -84,11 +84,11 @@
 | PGMT-03 | Phase 16 | Complete |
 | PGMT-04 | Phase 16 | Complete |
 | PGMT-05 | Phase 16 | Complete |
-| QDRT-HELP-01 | Phase 17 | Pending |
-| QDRT-HELP-02 | Phase 17 | Pending |
-| QDRT-HELP-03 | Phase 17 | Pending |
-| QDRT-HELP-04 | Phase 17 | Pending |
-| QDRT-HELP-05 | Phase 17 | Pending |
+| QDRT-HELP-01 | Phase 17 | Complete |
+| QDRT-HELP-02 | Phase 17 | Complete |
+| QDRT-HELP-03 | Phase 17 | Complete |
+| QDRT-HELP-04 | Phase 17 | Complete |
+| QDRT-HELP-05 | Phase 17 | Complete |
 | PIPE-01 | Phase 18 | Pending |
 | PIPE-02 | Phase 18 | Pending |
 | PIPE-03 | Phase 18 | Pending |
