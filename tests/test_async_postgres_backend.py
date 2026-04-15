@@ -242,6 +242,65 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
     await backend.close()
 
 
+async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch):
+    pool = FakeAsyncpgPool()
+    pool.conn.rows[_normalize_sql("SELECT * FROM tenant_abc_documents")] = [
+        {"doc_id": "tenant-doc", "filename": "tenant.md"}
+    ]
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, COUNT(*) AS cnt, AVG(rank) AS avg_rank, AVG(score) AS avg_score
+            FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY doc_id
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}]
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, COUNT(*) AS cnt FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY doc_id
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "cnt": 1}]
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, filename, embedding_vec FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}]
+    backend, fake_module = await _build_backend(monkeypatch, pool=pool, table_prefix="tenant_abc_")
+
+    await backend.upsert_document("tenant-doc", "tenant.md", b"vec", 1.0)
+    await backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
+    await backend.insert_engagement("tenant-doc", "opened", 3.0)
+    await backend.update_source_timestamp("tenant-doc", 4.0)
+    await backend.delete_document("tenant-doc")
+
+    assert await backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
+    assert await backend.retrieval_counts(0.0) == [
+        {"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
+    ]
+    assert await backend.engagement_counts(0.0) == [{"doc_id": "tenant-doc", "cnt": 1}]
+    assert await backend.all_embeddings() == [
+        {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
+    ]
+
+    executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
+    assert "INSERT INTO tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "UPDATE tenant_abc_documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
+    assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = $1" in executed_sql
+    assert "DELETE FROM tenant_abc_engagements WHERE doc_id = $1" in executed_sql
+    assert "DELETE FROM tenant_abc_documents WHERE doc_id = $1" in executed_sql
+    assert "SELECT * FROM tenant_abc_documents" in executed_sql
+    assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY doc_id" in executed_sql
+    assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY doc_id" in executed_sql
+    assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "tenant_abc.documents" not in executed_sql
+    await backend.close()
+
 async def test_async_postgres_backend_upsert_document(monkeypatch):
     backend, fake_module = await _build_backend(monkeypatch)
 

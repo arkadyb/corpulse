@@ -398,6 +398,81 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
 
 
+def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch, table_prefix="tenant_abc_")
+    pool = pool_factory.pools[0]
+
+    backend.upsert_document("tenant-doc", "tenant.md", embedding=b"vec", embedded_at=1.0)
+    backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
+    backend.insert_engagement("tenant-doc", "opened", 3.0)
+    backend.update_source_timestamp("tenant-doc", 4.0)
+    backend.delete_document("tenant-doc")
+
+    documents_conn = FakeConnection()
+    documents_conn.rows[_normalize_sql("SELECT * FROM tenant_abc_documents")] = [
+        {"doc_id": "tenant-doc", "filename": "tenant.md"}
+    ]
+    retrievals_conn = FakeConnection()
+    retrievals_conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, COUNT(*) AS cnt,
+                   AVG(rank) AS avg_rank, AVG(score) AS avg_score
+            FROM tenant_abc_retrievals
+            WHERE retrieved_at >= %s
+            GROUP BY doc_id
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}]
+    engagements_conn = FakeConnection()
+    engagements_conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, COUNT(*) AS cnt
+            FROM tenant_abc_engagements
+            WHERE engaged_at >= %s
+            GROUP BY doc_id
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "cnt": 1}]
+    embeddings_conn = FakeConnection()
+    embeddings_conn.rows[
+        _normalize_sql(
+            """
+            SELECT doc_id, filename, embedding_vec
+            FROM tenant_abc_documents
+            WHERE embedding_vec IS NOT NULL
+            """
+        )
+    ] = [{"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}]
+    pool.queue_connection(documents_conn)
+    pool.queue_connection(retrievals_conn)
+    pool.queue_connection(engagements_conn)
+    pool.queue_connection(embeddings_conn)
+
+    assert backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
+    assert backend.retrieval_counts(0.0) == [
+        {"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
+    ]
+    assert backend.engagement_counts(0.0) == [{"doc_id": "tenant-doc", "cnt": 1}]
+    assert backend.all_embeddings() == [
+        {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
+    ]
+
+    executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
+    assert "INSERT INTO tenant_abc_documents" in executed_sql
+    assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "UPDATE tenant_abc_documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
+    assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = %s" in executed_sql
+    assert "DELETE FROM tenant_abc_engagements WHERE doc_id = %s" in executed_sql
+    assert "DELETE FROM tenant_abc_documents WHERE doc_id = %s" in executed_sql
+    assert "SELECT * FROM tenant_abc_documents" in executed_sql
+    assert "FROM tenant_abc_retrievals" in executed_sql
+    assert "FROM tenant_abc_engagements" in executed_sql
+    assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "tenant_abc.documents" not in executed_sql
+
 def test_postgres_backend_checks_out_a_connection_for_each_operation(monkeypatch):
     backend, pool_factory, _ = _make_backend(monkeypatch)
     pool = pool_factory.pools[0]
