@@ -41,6 +41,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260410-mf8 | Add AsyncCorpulse analysis parity with sync Corpulse for corpus analysis methods | 2026-04-10 | 01d5842 | [260410-mf8-add-asynccorpulse-analysis-parity-with-s](./quick/260410-mf8-add-asynccorpulse-analysis-parity-with-s/) |
+| 260415-hfu | Top Corpulse Library Gaps (from showcase work): ship #1 Async Qdrant wrapper fix and #3 public delete_document API immediately | 2026-04-15 | ba39e3e | [260415-hfu-top-corpulse-library-gaps-from-showcase-](./quick/260415-hfu-top-corpulse-library-gaps-from-showcase-/) |
 
 ## Roadmap Evolution
 
