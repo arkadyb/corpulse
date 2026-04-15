@@ -118,6 +118,29 @@ async def _build_backend(monkeypatch, pool=None, **kwargs):
     return backend, fake_module
 
 
+@pytest.mark.parametrize(
+    ("input_dsn", "expected"),
+    [
+        ("postgresql+asyncpg://test", "postgresql://test"),
+        (
+            "postgresql+asyncpg://u:p%40x@h/db?sslmode=require",
+            "postgresql://u:p%40x@h/db?sslmode=require",
+        ),
+        ("postgresql://u:p@h/db", "postgresql://u:p@h/db"),
+        ("postgres+asyncpg://u@[::1]:5432/db", "postgres://u@[::1]:5432/db"),
+    ],
+)
+async def test_dsn_normalization_async(monkeypatch, input_dsn, expected):
+    fake_module = _install_fake_asyncpg(monkeypatch)
+
+    backend = await AsyncPostgresBackend.create(input_dsn)
+
+    assert fake_module.create_pool_calls == [
+        {"dsn": expected, "min_size": 2, "max_size": 10}
+    ]
+    await backend.close()
+
+
 async def test_async_postgres_backend_requires_asyncpg(monkeypatch):
     def raising_loader():
         raise ImportError("Install corpulse[postgres-async].")

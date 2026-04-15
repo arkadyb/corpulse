@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._dsn import _normalize_postgres_dsn
 from .base import (
     DocumentRow,
     EmbeddingRow,
@@ -40,7 +41,11 @@ class AsyncPostgresBackend:
         max_size: int = 10,
     ) -> AsyncPostgresBackend:
         asyncpg, error_cls = _load_asyncpg()
-        pool = await asyncpg.create_pool(dsn, min_size=min_size, max_size=max_size)
+        pool = await asyncpg.create_pool(
+            _normalize_postgres_dsn(dsn),
+            min_size=min_size,
+            max_size=max_size,
+        )
         backend = cls(pool, error_cls)
         await backend._initialize()
         return backend

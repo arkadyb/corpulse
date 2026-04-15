@@ -105,6 +105,31 @@ def _make_backend(monkeypatch, pool_factory: FakeConnectionPoolFactory | None = 
     return PostgresBackend("postgresql://example"), pool_factory, dict_row
 
 
+@pytest.mark.parametrize(
+    ("input_dsn", "expected"),
+    [
+        ("postgresql+psycopg://example", "postgresql://example"),
+        ("postgresql+psycopg2://u:p@h/db", "postgresql://u:p@h/db"),
+        ("postgresql://u:p@h/db", "postgresql://u:p@h/db"),
+        ("host=localhost port=5432 dbname=foo", "host=localhost port=5432 dbname=foo"),
+    ],
+)
+def test_dsn_normalization_sync(monkeypatch, input_dsn, expected):
+    pool_factory = FakeConnectionPoolFactory()
+    dict_row = object()
+    monkeypatch.setattr(
+        "corpulse.backends.postgres._load_psycopg_pool",
+        lambda: (pool_factory, dict_row, FakePsycopgError),
+    )
+
+    backend = PostgresBackend(input_dsn)
+
+    assert pool_factory.calls == [
+        (expected, 1, 10, {"row_factory": dict_row}, True)
+    ]
+    backend.close()
+
+
 def test_postgres_backend_requires_psycopg(monkeypatch):
     def raising_loader():
         raise ImportError("Install corpulse[postgres].")

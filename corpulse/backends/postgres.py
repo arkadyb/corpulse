@@ -11,6 +11,7 @@ from .base import (
     StorageBackend,
     StorageBackendError,
 )
+from ._dsn import _normalize_postgres_dsn
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -62,7 +63,7 @@ class PostgresBackend(StorageBackend):
         connection_pool, dict_row, error_cls = _load_psycopg_pool()
         self._error_cls = error_cls
         self._pool = connection_pool(
-            conninfo=conninfo,
+            conninfo=_normalize_postgres_dsn(conninfo),
             min_size=min_size,
             max_size=max_size,
             kwargs={"row_factory": dict_row},
