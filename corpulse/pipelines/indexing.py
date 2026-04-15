@@ -57,12 +57,72 @@ async def index_document(
     Returns:
         IndexingResult: Stats about the indexing operation.
     """
+    import asyncio
+    import inspect
+    import logging
     import time
-    start = time.monotonic()
 
-    # Minimal implementation for skeleton verification
+    import numpy as np
+    from qdrant_client.models import PointStruct
+
+    from corpulse.integrations.qdrant import chunk_id, delete_document_points
+
+    logger = logging.getLogger(__name__)
+    start = time.perf_counter()
+
+    # 1. Parse source
+    text = await parser.parse(source)
+
+    # 2. Chunk text
+    chunks = await chunker.chunk(text)
+
+    # 3. Embed chunks with exponential backoff retries
+    max_attempts = 3
+    embeddings: list[list[float]] = []
+    for attempt in range(1, max_attempts + 1):
+        try:
+            embeddings = await embedder.embed(chunks)
+            break
+        except Exception as e:
+            if attempt == max_attempts:
+                raise
+            delay = 2**attempt
+            logger.warning(
+                f"Embedding attempt {attempt} failed: {e}. Retrying in {delay}s..."
+            )
+            await asyncio.sleep(delay)
+
+    # 4. Upsert to Qdrant
+    points = []
+    for i, vector in enumerate(embeddings):
+        p_id = chunk_id(doc_id, i)
+        payload = {"doc_id": doc_id}
+
+        if vector_name:
+            points.append(
+                PointStruct(id=p_id, vector={vector_name: vector}, payload=payload)
+            )
+        else:
+            points.append(PointStruct(id=p_id, vector=vector, payload=payload))
+
+    upsert_res = client.upsert(collection_name=collection_name, points=points)
+    if inspect.isawaitable(upsert_res):
+        await upsert_res
+
+    # 5. Register in Corpulse with rollback on failure
+    mean_embedding = np.mean(embeddings, axis=0).tolist()
+    try:
+        await corpulse.register_document(doc_id, filename, mean_embedding)
+    except Exception:
+        # Rollback: delete points from Qdrant to avoid ghost vectors
+        delete_res = delete_document_points(client, collection_name, doc_id)
+        if inspect.isawaitable(delete_res):
+            await delete_res
+        raise
+
+    duration_ms = (time.perf_counter() - start) * 1000
     return IndexingResult(
         doc_id=doc_id,
-        chunk_count=0,
-        duration_ms=(time.monotonic() - start) * 1000,
+        chunk_count=len(chunks),
+        duration_ms=duration_ms,
     )
