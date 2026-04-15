@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
-status: active
-stopped_at: Phase 16 planned
-last_updated: "2026-04-15T13:45:00+10:00"
-last_activity: 2026-04-15
+status: executing
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-04-15T03:35:18Z"
+last_activity: 2026-04-15 — Completed 16-01 postgres DDL helper plan
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 12
-  completed_plans: 1
-  percent: 17
+  total_plans: 4
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 16 planned — ready to execute Postgres multi-tenancy
+**Current focus:** Phase 16 — continue Postgres multi-tenancy execution with shared DDL primitives complete
 
 ## Current Position
 
 Phase: 16 — Postgres Multi-Tenancy
-Plan: 16-01, 16-02, 16-03 planned
-Status: Planned
-Last activity: 2026-04-15 — Phase 16 planned
+Plan: 16-01 complete; 16-02 next
+Status: Executing Phase 16
+Last activity: 2026-04-15 — Completed 16-01 shared identifier validation and DDL builder
 
-Progress bar: [██□□□□□□□□] 1/6 phases complete
+Progress bar: [█████░░░░░] 50%
 
 ## Pending Todos
 
@@ -61,15 +61,18 @@ None.
 - [Phase 11]: Kept cleanup_report double-fetch behavior while moving section math into _build_cleanup_payload.
 - [Phase 14]: Document AsyncCorpulse as a structured-return API with explicit sync parity notes rather than stdout-oriented wording.
 - [Phase 14]: Use an inline AsyncInMemoryBackend adapter in the async demo so the example runs without external services.
+- [Phase 16]: Preserve the exact legacy default DDL string shape in `build_schema_sql()` so backend initialization remains byte-for-byte compatible.
+- [Phase 16]: Prefix-only tenancy must namespace index names as well as table names to avoid shared-schema collisions.
 
 ## Performance Metrics
 
 | Phase | Plan | Duration (s) | Tasks | Files |
 |-------|------|--------------|-------|-------|
 | 15 | 01 | <1 | 3 | 6 |
+| 16 | 01 | 1 min | 3 | 2 |
 
 ## Session Continuity
 
-Last activity: 2026-04-15 - Phase 16 planned
-Stopped at: Phase 16 planned
+Last activity: 2026-04-15 - Completed 16-01 postgres DDL helper plan
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
