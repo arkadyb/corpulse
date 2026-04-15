@@ -33,7 +33,7 @@
 - [x] **PIPE-02**: The indexing pipeline retries embedding failures with bounded backoff before failing.
 - [x] **PIPE-03**: If indexing fails after vector upsert begins, the pipeline rolls back Qdrant points for that document before re-raising.
 - [x] **PIPE-04**: The first pipeline version returns a minimal result contract (`doc_id`, `chunk_count`, `duration_ms`) without inventing unsupported Corpulse semantics.
-- [ ] **PIPE-05**: Pipeline tests cover both happy path and rollback behavior using fakes.
+- [x] **PIPE-05**: Pipeline tests cover both happy path and rollback behavior using fakes.
 
 ### Typed Async Payload Models
 
@@ -93,7 +93,7 @@
 | PIPE-02 | Phase 18 | Complete |
 | PIPE-03 | Phase 18 | Complete |
 | PIPE-04 | Phase 18 | Complete |
-| PIPE-05 | Phase 18 | Pending |
+| PIPE-05 | Phase 18 | Complete |
 | MODEL-01 | Phase 19 | Pending |
 | MODEL-02 | Phase 19 | Pending |
 | MODEL-03 | Phase 19 | Pending |
