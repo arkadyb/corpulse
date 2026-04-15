@@ -11,6 +11,7 @@ Lazy import: qdrant_client is NOT imported at module level so that
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Sequence
 
 __all__ = ["QdrantCorpulseClient", "AsyncQdrantCorpulseClient"]
@@ -194,7 +195,7 @@ class AsyncQdrantCorpulseClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
+            await self._log_retrieval(records)
         return result
 
     async def search(self, collection_name, **kwargs):
@@ -214,8 +215,15 @@ class AsyncQdrantCorpulseClient:
                 self._payload_id_field,
                 self._payload_filename_key,
             )
-            await asyncio.to_thread(self._corpulse.log_retrieval, records, "")
+            await self._log_retrieval(records)
         return result
+
+    async def _log_retrieval(self, records) -> None:
+        log_retrieval = self._corpulse.log_retrieval
+        if inspect.iscoroutinefunction(log_retrieval):
+            await log_retrieval(records, query="")
+            return
+        await asyncio.to_thread(log_retrieval, records, "")
 
     def __getattr__(self, name):
         return getattr(self._client, name)

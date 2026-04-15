@@ -243,10 +243,25 @@ def test_postgres_backend_checks_out_a_connection_for_each_operation(monkeypatch
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.update_source_timestamp("doc-1", 4.0)
+    backend.delete_document("doc-1")
     backend.all_documents()
 
-    assert pool.checkout_count == 6
+    assert pool.checkout_count == 7
     assert not hasattr(backend, "_conn")
+
+
+def test_postgres_backend_delete_document(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch)
+    pool = pool_factory.pools[0]
+
+    backend.delete_document("doc-1")
+
+    delete_calls = pool.connections[-1].calls[-3:]
+    assert delete_calls == [
+        ("DELETE FROM retrievals WHERE doc_id = %s", ("doc-1",)),
+        ("DELETE FROM engagements WHERE doc_id = %s", ("doc-1",)),
+        ("DELETE FROM documents WHERE doc_id = %s", ("doc-1",)),
+    ]
 
 
 @pytest.mark.skipif(

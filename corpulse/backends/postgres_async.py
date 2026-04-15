@@ -137,6 +137,25 @@ class AsyncPostgresBackend:
             doc_id,
         )
 
+    async def delete_document(self, doc_id: str) -> None:
+        try:
+            async with self._pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute(
+                        "DELETE FROM retrievals WHERE doc_id = $1",
+                        doc_id,
+                    )
+                    await conn.execute(
+                        "DELETE FROM engagements WHERE doc_id = $1",
+                        doc_id,
+                    )
+                    await conn.execute(
+                        "DELETE FROM documents WHERE doc_id = $1",
+                        doc_id,
+                    )
+        except self._error_cls as exc:
+            raise StorageBackendError(str(exc)) from exc
+
     async def all_documents(self) -> list[DocumentRow]:
         rows = await self._fetch("SELECT * FROM documents")
         return [dict(row) for row in rows]

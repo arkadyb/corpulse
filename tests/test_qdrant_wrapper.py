@@ -336,3 +336,49 @@ async def test_async_search_interception(async_qdrant_client_fixture, corpulse):
         with pytest.raises(AttributeError):
             await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
         assert _retrieval_count(corpulse) == 0
+
+
+class _AsyncLoggingCorpulse:
+    def __init__(self):
+        self.calls = []
+
+    async def log_retrieval(self, results, query=""):
+        self.calls.append((results, query))
+
+
+class _AsyncSearchClient:
+    async def search(self, collection_name, **kwargs):
+        return [
+            models.ScoredPoint(
+                id=1,
+                version=1,
+                score=0.99,
+                payload={"doc_id": "abc", "filename": "guide.md"},
+                vector=None,
+            )
+        ]
+
+
+async def test_async_search_awaits_async_corpulse_log_retrieval():
+    wrapper = AsyncQdrantCorpulseClient(
+        _AsyncSearchClient(),
+        _AsyncLoggingCorpulse(),
+        payload_id_field="doc_id",
+    )
+
+    result = await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+
+    assert len(result) == 1
+    assert wrapper._corpulse.calls == [
+        (
+            [
+                {
+                    "doc_id": "abc",
+                    "filename": "guide.md",
+                    "score": 0.99,
+                    "embedding": None,
+                }
+            ],
+            "",
+        )
+    ]

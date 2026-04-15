@@ -25,6 +25,7 @@ def test_storage_backend_contract_is_frozen():
         "insert_retrieval": ["self", "doc_id", "query_hash", "rank", "score", "retrieved_at"],
         "insert_engagement": ["self", "doc_id", "event_type", "engaged_at"],
         "update_source_timestamp": ["self", "doc_id", "updated_at"],
+        "delete_document": ["self", "doc_id"],
         "all_documents": ["self"],
         "retrieval_counts": ["self", "since"],
         "engagement_counts": ["self", "since"],
@@ -85,6 +86,13 @@ def test_backend_parity(backend):
     assert embeddings == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
+
+    backend.delete_document("doc-1")
+
+    assert backend.all_documents() == []
+    assert backend.retrieval_counts(0.0) == []
+    assert backend.engagement_counts(0.0) == []
+    assert backend.all_embeddings() == []
 
 
 def test_sqlite_backend_enables_wal(sqlite_backend):

@@ -70,6 +70,10 @@ class StorageBackend(ABC):
         """Store the latest known source update time for a document."""
 
     @abstractmethod
+    def delete_document(self, doc_id: str) -> None:
+        """Delete a document and its related retrieval and engagement rows."""
+
+    @abstractmethod
     def all_documents(self) -> list[DocumentRow]:
         """Return every stored document row."""
 

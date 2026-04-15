@@ -138,6 +138,10 @@ class AsyncCorpulse:
             embedded_at=_now() if embedding is not None else None,
         )
 
+    async def delete_document(self, doc_id: str) -> None:
+        """Delete a document and its associated retrieval and engagement history."""
+        await self.db.delete_document(doc_id)
+
     async def get_ghosts(self) -> list[dict]:
         """Return documents not retrieved within the ghost threshold window.
 

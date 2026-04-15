@@ -67,6 +67,9 @@ class FakeAsyncBackend:
     async def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         self.calls.append(("update_source_timestamp", (doc_id, updated_at)))
 
+    async def delete_document(self, doc_id: str) -> None:
+        self.calls.append(("delete_document", (doc_id,)))
+
     async def all_documents(self) -> list[dict]:
         self.calls.append(("all_documents", ()))
         return self.documents
@@ -103,6 +106,20 @@ class FakeSyncBackend:
 
     def all_documents(self) -> list[dict]:
         return self.documents
+
+    def delete_document(self, doc_id: str) -> None:
+        self.documents = [
+            document for document in self.documents if document["doc_id"] != doc_id
+        ]
+        self.retrieval_rows = [
+            row for row in self.retrieval_rows if row["doc_id"] != doc_id
+        ]
+        self.engagement_rows = [
+            row for row in self.engagement_rows if row["doc_id"] != doc_id
+        ]
+        self.embedding_rows = [
+            row for row in self.embedding_rows if row["doc_id"] != doc_id
+        ]
 
     def retrieval_counts(self, since: float) -> list[dict]:
         return self.retrieval_rows
@@ -312,6 +329,15 @@ async def test_async_corpulse_async_context_manager_closes_backend():
 
     assert backend.closed is True
     assert backend.calls == [("close", ())]
+
+
+async def test_async_corpulse_delete_document_delegates_to_backend():
+    backend = FakeAsyncBackend()
+    corpulse = AsyncCorpulse(backend=backend)
+
+    await corpulse.delete_document("doc-1")
+
+    assert backend.calls == [("delete_document", ("doc-1",))]
 
 
 async def test_async_analysis_methods_match_sync_parity(monkeypatch):

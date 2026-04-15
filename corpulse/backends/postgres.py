@@ -147,6 +147,14 @@ class PostgresBackend(StorageBackend):
             )
         )
 
+    def delete_document(self, doc_id: str) -> None:
+        def operation(conn):
+            conn.execute("DELETE FROM retrievals WHERE doc_id = %s", (doc_id,))
+            conn.execute("DELETE FROM engagements WHERE doc_id = %s", (doc_id,))
+            conn.execute("DELETE FROM documents WHERE doc_id = %s", (doc_id,))
+
+        self._run(operation)
+
     def all_documents(self) -> list[DocumentRow]:
         return self._run(
             lambda conn: [

@@ -535,6 +535,10 @@ class Corpulse:
             embedded_at=_now() if embedding is not None else None,
         )
 
+    def delete_document(self, doc_id: str) -> None:
+        """Delete a document and its associated retrieval and engagement history."""
+        self.db.delete_document(doc_id)
+
     # ── analysis ──────────────────────────────────────────────────────────────
 
     def get_ghosts(self) -> list[dict]:

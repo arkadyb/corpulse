@@ -86,6 +86,24 @@ def test_corpulse_inmemory_backend_context_manager_delegates_close():
     assert backend._closed is True
 
 
+def test_corpulse_delete_document_removes_document_and_events():
+    backend = InMemoryBackend()
+    corpulse = Corpulse(backend=backend)
+
+    corpulse.register_document("doc-1", "guide.md")
+    corpulse.log_retrieval(
+        [{"doc_id": "doc-1", "filename": "guide.md", "score": 0.9}],
+        query="guide",
+    )
+    corpulse.log_engagement("doc-1")
+
+    corpulse.delete_document("doc-1")
+
+    assert backend.all_documents() == []
+    assert backend.retrieval_counts(0.0) == []
+    assert backend.engagement_counts(0.0) == []
+
+
 def test_corpulse_constructor_conflict_raises_value_error(tmp_path):
     backend = SQLiteBackend(str(tmp_path / "conflict.db"))
 

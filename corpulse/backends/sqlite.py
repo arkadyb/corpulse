@@ -149,6 +149,13 @@ class SQLiteBackend(StorageBackend):
             )
 
     @_translate_sqlite_errors
+    def delete_document(self, doc_id: str) -> None:
+        with self._conn() as conn:
+            conn.execute("DELETE FROM retrievals WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM engagements WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+
+    @_translate_sqlite_errors
     def all_documents(self) -> list[DocumentRow]:
         with self._conn() as conn:
             rows = conn.execute("SELECT * FROM documents").fetchall()

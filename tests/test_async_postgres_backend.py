@@ -190,6 +190,19 @@ async def test_async_postgres_backend_update_source_timestamp(monkeypatch):
     await backend.close()
 
 
+async def test_async_postgres_backend_delete_document(monkeypatch):
+    backend, fake_module = await _build_backend(monkeypatch)
+
+    await backend.delete_document("d1")
+
+    assert fake_module.pool.conn.calls[-3:] == [
+        ("DELETE FROM retrievals WHERE doc_id = $1", ("d1",)),
+        ("DELETE FROM engagements WHERE doc_id = $1", ("d1",)),
+        ("DELETE FROM documents WHERE doc_id = $1", ("d1",)),
+    ]
+    await backend.close()
+
+
 async def test_async_postgres_backend_all_documents(monkeypatch):
     pool = FakeAsyncpgPool()
     pool.conn.rows[_normalize_sql("SELECT * FROM documents")] = [
@@ -304,12 +317,13 @@ async def test_async_postgres_backend_uses_pool_acquire(monkeypatch):
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
     await backend.insert_engagement("d1", "opened", 30.0)
     await backend.update_source_timestamp("d1", 40.0)
+    await backend.delete_document("d1")
     await backend.all_documents()
     await backend.retrieval_counts(0.0)
     await backend.engagement_counts(0.0)
     await backend.all_embeddings()
 
-    assert pool.acquire_calls >= 9
+    assert pool.acquire_calls >= 10
     await backend.close()
 
 

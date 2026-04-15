@@ -81,6 +81,15 @@ class InMemoryBackend(StorageBackend):
             "source_updated_at": updated_at,
         }
 
+    def delete_document(self, doc_id: str) -> None:
+        self._documents.pop(doc_id, None)
+        self._retrievals = [
+            event for event in self._retrievals if str(event["doc_id"]) != doc_id
+        ]
+        self._engagements = [
+            event for event in self._engagements if str(event["doc_id"]) != doc_id
+        ]
+
     def all_documents(self) -> list[DocumentRow]:
         return [document.copy() for document in self._documents.values()]
 
