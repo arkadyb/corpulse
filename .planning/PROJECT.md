@@ -44,7 +44,12 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 <!-- Current scope. Building toward these. -->
 
-None.
+- [ ] SQLAlchemy-style DSN normalization for sync and async Postgres backends
+- [ ] Postgres multi-tenancy via validated `schema` / `table_prefix`
+- [ ] Additive Qdrant tenant helper functions for collection naming, chunk IDs, delete-by-filter, and collection setup
+- [ ] A minimal indexing pipeline over AsyncCorpulse + Qdrant with rollback semantics
+- [ ] Typed async payload models that preserve current `report()` / `cleanup_report()` compatibility
+- [ ] Optional FastAPI router helpers built on the typed payload layer
 
 ### Out of Scope
 
@@ -58,15 +63,20 @@ None.
 - PyPI publishing — distributing via GitHub only for now
 - Web dashboard / UI — keep it library-first
 
+## Current Milestone: v1.3 Multi-Tenant Integrations
+
+**Goal:** Make corpulse easier to run as a tenant-scoped service backend by improving Postgres tenancy support, normalizing real-world DSNs, adding reusable Qdrant indexing primitives, and exposing typed integration surfaces without breaking current async payload consumers.
+
+**Target features:**
+- Native SQLAlchemy-style DSN support for sync and async Postgres backends
+- Postgres multi-tenancy via validated `schema` and `table_prefix`
+- Tenant-friendly Qdrant helpers plus an indexing pipeline MVP with rollback semantics
+- Typed async payload models that preserve current `report()` / `cleanup_report()` contracts
+- Optional FastAPI router helpers layered on the typed payloads
+
 ## Current State
 
-corpulse has shipped milestone `v1.2`, completing full async parity for `AsyncCorpulse`. The async facade now matches sync `Corpulse` for analysis methods plus `to_dataframe()`, `report()`, and `cleanup_report()`, all backed by shared helper logic in `corpulse/core.py`, verified by deterministic tests, live asyncpg coverage, and first-class docs/examples.
-
-## Next Milestone Goals
-
-- Choose the next integration or distribution milestone scope.
-- Decide whether the next highest-value bet is another vector DB wrapper, packaging/distribution work, or broader async API evolution.
-- Start the next milestone with fresh requirements and roadmap artifacts rather than carrying over the completed `v1.2` scope.
+corpulse has shipped milestone `v1.2`, completing full async parity for `AsyncCorpulse`. The next milestone is not another parity pass; it is an integration-readiness milestone focused on service-oriented backend primitives and compatibility improvements discovered during the showcase work.
 
 <details>
 <summary>Archived v1.2 milestone framing</summary>
@@ -124,6 +134,7 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 - **Vector DB**: Qdrant remains the first wrapper target
 - **Compatibility**: Python 3.10+
 - **Backwards compat**: `Corpulse()` with no args must still work exactly as before
+- **Public contract stability**: Existing async `report()` / `cleanup_report()` dict payload semantics remain valid during v1.3
 
 ## Key Decisions
 
@@ -143,6 +154,8 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Pandas stays optional on async path | Keeps install footprint small for async service users who don't need DataFrames; mirrors sync behavior | Shipped in Phase 12 |
 | Live async parity must be env-gated | Keeps the default suite deterministic while still allowing real-Postgres evidence for the async path | Shipped in Phase 13 |
 | Async demo defaults to in-memory adapter | Keeps the example runnable without external services or library-level async memory backend changes | Shipped in Phase 14 |
+| v1.3 follows integration-readiness order over showcase order | DSN normalization and Postgres tenancy reduce immediate service friction; typed models and FastAPI helpers come later after payload semantics are preserved | — Pending |
+| Typed async payload work must preserve current method semantics | README and tests already define dict payloads for `report()` and `cleanup_report()`; model layers should mirror rather than replace that contract | — Pending |
 
 ## Evolution
 
@@ -162,4 +175,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-12 after v1.2 milestone archive*
+*Last updated: 2026-04-15 after milestone v1.3 definition*

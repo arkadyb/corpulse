@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: — Full Async Parity
-status: shipped
-stopped_at: Milestone v1.2 archived
-last_updated: "2026-04-12T07:17:29.577Z"
-last_activity: 2026-04-12
+milestone: v1.3
+milestone_name: — Multi-Tenant Integrations
+status: active
+stopped_at: Requirements defined for milestone v1.3
+last_updated: "2026-04-15T13:05:00+10:00"
+last_activity: 2026-04-15
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 12
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-10)
+See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** No active milestone — ready for `/gsd-new-milestone`
+**Current focus:** Milestone v1.3 definition and roadmap setup
 
 ## Current Position
 
-Phase: None active
-Plan: Not started
-Status: Awaiting next milestone
-Last activity: 2026-04-12
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-15 — Milestone v1.3 started
 
-Progress bar: [██████████] 4/4 phases complete
+Progress bar: [□□□□□□□□□□] 0/6 phases complete
 
 ## Pending Todos
 
@@ -49,6 +49,7 @@ None.
 - Phase 5 added: Address review findings in corpus health and Qdrant wrapper
 - Milestone v1.1 archived on 2026-04-09; roadmap collapsed to archive links
 - Milestone v1.2 roadmap created on 2026-04-10; Phases 11-14 defined
+- Milestone v1.3 roadmap created on 2026-04-15; Phases 15-20 defined
 
 ## Decisions
 
@@ -63,15 +64,10 @@ None.
 
 ## Performance Metrics
 
-| Phase | Plan | Duration (s) | Tasks | Files |
-|-------|------|--------------|-------|-------|
-| 11 | 01 | 191 | 1 | 2 |
-| Phase 11 P02 | 6 min | 2 tasks | 3 files |
-| Phase 11 P03 | 420 | 2 tasks | 2 files |
-| Phase 14 P01 | 3 min | 3 tasks | 4 files |
+No v1.3 phase execution metrics yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-12 - Milestone v1.2 archived and tagged
-Stopped at: Milestone v1.2 archived
+Last activity: 2026-04-15 - Milestone v1.3 defined
+Stopped at: Requirements defined for milestone v1.3
 Resume file: None
