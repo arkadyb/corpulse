@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import re
 from typing import Any
 
 from .base import (
@@ -12,6 +13,31 @@ from .base import (
     StorageBackendError,
 )
 from ._dsn import _normalize_postgres_dsn
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(value: str | None, *, field: str, allow_none: bool = False) -> str | None:
+    if value is None:
+        if allow_none:
+            return None
+        raise ValueError(f"{field} cannot be None")
+    if not _IDENTIFIER_RE.fullmatch(value):
+        raise ValueError(f"invalid postgres identifier for {field}: {value!r}")
+    return value
+
+
+def _validate_schema(schema: str | None) -> str | None:
+    return _validate_identifier(schema, field="schema", allow_none=True)
+
+
+def _validate_table_prefix(table_prefix: str) -> str:
+    if table_prefix == "":
+        return table_prefix
+    validated = _validate_identifier(table_prefix, field="table_prefix")
+    assert validated is not None
+    return validated
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
