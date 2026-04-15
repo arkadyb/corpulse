@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-04-15T03:35:18Z"
-last_activity: 2026-04-15 — Completed 16-01 postgres DDL helper plan
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-04-15T03:42:22.553Z"
+last_activity: 2026-04-15 — Completed 16-02 tenant-aware sync and async Postgres query rewiring
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 16 — continue Postgres multi-tenancy execution with shared DDL primitives complete
+**Current focus:** Phase 16 — continue Postgres multi-tenancy execution with sync and async query rewiring complete
 
 ## Current Position
 
 Phase: 16 — Postgres Multi-Tenancy
-Plan: 16-01 complete; 16-02 next
+Plan: 16-01 and 16-02 complete; 16-03 next
 Status: Executing Phase 16
-Last activity: 2026-04-15 — Completed 16-01 shared identifier validation and DDL builder
+Last activity: 2026-04-15 — Completed 16-02 tenant-aware sync and async Postgres query rewiring
 
-Progress bar: [█████░░░░░] 50%
+Progress bar: [████████░░] 75%
 
 ## Pending Todos
 
@@ -63,6 +63,8 @@ None.
 - [Phase 14]: Use an inline AsyncInMemoryBackend adapter in the async demo so the example runs without external services.
 - [Phase 16]: Preserve the exact legacy default DDL string shape in `build_schema_sql()` so backend initialization remains byte-for-byte compatible.
 - [Phase 16]: Prefix-only tenancy must namespace index names as well as table names to avoid shared-schema collisions.
+- [Phase 16]: Both Postgres backends now resolve every SQL identifier through an instance _t(...) helper that combines validated schema and table-prefix state.
+- [Phase 16]: AsyncPostgresBackend.create() now builds schema statements from build_schema_sql(...) directly so async DDL cannot drift from sync behavior.
 
 ## Performance Metrics
 
@@ -70,9 +72,10 @@ None.
 |-------|------|--------------|-------|-------|
 | 15 | 01 | <1 | 3 | 6 |
 | 16 | 01 | 1 min | 3 | 2 |
+| 16 | 02 | 5 min | 2 | 4 |
 
 ## Session Continuity
 
-Last activity: 2026-04-15 - Completed 16-01 postgres DDL helper plan
-Stopped at: Completed 16-01-PLAN.md
+Last activity: 2026-04-15 - Completed 16-02 postgres tenancy query rewire plan
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
