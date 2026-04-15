@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: — Multi-Tenant Integrations
 status: Ready
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-04-15T04:40:47.651Z"
-last_activity: 2026-04-15 — Verified Qdrant tenant helpers with unit and integration tests
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-04-15T04:43:36.791Z"
+last_activity: 2026-04-15 — Defined indexing protocols and minimal result contract in corpulse/pipelines/indexing.py
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -26,15 +26,15 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 18 — Indexing Pipeline MVP
-Plan: 01 / 03
+Plan: 02 / 03
 Status: Ready
-Last activity: 2026-04-15 — Defined indexing protocols and minimal result contract in corpulse/pipelines/indexing.py
+Last activity: 2026-04-15 — Implemented resilient index_document orchestration with retries and rollback
 
-Progress bar: [████████░░] 78%
+Progress bar: [█████████░] 89%
 
 ## Pending Todos
 
-- Plan 18-02: Orchestrate parse -> chunk -> embed -> Qdrant upsert
+- Plan 18-03: Integration test with simulated failures
 
 ### Quick Tasks Completed
 
@@ -69,6 +69,8 @@ Progress bar: [████████░░] 78%
 - [Phase 16]: Generate unique schema names per live test run to avoid cross-test collisions while reusing a single Postgres database.
 - [Phase 17-qdrant-tenant-helpers]: Relaxed payload_schema assertion in in-memory Qdrant tests due to local mode limitations (indexes have no effect).
 - [Phase 18]: Use typing.Protocol for Parser, Chunker, and Embedder
+- [Phase 18]: Used exponential backoff retries for embedding calls to handle transient provider failures.
+- [Phase 18]: Implemented rollback logic to delete Qdrant points if Corpulse registration fails, ensuring consistency.
 
 ## Performance Metrics
 
@@ -81,9 +83,10 @@ Progress bar: [████████░░] 78%
 | 17 | 01 | 5 min | 2 | 1 |
 | Phase 17-qdrant-tenant-helpers P02 | 300 | 2 tasks | 1 files |
 | Phase 18 P01 | 300 | 2 tasks | 1 files |
+| Phase 18 P02 | 300 | 3 tasks | 1 files |
 
 ## Session Continuity
 
 Last activity: 2026-04-15 - Completed 16-03 postgres tenancy verification plan
-Stopped at: Completed 18-01-PLAN.md
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None

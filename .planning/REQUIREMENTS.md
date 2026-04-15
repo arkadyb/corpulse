@@ -29,9 +29,9 @@
 
 ### Indexing Pipeline MVP
 
-- [ ] **PIPE-01**: `corpulse.pipelines.indexing.index_document(...)` orchestrates parse → chunk → embed → Qdrant upsert → Corpulse register flow for one document.
-- [ ] **PIPE-02**: The indexing pipeline retries embedding failures with bounded backoff before failing.
-- [ ] **PIPE-03**: If indexing fails after vector upsert begins, the pipeline rolls back Qdrant points for that document before re-raising.
+- [x] **PIPE-01**: `corpulse.pipelines.indexing.index_document(...)` orchestrates parse → chunk → embed → Qdrant upsert → Corpulse register flow for one document.
+- [x] **PIPE-02**: The indexing pipeline retries embedding failures with bounded backoff before failing.
+- [x] **PIPE-03**: If indexing fails after vector upsert begins, the pipeline rolls back Qdrant points for that document before re-raising.
 - [x] **PIPE-04**: The first pipeline version returns a minimal result contract (`doc_id`, `chunk_count`, `duration_ms`) without inventing unsupported Corpulse semantics.
 - [ ] **PIPE-05**: Pipeline tests cover both happy path and rollback behavior using fakes.
 
@@ -89,9 +89,9 @@
 | QDRT-HELP-03 | Phase 17 | Complete |
 | QDRT-HELP-04 | Phase 17 | Complete |
 | QDRT-HELP-05 | Phase 17 | Complete |
-| PIPE-01 | Phase 18 | Pending |
-| PIPE-02 | Phase 18 | Pending |
-| PIPE-03 | Phase 18 | Pending |
+| PIPE-01 | Phase 18 | Complete |
+| PIPE-02 | Phase 18 | Complete |
+| PIPE-03 | Phase 18 | Complete |
 | PIPE-04 | Phase 18 | Complete |
 | PIPE-05 | Phase 18 | Pending |
 | MODEL-01 | Phase 19 | Pending |
