@@ -35,6 +35,14 @@ class QueryRow(TypedDict):
     last_retrieved_at: float | None
 
 
+class LowConfidenceQueryRow(QueryRow):
+    """Query aggregate row surfaced by low-confidence analytics."""
+
+
+class ZeroResultQueryRow(QueryRow):
+    """Query aggregate row surfaced by zero-result analytics."""
+
+
 class EngagementRow(TypedDict):
     doc_id: str
     cnt: int

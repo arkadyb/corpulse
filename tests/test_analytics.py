@@ -37,6 +37,16 @@ def _make_embedding(seed: int, dim: int = 8) -> bytes:
     return _vec_to_bytes(v / np.linalg.norm(v))
 
 
+class _QueryAnalyticsBackend:
+    def __init__(self, query_rows: list[dict]):
+        self.query_rows = query_rows
+        self.calls: list[float] = []
+
+    def query_counts(self, since: float) -> list[dict]:
+        self.calls.append(since)
+        return self.query_rows
+
+
 # ── ghost tests ───────────────────────────────────────────────────────────────
 
 
@@ -187,6 +197,118 @@ def test_suspect_below_min_retrievals(corpulse, monkeypatch):
         corpulse.db.insert_retrieval("low1", f"q{i}", 1, 0.9, recent_ts)
 
     assert corpulse.get_suspects() == []
+
+
+# ── query analytics tests ────────────────────────────────────────────────────
+
+
+def test_low_confidence_analytics_use_query_aggregates(corpulse, monkeypatch):
+    """Low-confidence analytics should filter query aggregates by top score."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    recent_ts = FROZEN - 5 * 86400
+    corpulse.db.upsert_document("low-a", "low-a.md")
+    corpulse.db.upsert_document("low-b", "low-b.md")
+    corpulse.db.upsert_document("high-a", "high-a.md")
+    corpulse.db.upsert_document("high-b", "high-b.md")
+
+    corpulse.db.insert_retrieval("low-a", "low-query", 1, 0.44, recent_ts)
+    corpulse.db.insert_retrieval("low-b", "low-query", 2, 0.58, recent_ts)
+    corpulse.db.insert_retrieval("high-a", "high-query", 1, 0.91, recent_ts)
+    corpulse.db.insert_retrieval("high-b", "high-query", 2, 0.86, recent_ts)
+
+    assert corpulse.low_confidence_rate(threshold=0.8) == 0.5
+    assert corpulse.get_low_confidence_queries(threshold=0.8) == [
+        {
+            "query_hash": "low-query",
+            "cnt": 2,
+            "avg_rank": 1.5,
+            "avg_score": 0.51,
+            "min_rank": 1,
+            "max_rank": 2,
+            "min_score": 0.44,
+            "max_score": 0.58,
+            "first_retrieved_at": recent_ts,
+            "last_retrieved_at": recent_ts,
+        }
+    ]
+
+
+def test_zero_result_analytics_stay_separate_from_low_confidence(monkeypatch):
+    """Zero-result analytics should stay distinct from low-confidence analytics."""
+    backend = _QueryAnalyticsBackend(
+        [
+            {
+                "query_hash": "zero-query",
+                "cnt": 0,
+                "avg_rank": None,
+                "avg_score": None,
+                "min_rank": None,
+                "max_rank": None,
+                "min_score": None,
+                "max_score": None,
+                "first_retrieved_at": None,
+                "last_retrieved_at": None,
+            },
+            {
+                "query_hash": "low-query",
+                "cnt": 2,
+                "avg_rank": 1.5,
+                "avg_score": 0.51,
+                "min_rank": 1,
+                "max_rank": 2,
+                "min_score": 0.44,
+                "max_score": 0.58,
+                "first_retrieved_at": FROZEN - 5 * 86400,
+                "last_retrieved_at": FROZEN - 5 * 86400,
+            },
+            {
+                "query_hash": "healthy-query",
+                "cnt": 3,
+                "avg_rank": 1.0,
+                "avg_score": 0.91,
+                "min_rank": 1,
+                "max_rank": 2,
+                "min_score": 0.88,
+                "max_score": 0.95,
+                "first_retrieved_at": FROZEN - 5 * 86400,
+                "last_retrieved_at": FROZEN - 5 * 86400,
+            },
+        ]
+    )
+    corpulse = Corpulse(backend=backend)
+    monkeypatch.setattr(c_mod, "_days_ago", lambda days: FROZEN - 30 * 86400)
+
+    assert corpulse.zero_result_rate() == 0.33
+    assert corpulse.get_zero_result_queries() == [
+        {
+            "query_hash": "zero-query",
+            "cnt": 0,
+            "avg_rank": None,
+            "avg_score": None,
+            "min_rank": None,
+            "max_rank": None,
+            "min_score": None,
+            "max_score": None,
+            "first_retrieved_at": None,
+            "last_retrieved_at": None,
+        }
+    ]
+    assert corpulse.low_confidence_rate(threshold=0.8) == 0.5
+    assert corpulse.get_low_confidence_queries(threshold=0.8) == [
+        {
+            "query_hash": "low-query",
+            "cnt": 2,
+            "avg_rank": 1.5,
+            "avg_score": 0.51,
+            "min_rank": 1,
+            "max_rank": 2,
+            "min_score": 0.44,
+            "max_score": 0.58,
+            "first_retrieved_at": FROZEN - 5 * 86400,
+            "last_retrieved_at": FROZEN - 5 * 86400,
+        }
+    ]
 
 
 # ── corpus_health tests ───────────────────────────────────────────────────────

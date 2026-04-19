@@ -17,7 +17,8 @@ from .backends import SQLiteBackend, StorageBackend
 from .models import (
     ReportRow, ReportSummary, CleanupPayload, GhostItem,
     DuplicatePair, ObsoleteItem, StaleItem, SuspectItem,
-    CorpusHealth, DocumentRow, RetrievalRow, EngagementRow,
+    CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, QueryRow,
+    LowConfidenceQueryRow, ZeroResultQueryRow,
     EmbeddingRow
 )
 
@@ -325,6 +326,43 @@ def _build_suspects(
     return sorted(suspects, key=lambda x: x["retrievals"], reverse=True)
 
 
+def _build_low_confidence_queries(
+    query_rows: List[QueryRow],
+    threshold: float,
+) -> List[LowConfidenceQueryRow]:
+    low_confidence = [
+        row.copy()
+        for row in query_rows
+        if row["cnt"] > 0
+        and row["max_score"] is not None
+        and float(row["max_score"]) < threshold
+    ]
+    return sorted(
+        low_confidence,
+        key=lambda row: (
+            float(row["max_score"]) if row["max_score"] is not None else float("inf"),
+            -int(row["cnt"]),
+            row["query_hash"],
+        ),
+    )
+
+
+def _build_zero_result_queries(
+    query_rows: List[QueryRow],
+) -> List[ZeroResultQueryRow]:
+    zero_result = [row.copy() for row in query_rows if int(row["cnt"]) == 0]
+    return sorted(zero_result, key=lambda row: row["query_hash"])
+
+
+def _build_query_rate(
+    query_rows: List[QueryRow],
+    filtered_rows: List[QueryRow],
+) -> float:
+    if not query_rows:
+        return 0.0
+    return round(len(filtered_rows) / len(query_rows), 2)
+
+
 def _build_corpus_health(
     all_docs: List[DocumentRow],
     ghosts: List[GhostItem],
@@ -396,6 +434,7 @@ class Corpulse:
         stale_threshold_days: int = 14,
         obsolete_pattern: str = r"v\d+",
         top_k_report: int = 20,
+        low_confidence_threshold: float = 0.8,
     ):
         """Initialise a Corpulse instance backed by a SQLite database.
 
@@ -414,6 +453,8 @@ class Corpulse:
                 filenames (e.g. ``v1``, ``v2``). Defaults to ``r"v\\d+"``.
             top_k_report: Maximum number of documents shown in ``report()``
                 output. Defaults to 20.
+            low_confidence_threshold: Top-score cutoff used by
+                ``low_confidence_rate()`` and ``get_low_confidence_queries()``.
         """
         if backend is not None and db_path != "./corpulse.db":
             raise ValueError("Pass either the default db_path or an explicit backend, not both")
@@ -424,6 +465,7 @@ class Corpulse:
         self.stale_threshold_days = stale_threshold_days
         self.obsolete_pattern = obsolete_pattern
         self.top_k_report = top_k_report
+        self.low_confidence_threshold = low_confidence_threshold
 
     def close(self) -> None:
         """Close the underlying storage backend."""
@@ -632,6 +674,48 @@ class Corpulse:
         retrieval_rows = self.db.retrieval_counts(since=since)
         engagement_rows = self.db.engagement_counts(since=since)
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
+
+    def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return self.db.query_counts(since=since)
+
+    def low_confidence_rate(
+        self,
+        window_days: int | None = None,
+        threshold: float | None = None,
+    ) -> float:
+        """Return the share of queries whose top score falls below *threshold*."""
+        query_rows = self._query_rows(window_days)
+        confidence_threshold = threshold if threshold is not None else self.low_confidence_threshold
+        low_confidence_rows = _build_low_confidence_queries(query_rows, confidence_threshold)
+        return _build_query_rate(
+            [row for row in query_rows if int(row["cnt"]) > 0],
+            low_confidence_rows,
+        )
+
+    def get_low_confidence_queries(
+        self,
+        window_days: int | None = None,
+        threshold: float | None = None,
+    ) -> List[LowConfidenceQueryRow]:
+        """Return query aggregates whose top score falls below *threshold*."""
+        query_rows = self._query_rows(window_days)
+        confidence_threshold = threshold if threshold is not None else self.low_confidence_threshold
+        return _build_low_confidence_queries(query_rows, confidence_threshold)
+
+    def zero_result_rate(self, window_days: int | None = None) -> float:
+        """Return the share of query aggregates recorded with zero results."""
+        query_rows = self._query_rows(window_days)
+        zero_result_rows = _build_zero_result_queries(query_rows)
+        return _build_query_rate(query_rows, zero_result_rows)
+
+    def get_zero_result_queries(
+        self,
+        window_days: int | None = None,
+    ) -> List[ZeroResultQueryRow]:
+        """Return query aggregates recorded with zero results."""
+        query_rows = self._query_rows(window_days)
+        return _build_zero_result_queries(query_rows)
 
     def corpus_health(self) -> CorpusHealth:
         """
