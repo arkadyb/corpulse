@@ -33,6 +33,6 @@ v1.4 phase breakdown has started. Phase 21 is planned and ready for execution.
 Plans:
 
 - [x] 21-01-PLAN.md — Extend backend query aggregation contract and implement parity across all storage backends
-- [ ] 21-02-PLAN.md — Add sync/async low-confidence and zero-result analytics with parity tests
+- [x] 21-02-PLAN.md — Add sync/async low-confidence and zero-result analytics with parity tests
 
 ---

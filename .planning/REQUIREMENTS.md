@@ -7,7 +7,7 @@
 
 ### Nearly-Free RAG Analytics
 
-- [ ] **v1.4-01**: `Corpulse` and `AsyncCorpulse` expose low-confidence retrieval analytics as both a summary metric and a query-level detail method over existing retrieval rows, with no schema changes.
+- [x] **v1.4-01**: `Corpulse` and `AsyncCorpulse` expose low-confidence retrieval analytics as both a summary metric and a query-level detail method over existing retrieval rows, with no schema changes.
 - [x] **v1.4-02**: Zero-result analytics remain a separate signal from low-confidence analytics and are computed from the same stored retrieval/query data without new ingestion APIs.
 - [x] **v1.4-03**: Query-level aggregation needed for these analytics is implemented consistently across SQLite, Postgres, async Postgres, and in-memory backends, with sync/async parity tests.
 
