@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: — Nearly-Free RAG Analytics
-status: complete
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-04-19T06:59:16.272Z"
+status: executing
+stopped_at: Completed 21-03-PLAN.md
+last_updated: "2026-04-19T07:15:39.500Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
   percent: 100
 ---
 
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 ## Current Position
 
-Phase: 21 (low-confidence-zero-result-rate-analytics) — COMPLETE
-Plan: 2 of 2
-Status: Complete
+Phase: 21 (low-confidence-zero-result-rate-analytics) — EXECUTING
+Plan: 3 of 3
+Status: Ready to execute
 Last activity: 2026-04-19
 
 ## Pending Todos
@@ -65,6 +65,9 @@ None.
 <!-- Phase decisions are appended here by gsd-tools. -->
 
 - [Phase 21]: Query aggregate SQL is ordered by query_hash to keep sync and async backend parity deterministic.
+- [Phase 21]: Persist zero-result usage in a dedicated query_attempts table instead of overloading retrieval rows.
+- [Phase 21]: Keep low-confidence analytics on retrieval aggregates and zero-result analytics on attempt aggregates.
+- [Phase 21]: Record the attempt row in log_retrieval() before any retrieval inserts so empty searches are durable and first-class.
 
 ## Performance Metrics
 
@@ -84,9 +87,10 @@ None.
 | 20 | 01 | 10 min | 2 | 2 |
 | 20 | 02 | 5 min | 1 | 1 |
 | Phase 21 P01 | 4min | 2 tasks | 9 files |
+| Phase 21 P03 | 8min | 2 tasks | 18 files |
 
 ## Session Continuity
 
 Last activity: 2026-04-19 — Completed Phase 21 low-confidence / zero-result analytics
-Stopped at: Completed 21-02-PLAN.md
+Stopped at: Completed 21-03-PLAN.md
 Resume file: None
