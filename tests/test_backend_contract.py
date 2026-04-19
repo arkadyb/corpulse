@@ -12,6 +12,7 @@ from corpulse.backends.base import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryAttemptRow,
     QueryRow,
     RetrievalRow,
     StorageBackend,
@@ -24,12 +25,14 @@ def test_storage_backend_contract_is_frozen():
     required = {
         "upsert_document": ["self", "doc_id", "filename", "embedding", "embedded_at"],
         "insert_retrieval": ["self", "doc_id", "query_hash", "rank", "score", "retrieved_at"],
+        "insert_query_attempt": ["self", "query_hash", "result_count", "attempted_at"],
         "insert_engagement": ["self", "doc_id", "event_type", "engaged_at"],
         "update_source_timestamp": ["self", "doc_id", "updated_at"],
         "delete_document": ["self", "doc_id"],
         "all_documents": ["self"],
         "retrieval_counts": ["self", "since"],
         "query_counts": ["self", "since"],
+        "query_attempt_counts": ["self", "since"],
         "engagement_counts": ["self", "since"],
         "all_embeddings": ["self"],
         "close": ["self"],
@@ -59,6 +62,13 @@ def test_storage_backend_contract_is_frozen():
             "first_retrieved_at",
             "last_retrieved_at",
         },
+        QueryAttemptRow: {
+            "query_hash",
+            "cnt",
+            "result_cnt",
+            "first_attempted_at",
+            "last_attempted_at",
+        },
         EngagementRow: {"doc_id", "cnt"},
         EmbeddingRow: {"doc_id", "filename", "embedding_vec"},
     }
@@ -77,12 +87,15 @@ def test_backend_parity(backend):
     )
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
     backend.insert_retrieval("doc-1", "hash", 3, 0.7, 26.0)
+    backend.insert_query_attempt("hash", 2, 24.0)
+    backend.insert_query_attempt("hash", 0, 27.0)
     backend.insert_engagement("doc-1", "opened", 30.0)
     backend.update_source_timestamp("doc-1", 40.0)
 
     documents = backend.all_documents()
     retrievals = backend.retrieval_counts(0.0)
     queries = backend.query_counts(0.0)
+    query_attempts = backend.query_attempt_counts(0.0)
     engagements = backend.engagement_counts(0.0)
     embeddings = backend.all_embeddings()
 
@@ -112,6 +125,15 @@ def test_backend_parity(backend):
             "last_retrieved_at": 26.0,
         }
     ]
+    assert query_attempts == [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 24.0,
+            "last_attempted_at": 27.0,
+        }
+    ]
     assert engagements == [{"doc_id": "doc-1", "cnt": 1}]
     assert embeddings == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
@@ -121,6 +143,15 @@ def test_backend_parity(backend):
 
     assert backend.all_documents() == []
     assert backend.retrieval_counts(0.0) == []
+    assert backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 24.0,
+            "last_attempted_at": 27.0,
+        }
+    ]
     assert backend.engagement_counts(0.0) == []
     assert backend.all_embeddings() == []
 
@@ -165,6 +196,8 @@ def test_inmemory_backend_persists_documents_and_events_without_filesystem():
 
     backend.upsert_document("doc-1", "guide.md")
     backend.insert_retrieval("doc-1", "qhash", 1, 0.75, 20.0)
+    backend.insert_query_attempt("qhash", 1, 19.5)
+    backend.insert_query_attempt("qhash", 0, 21.0)
     backend.insert_engagement("doc-1", "opened", 25.0)
 
     assert backend.all_documents() == [
@@ -193,6 +226,15 @@ def test_inmemory_backend_persists_documents_and_events_without_filesystem():
             "last_retrieved_at": 20.0,
         }
     ]
+    assert backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "qhash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 19.5,
+            "last_attempted_at": 21.0,
+        }
+    ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
 
 
@@ -219,6 +261,8 @@ def test_inmemory_backend_matches_sqlite_visible_aggregate_shapes():
     backend.upsert_document("doc-1", "guide.md", embedding=b"vec-1", embedded_at=10.0)
     backend.insert_retrieval("doc-1", "qhash-1", 1, 0.5, 20.0)
     backend.insert_retrieval("doc-1", "qhash-2", 3, 1.0, 21.0)
+    backend.insert_query_attempt("qhash-1", 1, 19.0)
+    backend.insert_query_attempt("qhash-2", 0, 22.0)
     backend.insert_engagement("doc-1", "opened", 22.0)
     backend.update_source_timestamp("missing-doc", 30.0)
 
@@ -249,6 +293,22 @@ def test_inmemory_backend_matches_sqlite_visible_aggregate_shapes():
             "max_score": 1.0,
             "first_retrieved_at": 21.0,
             "last_retrieved_at": 21.0,
+        },
+    ]
+    assert backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "qhash-1",
+            "cnt": 1,
+            "result_cnt": 1,
+            "first_attempted_at": 19.0,
+            "last_attempted_at": 19.0,
+        },
+        {
+            "query_hash": "qhash-2",
+            "cnt": 1,
+            "result_cnt": 0,
+            "first_attempted_at": 22.0,
+            "last_attempted_at": 22.0,
         },
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]

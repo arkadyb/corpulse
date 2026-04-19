@@ -201,6 +201,7 @@ async def test_async_postgres_backend_initializes_schema(monkeypatch):
 
     assert fake_module.pool.conn.calls
     assert any("CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in fake_module.pool.conn.calls)
+    assert any("CREATE TABLE IF NOT EXISTS query_attempts" in sql for sql, _ in fake_module.pool.conn.calls)
     await backend.close()
 
 
@@ -209,20 +210,24 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
 
     await backend.upsert_document("d1", "f1.md", b"vec", 1.0)
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
+    await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
     await backend.update_source_timestamp("d1", 40.0)
     await backend.delete_document("d1")
     await backend.all_documents()
+    await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
     assert "INSERT INTO tenant_alpha.documents" in executed_sql
     assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
+    assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = $1" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
+    assert "FROM tenant_alpha.query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
     await backend.close()
 
@@ -232,16 +237,20 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
 
     await backend.upsert_document("d1", "f1.md", b"vec", 1.0)
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
+    await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
     await backend.all_embeddings()
+    await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "FROM tenant_abc_query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
     await backend.close()
 
@@ -259,6 +268,27 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
             """
         )
     ] = [{"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}]
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                   MIN(attempted_at) AS first_attempted_at,
+                   MAX(attempted_at) AS last_attempted_at
+            FROM tenant_abc_query_attempts WHERE attempted_at >= $1
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "result_cnt": 1,
+            "first_attempted_at": 1.5,
+            "last_attempted_at": 1.5,
+        }
+    ]
     pool.conn.rows[
         _normalize_sql(
             """
@@ -305,6 +335,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
 
     await backend.upsert_document("tenant-doc", "tenant.md", b"vec", 1.0)
     await backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
+    await backend.insert_query_attempt("hash", 1, 1.5)
     await backend.insert_engagement("tenant-doc", "opened", 3.0)
     await backend.update_source_timestamp("tenant-doc", 4.0)
     await backend.delete_document("tenant-doc")
@@ -312,6 +343,15 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert await backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
     assert await backend.retrieval_counts(0.0) == [
         {"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
+    ]
+    assert await backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "result_cnt": 1,
+            "first_attempted_at": 1.5,
+            "last_attempted_at": 1.5,
+        }
     ]
     assert await backend.query_counts(0.0) == [
         {
@@ -335,6 +375,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "INSERT INTO tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = $1" in executed_sql
@@ -362,6 +403,18 @@ async def test_async_postgres_backend_insert_retrieval(monkeypatch):
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
 
     assert any("INSERT INTO retrievals" in sql and args == ("d1", "h", 1, 0.9, 25.0) for sql, args in fake_module.pool.conn.calls)
+    await backend.close()
+
+
+async def test_async_postgres_backend_insert_query_attempt(monkeypatch):
+    backend, fake_module = await _build_backend(monkeypatch)
+
+    await backend.insert_query_attempt("h", 0, 25.0)
+
+    assert any(
+        "INSERT INTO query_attempts" in sql and args == ("h", 0, 25.0)
+        for sql, args in fake_module.pool.conn.calls
+    )
     await backend.close()
 
 
@@ -439,6 +492,43 @@ async def test_async_postgres_backend_retrieval_counts(monkeypatch):
     await backend.close()
 
 
+async def test_async_postgres_backend_query_attempt_counts(monkeypatch):
+    pool = FakeAsyncpgPool()
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                   MIN(attempted_at) AS first_attempted_at,
+                   MAX(attempted_at) AS last_attempted_at
+            FROM query_attempts WHERE attempted_at >= $1
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 20.0,
+            "last_attempted_at": 21.0,
+        }
+    ]
+    backend, _ = await _build_backend(monkeypatch, pool=pool)
+
+    assert await backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 20.0,
+            "last_attempted_at": 21.0,
+        }
+    ]
+    await backend.close()
+
+
 async def test_async_postgres_backend_engagement_counts(monkeypatch):
     pool = FakeAsyncpgPool()
     pool.conn.rows[
@@ -508,10 +598,12 @@ async def test_async_postgres_backend_uses_pool_acquire(monkeypatch):
 
     await backend.upsert_document("d1", "f1.md", b"vec", 1.0)
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
+    await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
     await backend.update_source_timestamp("d1", 40.0)
     await backend.delete_document("d1")
     await backend.all_documents()
+    await backend.query_attempt_counts(0.0)
     await backend.retrieval_counts(0.0)
     await backend.engagement_counts(0.0)
     await backend.all_embeddings()
@@ -532,11 +624,12 @@ async def test_live_async_postgres_backend_round_trip():
     try:
         async with backend._pool.acquire() as conn:
             await conn.execute(
-                "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
+                "TRUNCATE engagements, retrievals, query_attempts, documents RESTART IDENTITY"
             )
 
         await backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=12.5)
         await backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
+        await backend.insert_query_attempt("hash", 1, 24.0)
         await backend.insert_engagement("doc-1", "opened", 30.0)
         await backend.update_source_timestamp("doc-1", 40.0)
 
@@ -551,6 +644,15 @@ async def test_live_async_postgres_backend_round_trip():
         ]
         assert await backend.retrieval_counts(0.0) == [
             {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+        ]
+        assert await backend.query_attempt_counts(0.0) == [
+            {
+                "query_hash": "hash",
+                "cnt": 1,
+                "result_cnt": 1,
+                "first_attempted_at": 24.0,
+                "last_attempted_at": 24.0,
+            }
         ]
         assert await backend.query_counts(0.0) == [
             {
@@ -573,7 +675,7 @@ async def test_live_async_postgres_backend_round_trip():
     finally:
         async with backend._pool.acquire() as conn:
             await conn.execute(
-                "TRUNCATE engagements, retrievals, documents RESTART IDENTITY"
+                "TRUNCATE engagements, retrievals, query_attempts, documents RESTART IDENTITY"
             )
         await backend.close()
 
@@ -595,13 +697,17 @@ async def test_live_async_postgres_backend_schema_isolation():
     try:
         await backend_a.upsert_document("doc-a", "a.md", embedding=b"a", embedded_at=1.0)
         await backend_a.insert_retrieval("doc-a", "hash-a", 1, 0.9, 2.0)
+        await backend_a.insert_query_attempt("hash-a", 1, 1.5)
         await backend_b.upsert_document("doc-b", "b.md", embedding=b"b", embedded_at=3.0)
         await backend_b.insert_retrieval("doc-b", "hash-b", 1, 0.8, 4.0)
+        await backend_b.insert_query_attempt("hash-b", 1, 3.5)
 
         assert [doc["doc_id"] for doc in await backend_a.all_documents()] == ["doc-a"]
         assert [doc["doc_id"] for doc in await backend_b.all_documents()] == ["doc-b"]
         assert [row["doc_id"] for row in await backend_a.retrieval_counts(0.0)] == ["doc-a"]
         assert [row["doc_id"] for row in await backend_b.retrieval_counts(0.0)] == ["doc-b"]
+        assert [row["query_hash"] for row in await backend_a.query_attempt_counts(0.0)] == ["hash-a"]
+        assert [row["query_hash"] for row in await backend_b.query_attempt_counts(0.0)] == ["hash-b"]
     finally:
         async with backend_a._pool.acquire() as conn:
             await conn.execute(f"DROP SCHEMA IF EXISTS {schema_a} CASCADE")

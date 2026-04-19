@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS retrievals (
     retrieved_at DOUBLE PRECISION NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS query_attempts (
+    id BIGSERIAL PRIMARY KEY,
+    query_hash TEXT NOT NULL,
+    result_count INTEGER NOT NULL,
+    attempted_at DOUBLE PRECISION NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS engagements (
     id BIGSERIAL PRIMARY KEY,
     doc_id TEXT NOT NULL,
@@ -44,6 +51,8 @@ CREATE TABLE IF NOT EXISTS engagements (
 
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time ON retrievals(retrieved_at);
+CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
+CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
 """
 
@@ -249,8 +258,10 @@ def test_build_schema_sql_supports_schema_qualified_output():
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha;" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.documents" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.retrievals" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_alpha.query_attempts" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.engagements" in sql
     assert "CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON tenant_alpha.retrievals(doc_id);" in sql
+    assert "CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON tenant_alpha.query_attempts(query_hash);" in sql
 
 
 def test_build_schema_sql_supports_prefix_only_output():
@@ -258,8 +269,10 @@ def test_build_schema_sql_supports_prefix_only_output():
 
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_retrievals" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_query_attempts" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_engagements" in sql
     assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_retrievals_doc ON tenant_abc_retrievals(doc_id);" in sql
+    assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_query_attempts_query ON tenant_abc_query_attempts(query_hash);" in sql
     assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_engagements_doc ON tenant_abc_engagements(doc_id);" in sql
 
 
@@ -316,6 +329,29 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}]
+    attempts_conn = FakeConnection()
+    attempts_conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                   MIN(attempted_at) AS first_attempted_at,
+                   MAX(attempted_at) AS last_attempted_at
+            FROM query_attempts
+            WHERE attempted_at >= %s
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 24.0,
+            "last_attempted_at": 27.0,
+        }
+    ]
     query_conn = FakeConnection()
     query_conn.rows[
         _normalize_sql(
@@ -369,6 +405,7 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     ] = [{"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}]
     pool.queue_connection(documents_conn)
     pool.queue_connection(retrievals_conn)
+    pool.queue_connection(attempts_conn)
     pool.queue_connection(query_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(embeddings_conn)
@@ -384,6 +421,15 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     ]
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+    ]
+    assert backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 24.0,
+            "last_attempted_at": 27.0,
+        }
     ]
     assert backend.query_counts(0.0) == [
         {
@@ -411,20 +457,24 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
 
     backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=1.0)
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
+    backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.update_source_timestamp("doc-1", 4.0)
     backend.delete_document("doc-1")
     backend.all_documents()
+    backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
     assert "INSERT INTO tenant_alpha.documents" in executed_sql
     assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
+    assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = %s" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
+    assert "FROM tenant_alpha.query_attempts" in executed_sql
     assert "GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.retrievals" in executed_sql
 
@@ -435,16 +485,20 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
 
     backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=1.0)
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
+    backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.all_embeddings()
+    backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "FROM tenant_abc_query_attempts" in executed_sql
     assert "FROM tenant_abc_retrievals" in executed_sql
 
 
@@ -454,6 +508,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
 
     backend.upsert_document("tenant-doc", "tenant.md", embedding=b"vec", embedded_at=1.0)
     backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
+    backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("tenant-doc", "opened", 3.0)
     backend.update_source_timestamp("tenant-doc", 4.0)
     backend.delete_document("tenant-doc")
@@ -474,6 +529,29 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
             """
         )
     ] = [{"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}]
+    attempts_conn = FakeConnection()
+    attempts_conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                   MIN(attempted_at) AS first_attempted_at,
+                   MAX(attempted_at) AS last_attempted_at
+            FROM tenant_abc_query_attempts
+            WHERE attempted_at >= %s
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "result_cnt": 1,
+            "first_attempted_at": 1.5,
+            "last_attempted_at": 1.5,
+        }
+    ]
     querys_conn = FakeConnection()
     querys_conn.rows[
         _normalize_sql(
@@ -527,6 +605,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     ] = [{"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}]
     pool.queue_connection(documents_conn)
     pool.queue_connection(retrievals_conn)
+    pool.queue_connection(attempts_conn)
     pool.queue_connection(querys_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(embeddings_conn)
@@ -534,6 +613,15 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
+    ]
+    assert backend.query_attempt_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "result_cnt": 1,
+            "first_attempted_at": 1.5,
+            "last_attempted_at": 1.5,
+        }
     ]
     assert backend.query_counts(0.0) == [
         {
@@ -557,6 +645,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "INSERT INTO tenant_abc_documents" in executed_sql
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
+    assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = %s" in executed_sql
@@ -608,10 +697,11 @@ def test_live_postgres_backend_round_trip():
 
     with LivePostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as backend:
         with backend._pool.connection() as conn:
-            conn.execute("TRUNCATE engagements, retrievals, documents RESTART IDENTITY")
+            conn.execute("TRUNCATE engagements, retrievals, query_attempts, documents RESTART IDENTITY")
 
         backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=12.5)
         backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
+        backend.insert_query_attempt("hash", 1, 24.0)
         backend.insert_engagement("doc-1", "opened", 30.0)
         backend.update_source_timestamp("doc-1", 40.0)
 
@@ -626,6 +716,15 @@ def test_live_postgres_backend_round_trip():
         ]
         assert backend.retrieval_counts(0.0) == [
             {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+        ]
+        assert backend.query_attempt_counts(0.0) == [
+            {
+                "query_hash": "hash",
+                "cnt": 1,
+                "result_cnt": 1,
+                "first_attempted_at": 24.0,
+                "last_attempted_at": 24.0,
+            }
         ]
         assert backend.query_counts(0.0) == [
             {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from ..models import (
     DocumentRow as DocumentRow,
+    QueryAttemptRow as QueryAttemptRow,
     QueryRow as QueryRow,
     RetrievalRow as RetrievalRow,
     EngagementRow as EngagementRow,
@@ -37,6 +38,15 @@ class StorageBackend(ABC):
         """Record a retrieval event."""
 
     @abstractmethod
+    def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        """Record a query attempt regardless of whether results were returned."""
+
+    @abstractmethod
     def insert_engagement(
         self,
         doc_id: str,
@@ -64,6 +74,10 @@ class StorageBackend(ABC):
     @abstractmethod
     def query_counts(self, since: float) -> list[QueryRow]:
         """Return query aggregates since a timestamp."""
+
+    @abstractmethod
+    def query_attempt_counts(self, since: float) -> list[QueryAttemptRow]:
+        """Return query-attempt aggregates since a timestamp."""
 
     @abstractmethod
     def engagement_counts(self, since: float) -> list[EngagementRow]:

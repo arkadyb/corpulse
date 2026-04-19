@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS retrievals (
     retrieved_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS query_attempts (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_hash   TEXT NOT NULL,
+    result_count INTEGER NOT NULL,
+    attempted_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS engagements (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     doc_id       TEXT NOT NULL,
@@ -47,6 +54,8 @@ CREATE TABLE IF NOT EXISTS engagements (
 
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc    ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time   ON retrievals(retrieved_at);
+CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
+CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc   ON engagements(doc_id);
 """
 
@@ -126,6 +135,22 @@ class SQLiteBackend(StorageBackend):
             )
 
     @_translate_sqlite_errors
+    def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO query_attempts (query_hash, result_count, attempted_at)
+                VALUES (?, ?, ?)
+                """,
+                (query_hash, result_count, attempted_at),
+            )
+
+    @_translate_sqlite_errors
     def insert_engagement(
         self,
         doc_id: str,
@@ -192,6 +217,24 @@ class SQLiteBackend(StorageBackend):
                        MAX(retrieved_at) AS last_retrieved_at
                 FROM retrievals
                 WHERE retrieved_at >= ?
+                GROUP BY query_hash
+                ORDER BY query_hash
+                """,
+                (since,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    @_translate_sqlite_errors
+    def query_attempt_counts(self, since: float) -> list[QueryAttemptRow]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT query_hash, COUNT(*) AS cnt,
+                       SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                       MIN(attempted_at) AS first_attempted_at,
+                       MAX(attempted_at) AS last_attempted_at
+                FROM query_attempts
+                WHERE attempted_at >= ?
                 GROUP BY query_hash
                 ORDER BY query_hash
                 """,

@@ -7,6 +7,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryAttemptRow,
     QueryRow,
     RetrievalRow,
 )
@@ -16,6 +17,7 @@ class InMemoryBackend(StorageBackend):
     def __init__(self) -> None:
         self._documents: dict[str, DocumentRow] = {}
         self._retrievals: list[dict[str, str | int | float]] = []
+        self._query_attempts: list[dict[str, int | float | str]] = []
         self._engagements: list[dict[str, str | float]] = []
         self._closed = False
 
@@ -54,6 +56,20 @@ class InMemoryBackend(StorageBackend):
                 "rank": rank,
                 "score": score,
                 "retrieved_at": retrieved_at,
+            }
+        )
+
+    def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        self._query_attempts.append(
+            {
+                "query_hash": query_hash,
+                "result_count": result_count,
+                "attempted_at": attempted_at,
             }
         )
 
@@ -205,6 +221,46 @@ class InMemoryBackend(StorageBackend):
                 "max_score": stats["max_score"],
                 "first_retrieved_at": float(stats["first_retrieved_at"]),
                 "last_retrieved_at": float(stats["last_retrieved_at"]),
+            }
+            for query_hash, stats in sorted(aggregates.items())
+        ]
+
+    def query_attempt_counts(self, since: float) -> list[QueryAttemptRow]:
+        aggregates: dict[str, dict[str, float | int]] = {}
+        for event in self._query_attempts:
+            if float(event["attempted_at"]) < since:
+                continue
+
+            query_hash = str(event["query_hash"])
+            query_stats = aggregates.setdefault(
+                query_hash,
+                {
+                    "cnt": 0,
+                    "result_cnt": 0,
+                    "first_attempted_at": float(event["attempted_at"]),
+                    "last_attempted_at": float(event["attempted_at"]),
+                },
+            )
+
+            query_stats["cnt"] = int(query_stats["cnt"]) + 1
+            query_stats["result_cnt"] = int(query_stats["result_cnt"]) + (
+                1 if int(event["result_count"]) > 0 else 0
+            )
+            attempted_at = float(event["attempted_at"])
+            query_stats["first_attempted_at"] = min(
+                float(query_stats["first_attempted_at"]), attempted_at
+            )
+            query_stats["last_attempted_at"] = max(
+                float(query_stats["last_attempted_at"]), attempted_at
+            )
+
+        return [
+            {
+                "query_hash": query_hash,
+                "cnt": int(stats["cnt"]),
+                "result_cnt": int(stats["result_cnt"]),
+                "first_attempted_at": float(stats["first_attempted_at"]),
+                "last_attempted_at": float(stats["last_attempted_at"]),
             }
             for query_hash, stats in sorted(aggregates.items())
         ]

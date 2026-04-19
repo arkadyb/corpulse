@@ -136,22 +136,21 @@ class QdrantCorpulseClient:
                 "Install qdrant-client: pip install corpulse[qdrant]"
             )
 
-    def query_points(self, collection_name, **kwargs):
-        """Log successful query_points() results, then return the upstream response."""
+    def query_points(self, collection_name, *, query_text="", **kwargs):
+        """Log query attempts for query_points() results, then return the upstream response."""
         result = self._client.query_points(collection_name=collection_name, **kwargs)
         # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
-        if result.points:
-            records = _normalize_points(
-                result.points,
-                kwargs,
-                self._payload_id_field,
-                self._payload_filename_key,
-            )
-            self._corpulse.log_retrieval(records, query="")
+        records = _normalize_points(
+            result.points,
+            kwargs,
+            self._payload_id_field,
+            self._payload_filename_key,
+        )
+        self._corpulse.log_retrieval(records, query=query_text)
         return result
 
-    def search(self, collection_name, **kwargs):
-        """Log successful search() results and return the upstream object unchanged.
+    def search(self, collection_name, *, query_text="", **kwargs):
+        """Log query attempts for search() results and return the upstream object unchanged.
 
         The wrapper delegates directly to ``self._client.search(...)``.
         If the configured client does not expose ``search()``, the resulting
@@ -160,14 +159,13 @@ class QdrantCorpulseClient:
         """
         # search() returns the client's native list response shape when available.
         result = self._client.search(collection_name=collection_name, **kwargs)
-        if result:
-            records = _normalize_points(
-                result,
-                kwargs,
-                self._payload_id_field,
-                self._payload_filename_key,
-            )
-            self._corpulse.log_retrieval(records, query="")
+        records = _normalize_points(
+            result,
+            kwargs,
+            self._payload_id_field,
+            self._payload_filename_key,
+        )
+        self._corpulse.log_retrieval(records, query=query_text)
         return result
 
     def __getattr__(self, name):
@@ -211,24 +209,23 @@ class AsyncQdrantCorpulseClient:
                 "Install qdrant-client: pip install corpulse[qdrant]"
             )
 
-    async def query_points(self, collection_name, **kwargs):
-        """Log successful async query_points() results, then return the upstream response."""
+    async def query_points(self, collection_name, *, query_text="", **kwargs):
+        """Log query attempts for async query_points() results, then return the upstream response."""
         result = await self._client.query_points(
             collection_name=collection_name, **kwargs
         )
         # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
-        if result.points:
-            records = _normalize_points(
-                result.points,
-                kwargs,
-                self._payload_id_field,
-                self._payload_filename_key,
-            )
-            await self._log_retrieval(records)
+        records = _normalize_points(
+            result.points,
+            kwargs,
+            self._payload_id_field,
+            self._payload_filename_key,
+        )
+        await self._log_retrieval(records, query_text)
         return result
 
-    async def search(self, collection_name, **kwargs):
-        """Log successful async search() results and return the upstream object unchanged.
+    async def search(self, collection_name, *, query_text="", **kwargs):
+        """Log query attempts for async search() results and return the upstream object unchanged.
 
         The wrapper delegates directly to ``self._client.search(...)``.
         If the configured client does not expose ``search()``, the resulting
@@ -237,22 +234,21 @@ class AsyncQdrantCorpulseClient:
         """
         # search() returns the client's native list response shape when available.
         result = await self._client.search(collection_name=collection_name, **kwargs)
-        if result:
-            records = _normalize_points(
-                result,
-                kwargs,
-                self._payload_id_field,
-                self._payload_filename_key,
-            )
-            await self._log_retrieval(records)
+        records = _normalize_points(
+            result,
+            kwargs,
+            self._payload_id_field,
+            self._payload_filename_key,
+        )
+        await self._log_retrieval(records, query_text)
         return result
 
-    async def _log_retrieval(self, records) -> None:
+    async def _log_retrieval(self, records, query_text="") -> None:
         log_retrieval = self._corpulse.log_retrieval
         if inspect.iscoroutinefunction(log_retrieval):
-            await log_retrieval(records, query="")
+            await log_retrieval(records, query=query_text)
             return
-        await asyncio.to_thread(log_retrieval, records, "")
+        await asyncio.to_thread(log_retrieval, records, query=query_text)
 
     def __getattr__(self, name):
         return getattr(self._client, name)

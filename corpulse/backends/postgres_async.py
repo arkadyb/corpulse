@@ -10,6 +10,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryAttemptRow,
     QueryRow,
     RetrievalRow,
 )
@@ -139,6 +140,22 @@ class AsyncPostgresBackend:
             retrieved_at,
         )
 
+    async def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        await self._execute(
+            f"""
+            INSERT INTO {self._t("query_attempts")} (query_hash, result_count, attempted_at)
+            VALUES ($1, $2, $3)
+            """,
+            query_hash,
+            result_count,
+            attempted_at,
+        )
+
     async def insert_engagement(
         self,
         doc_id: str,
@@ -207,6 +224,21 @@ class AsyncPostgresBackend:
                    MIN(retrieved_at) AS first_retrieved_at,
                    MAX(retrieved_at) AS last_retrieved_at
             FROM {self._t("retrievals")} WHERE retrieved_at >= $1
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """,
+            since,
+        )
+        return [dict(row) for row in rows]
+
+    async def query_attempt_counts(self, since: float) -> list[QueryAttemptRow]:
+        rows = await self._fetch(
+            f"""
+            SELECT query_hash, COUNT(*) AS cnt,
+                   SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                   MIN(attempted_at) AS first_attempted_at,
+                   MAX(attempted_at) AS last_attempted_at
+            FROM {self._t("query_attempts")} WHERE attempted_at >= $1
             GROUP BY query_hash
             ORDER BY query_hash
             """,

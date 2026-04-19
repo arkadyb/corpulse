@@ -12,6 +12,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryAttemptRow,
     QueryRow,
     RetrievalRow,
 )
@@ -61,9 +62,12 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
 
     documents = _qualified_name("documents", schema=schema, prefix=prefix)
     retrievals = _qualified_name("retrievals", schema=schema, prefix=prefix)
+    query_attempts = _qualified_name("query_attempts", schema=schema, prefix=prefix)
     engagements = _qualified_name("engagements", schema=schema, prefix=prefix)
     retrievals_doc_idx = _index_name("idx_retrievals_doc", prefix=prefix)
     retrievals_time_idx = _index_name("idx_retrievals_time", prefix=prefix)
+    query_attempts_query_idx = _index_name("idx_query_attempts_query", prefix=prefix)
+    query_attempts_time_idx = _index_name("idx_query_attempts_time", prefix=prefix)
     engagements_doc_idx = _index_name("idx_engagements_doc", prefix=prefix)
 
     tables = [
@@ -82,6 +86,12 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     score DOUBLE PRECISION,
     retrieved_at DOUBLE PRECISION NOT NULL
 );""",
+        f"""CREATE TABLE IF NOT EXISTS {query_attempts} (
+    id BIGSERIAL PRIMARY KEY,
+    query_hash TEXT NOT NULL,
+    result_count INTEGER NOT NULL,
+    attempted_at DOUBLE PRECISION NOT NULL
+);""",
         f"""CREATE TABLE IF NOT EXISTS {engagements} (
     id BIGSERIAL PRIMARY KEY,
     doc_id TEXT NOT NULL,
@@ -92,6 +102,8 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     indexes = [
         f"CREATE INDEX IF NOT EXISTS {retrievals_doc_idx} ON {retrievals}(doc_id);",
         f"CREATE INDEX IF NOT EXISTS {retrievals_time_idx} ON {retrievals}(retrieved_at);",
+        f"CREATE INDEX IF NOT EXISTS {query_attempts_query_idx} ON {query_attempts}(query_hash);",
+        f"CREATE INDEX IF NOT EXISTS {query_attempts_time_idx} ON {query_attempts}(attempted_at);",
         f"CREATE INDEX IF NOT EXISTS {engagements_doc_idx} ON {engagements}(doc_id);",
     ]
 
@@ -198,6 +210,22 @@ class PostgresBackend(StorageBackend):
             )
         )
 
+    def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        self._run(
+            lambda conn: conn.execute(
+                f"""
+                INSERT INTO {self._t("query_attempts")} (query_hash, result_count, attempted_at)
+                VALUES (%s, %s, %s)
+                """,
+                (query_hash, result_count, attempted_at),
+            )
+        )
+
     def insert_engagement(
         self,
         doc_id: str,
@@ -287,6 +315,26 @@ class PostgresBackend(StorageBackend):
                            MAX(retrieved_at) AS last_retrieved_at
                     FROM {self._t("retrievals")}
                     WHERE retrieved_at >= %s
+                    GROUP BY query_hash
+                    ORDER BY query_hash
+                    """,
+                    (since,),
+                ).fetchall()
+            ]
+        )
+
+    def query_attempt_counts(self, since: float) -> list[QueryAttemptRow]:
+        return self._run(
+            lambda conn: [
+                dict(row)
+                for row in conn.execute(
+                    f"""
+                    SELECT query_hash, COUNT(*) AS cnt,
+                           SUM(CASE WHEN result_count > 0 THEN 1 ELSE 0 END) AS result_cnt,
+                           MIN(attempted_at) AS first_attempted_at,
+                           MAX(attempted_at) AS last_attempted_at
+                    FROM {self._t("query_attempts")}
+                    WHERE attempted_at >= %s
                     GROUP BY query_hash
                     ORDER BY query_hash
                     """,

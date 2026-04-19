@@ -95,6 +95,11 @@ def _retrieval_count(corpulse):
         return conn.execute("SELECT COUNT(*) FROM retrievals").fetchone()[0]
 
 
+def _query_attempt_count(corpulse):
+    with corpulse.db._conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM query_attempts").fetchone()[0]
+
+
 def _doc_ids(corpulse):
     with corpulse.db._conn() as conn:
         rows = conn.execute("SELECT doc_id FROM retrievals").fetchall()
@@ -125,6 +130,14 @@ def _stored_embedding(corpulse, doc_id):
     return np.frombuffer(row[0], dtype=np.float32)
 
 
+class _SyncLoggingCorpulse:
+    def __init__(self):
+        self.calls = []
+
+    def log_retrieval(self, results, query=""):
+        self.calls.append((results, query))
+
+
 # ── sync tests ────────────────────────────────────────────────────────────────
 
 
@@ -139,6 +152,21 @@ def test_query_points_calls_log_retrieval(qdrant_client_fixture, corpulse):
     wrapper = QdrantCorpulseClient(qdrant_client_fixture, corpulse)
     wrapper.query_points(COLLECTION, query=QUERY_VEC, limit=5)
     assert _retrieval_count(corpulse) > 0
+
+
+def test_query_text_is_forwarded_to_sync_log_retrieval(qdrant_client_fixture):
+    """QDRT-02: Sync wrapper forwards caller query text to log_retrieval()."""
+    corpulse = _SyncLoggingCorpulse()
+    wrapper = QdrantCorpulseClient(qdrant_client_fixture, corpulse)
+
+    wrapper.query_points(
+        COLLECTION,
+        query=QUERY_VEC,
+        query_text="how do I install corpulse?",
+        limit=5,
+    )
+
+    assert corpulse.calls and corpulse.calls[0][1] == "how do I install corpulse?"
 
 
 def test_search_interception(qdrant_client_fixture, corpulse):
@@ -274,8 +302,8 @@ def test_vector_not_captured_by_default(qdrant_client_fixture, corpulse):
     assert _embeddings_not_null_count(corpulse) == 0
 
 
-def test_empty_results_no_log(corpulse):
-    """Empty collection: query_points returns 0 points, log_retrieval NOT called."""
+def test_empty_query_points_records_query_attempt(corpulse):
+    """Empty query_points() calls should persist a zero-result attempt."""
     client = QdrantClient(":memory:")
     client.create_collection(
         collection_name=COLLECTION,
@@ -284,6 +312,24 @@ def test_empty_results_no_log(corpulse):
     wrapper = QdrantCorpulseClient(client, corpulse)
     wrapper.query_points(COLLECTION, query=QUERY_VEC, limit=5)
     assert _retrieval_count(corpulse) == 0
+    assert _query_attempt_count(corpulse) == 1
+
+
+def test_empty_search_records_query_attempt(corpulse):
+    """Empty search() calls should persist a zero-result attempt."""
+    client = QdrantClient(":memory:")
+    client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE),
+    )
+    wrapper = QdrantCorpulseClient(client, corpulse)
+
+    if not hasattr(client, "search"):
+        pytest.skip("search() not available in this qdrant-client build")
+
+    wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+    assert _retrieval_count(corpulse) == 0
+    assert _query_attempt_count(corpulse) == 1
 
 
 def test_null_payload_handled(corpulse):
@@ -323,6 +369,21 @@ async def test_async_query_points(async_qdrant_client_fixture, corpulse):
     assert _retrieval_count(corpulse) > 0
 
 
+async def test_async_query_text_is_forwarded_to_log_retrieval(async_qdrant_client_fixture):
+    """QDRT-09: Async wrapper forwards caller query text to log_retrieval()."""
+    corpulse = _AsyncLoggingCorpulse()
+    wrapper = AsyncQdrantCorpulseClient(async_qdrant_client_fixture, corpulse)
+
+    await wrapper.query_points(
+        COLLECTION,
+        query=QUERY_VEC,
+        query_text="how do I install corpulse?",
+        limit=5,
+    )
+
+    assert corpulse.calls and corpulse.calls[0][1] == "how do I install corpulse?"
+
+
 async def test_async_search_interception(async_qdrant_client_fixture, corpulse):
     """Async wrapper.search() follows the installed client's behavior."""
     wrapper = AsyncQdrantCorpulseClient(async_qdrant_client_fixture, corpulse)
@@ -336,6 +397,38 @@ async def test_async_search_interception(async_qdrant_client_fixture, corpulse):
         with pytest.raises(AttributeError):
             await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
         assert _retrieval_count(corpulse) == 0
+
+
+async def test_async_empty_query_points_records_query_attempt(corpulse):
+    """Empty async query_points() calls should persist a zero-result attempt."""
+    client = AsyncQdrantClient(":memory:")
+    await client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE),
+    )
+    wrapper = AsyncQdrantCorpulseClient(client, corpulse)
+
+    await wrapper.query_points(COLLECTION, query=QUERY_VEC, limit=5)
+
+    assert _retrieval_count(corpulse) == 0
+    assert _query_attempt_count(corpulse) == 1
+
+
+async def test_async_empty_search_records_query_attempt(corpulse):
+    """Empty async search() calls should persist a zero-result attempt."""
+    client = AsyncQdrantClient(":memory:")
+    await client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE),
+    )
+    wrapper = AsyncQdrantCorpulseClient(client, corpulse)
+
+    if not hasattr(client, "search"):
+        pytest.skip("search() not available in this qdrant-client build")
+
+    await wrapper.search(COLLECTION, query_vector=QUERY_VEC, limit=5)
+    assert _retrieval_count(corpulse) == 0
+    assert _query_attempt_count(corpulse) == 1
 
 
 class _AsyncLoggingCorpulse:
