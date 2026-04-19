@@ -50,7 +50,9 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 <!-- Current scope. Building toward these. -->
 
-None. Milestone v1.3 complete.
+- Low-Confidence / Zero-Result Rate — v1.4
+- Mean Reciprocal Rank (MRR) — v1.4
+- User Acceptance Rate method — v1.4
 
 ### Out of Scope
 
@@ -63,8 +65,21 @@ None. Milestone v1.3 complete.
 - CLI tool — future milestone
 - PyPI publishing — distributing via GitHub only for now
 - Web dashboard / UI — keep it library-first
+- **Faithfulness / Hallucination Rate** — requires LLM-as-judge to verify generated answer against retrieved context; not measurable from retrieval logs alone; use Ragas or TruLens for generation-layer evaluation
+- **Context Precision** — requires ground-truth relevance labels per query; corpulse has no label store and no annotation workflow; belongs in offline eval frameworks
+- **Contradictory Information Density** — requires periodic LLM scan of high-similarity embedding clusters; adds LLM dependency and async job infrastructure incompatible with the library's zero-inference design principle
+- **Answer Relevance / Context Utilization** — measures generation quality (how much retrieved context was used); a generation-layer metric requiring prompt + completion access; out of scope for a retrieval-layer analytics library
 
-## Current Milestone: v1.3 Multi-Tenant Integrations (COMPLETE)
+## Current Milestone: v1.4 — Nearly-Free RAG Analytics
+
+**Goal:** Unlock three retrieval quality signals already latent in the stored data — no new schema, no new ingestion API surface required.
+
+**Target features:**
+- Low-Confidence / Zero-Result Rate — per-query score aggregation from existing retrieval rows; flag queries where top score falls below a configurable threshold
+- Mean Reciprocal Rank (MRR) — correlate stored rank with existing engagement events to measure retrieval ordering quality
+- User Acceptance Rate — formalize engagement event conventions and expose an `acceptance_rate()` method over the existing engagement table
+
+## Previous Milestone: v1.3 Multi-Tenant Integrations (COMPLETE)
 
 **Goal:** Make corpulse easier to run as a tenant-scoped service backend by improving Postgres tenancy support, normalizing real-world DSNs, adding reusable Qdrant indexing primitives, and exposing typed integration surfaces without breaking current async payload consumers.
 
@@ -176,4 +191,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-15 after milestone v1.3 completion*
+*Last updated: 2026-04-19 — Roadmap reconciled for milestone v1.4*
