@@ -35,11 +35,19 @@ class QueryRow(TypedDict):
     last_retrieved_at: float | None
 
 
+class QueryAttemptRow(TypedDict):
+    query_hash: str
+    cnt: int
+    result_cnt: int
+    first_attempted_at: float
+    last_attempted_at: float
+
+
 class LowConfidenceQueryRow(QueryRow):
     """Query aggregate row surfaced by low-confidence analytics."""
 
 
-class ZeroResultQueryRow(QueryRow):
+class ZeroResultQueryRow(QueryAttemptRow):
     """Query aggregate row surfaced by zero-result analytics."""
 
 

@@ -13,8 +13,9 @@ import numpy as np
 import pytest
 
 import corpulse.core as c_mod
+from corpulse.backends import InMemoryBackend
 from corpulse.db import DB
-from corpulse.core import Corpulse, _vec_to_bytes
+from corpulse.core import Corpulse, _hash_query, _vec_to_bytes
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -38,13 +39,18 @@ def _make_embedding(seed: int, dim: int = 8) -> bytes:
 
 
 class _QueryAnalyticsBackend:
-    def __init__(self, query_rows: list[dict]):
+    def __init__(self, query_rows: list[dict], query_attempt_rows: list[dict] | None = None):
         self.query_rows = query_rows
+        self.query_attempt_rows = query_attempt_rows or []
         self.calls: list[float] = []
 
     def query_counts(self, since: float) -> list[dict]:
         self.calls.append(since)
         return self.query_rows
+
+    def query_attempt_counts(self, since: float) -> list[dict]:
+        self.calls.append(since)
+        return self.query_attempt_rows
 
 
 # ── ghost tests ───────────────────────────────────────────────────────────────
@@ -234,22 +240,10 @@ def test_low_confidence_analytics_use_query_aggregates(corpulse, monkeypatch):
     ]
 
 
-def test_zero_result_analytics_stay_separate_from_low_confidence(monkeypatch):
-    """Zero-result analytics should stay distinct from low-confidence analytics."""
+def test_zero_result_analytics_use_query_attempt_aggregates(monkeypatch):
+    """Zero-result analytics should come from query-attempt aggregates."""
     backend = _QueryAnalyticsBackend(
-        [
-            {
-                "query_hash": "zero-query",
-                "cnt": 0,
-                "avg_rank": None,
-                "avg_score": None,
-                "min_rank": None,
-                "max_rank": None,
-                "min_score": None,
-                "max_score": None,
-                "first_retrieved_at": None,
-                "last_retrieved_at": None,
-            },
+        query_rows=[
             {
                 "query_hash": "low-query",
                 "cnt": 2,
@@ -274,26 +268,34 @@ def test_zero_result_analytics_stay_separate_from_low_confidence(monkeypatch):
                 "first_retrieved_at": FROZEN - 5 * 86400,
                 "last_retrieved_at": FROZEN - 5 * 86400,
             },
-        ]
+        ],
+        query_attempt_rows=[
+            {
+                "query_hash": "empty-query",
+                "cnt": 1,
+                "result_cnt": 0,
+                "first_attempted_at": FROZEN - 5 * 86400,
+                "last_attempted_at": FROZEN - 5 * 86400,
+            },
+            {
+                "query_hash": "mixed-query",
+                "cnt": 2,
+                "result_cnt": 1,
+                "first_attempted_at": FROZEN - 5 * 86400,
+                "last_attempted_at": FROZEN - 5 * 86400,
+            },
+            {
+                "query_hash": "healthy-query",
+                "cnt": 1,
+                "result_cnt": 1,
+                "first_attempted_at": FROZEN - 5 * 86400,
+                "last_attempted_at": FROZEN - 5 * 86400,
+            },
+        ],
     )
     corpulse = Corpulse(backend=backend)
     monkeypatch.setattr(c_mod, "_days_ago", lambda days: FROZEN - 30 * 86400)
 
-    assert corpulse.zero_result_rate() == 0.33
-    assert corpulse.get_zero_result_queries() == [
-        {
-            "query_hash": "zero-query",
-            "cnt": 0,
-            "avg_rank": None,
-            "avg_score": None,
-            "min_rank": None,
-            "max_rank": None,
-            "min_score": None,
-            "max_score": None,
-            "first_retrieved_at": None,
-            "last_retrieved_at": None,
-        }
-    ]
     assert corpulse.low_confidence_rate(threshold=0.8) == 0.5
     assert corpulse.get_low_confidence_queries(threshold=0.8) == [
         {
@@ -307,6 +309,41 @@ def test_zero_result_analytics_stay_separate_from_low_confidence(monkeypatch):
             "max_score": 0.58,
             "first_retrieved_at": FROZEN - 5 * 86400,
             "last_retrieved_at": FROZEN - 5 * 86400,
+        }
+    ]
+
+    assert corpulse.zero_result_rate() == 0.33
+    assert corpulse.get_zero_result_queries() == [
+        {
+            "query_hash": "empty-query",
+            "cnt": 1,
+            "result_cnt": 0,
+            "first_attempted_at": FROZEN - 5 * 86400,
+            "last_attempted_at": FROZEN - 5 * 86400,
+        }
+    ]
+
+
+def test_zero_result_rate_moves_after_empty_manual_log_retrieval(monkeypatch):
+    """Manual empty log_retrieval() calls should affect zero-result analytics."""
+    backend = InMemoryBackend()
+    corpulse = Corpulse(backend=backend)
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    assert corpulse.zero_result_rate() == 0.0
+    assert corpulse.get_zero_result_queries() == []
+
+    corpulse.log_retrieval([], query="no hits")
+
+    assert corpulse.low_confidence_rate() == 0.0
+    assert corpulse.zero_result_rate() == 1.0
+    assert corpulse.get_zero_result_queries() == [
+        {
+            "query_hash": _hash_query("no hits"),
+            "cnt": 1,
+            "result_cnt": 0,
+            "first_attempted_at": FROZEN,
+            "last_attempted_at": FROZEN,
         }
     ]
 

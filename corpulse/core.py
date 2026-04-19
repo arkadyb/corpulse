@@ -18,6 +18,7 @@ from .models import (
     ReportRow, ReportSummary, CleanupPayload, GhostItem,
     DuplicatePair, ObsoleteItem, StaleItem, SuspectItem,
     CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, QueryRow,
+    QueryAttemptRow,
     LowConfidenceQueryRow, ZeroResultQueryRow,
     EmbeddingRow
 )
@@ -348,15 +349,15 @@ def _build_low_confidence_queries(
 
 
 def _build_zero_result_queries(
-    query_rows: List[QueryRow],
+    query_rows: List[QueryAttemptRow],
 ) -> List[ZeroResultQueryRow]:
-    zero_result = [row.copy() for row in query_rows if int(row["cnt"]) == 0]
+    zero_result = [row.copy() for row in query_rows if int(row["result_cnt"]) == 0]
     return sorted(zero_result, key=lambda row: row["query_hash"])
 
 
 def _build_query_rate(
-    query_rows: List[QueryRow],
-    filtered_rows: List[QueryRow],
+    query_rows: List[dict[str, Any]],
+    filtered_rows: List[dict[str, Any]],
 ) -> float:
     if not query_rows:
         return 0.0
@@ -510,6 +511,7 @@ class Corpulse:
         """
         qhash = _hash_query(query)
         ts = _now()
+        self.db.insert_query_attempt(qhash, len(results), ts)
 
         for rank, item in enumerate(results, start=1):
             doc_id   = item["doc_id"]
@@ -679,6 +681,10 @@ class Corpulse:
         since = _days_ago(window_days or self.ghost_threshold_days)
         return self.db.query_counts(since=since)
 
+    def _query_attempt_rows(self, window_days: int | None = None) -> List[QueryAttemptRow]:
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return self.db.query_attempt_counts(since=since)
+
     def low_confidence_rate(
         self,
         window_days: int | None = None,
@@ -705,7 +711,7 @@ class Corpulse:
 
     def zero_result_rate(self, window_days: int | None = None) -> float:
         """Return the share of query aggregates recorded with zero results."""
-        query_rows = self._query_rows(window_days)
+        query_rows = self._query_attempt_rows(window_days)
         zero_result_rows = _build_zero_result_queries(query_rows)
         return _build_query_rate(query_rows, zero_result_rows)
 
@@ -714,7 +720,7 @@ class Corpulse:
         window_days: int | None = None,
     ) -> List[ZeroResultQueryRow]:
         """Return query aggregates recorded with zero results."""
-        query_rows = self._query_rows(window_days)
+        query_rows = self._query_attempt_rows(window_days)
         return _build_zero_result_queries(query_rows)
 
     def corpus_health(self) -> CorpusHealth:

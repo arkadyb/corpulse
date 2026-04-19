@@ -30,6 +30,7 @@ class FakeAsyncBackend:
         self.documents: list[dict] = []
         self.retrieval_rows: list[dict] = []
         self.query_rows: list[dict] = []
+        self.query_attempt_rows: list[dict] = []
         self.engagement_rows: list[dict] = []
         self.embedding_rows: list[dict] = []
         self.closed = False
@@ -55,6 +56,16 @@ class FakeAsyncBackend:
     ) -> None:
         self.calls.append(
             ("insert_retrieval", (doc_id, query_hash, rank, score, retrieved_at))
+        )
+
+    async def insert_query_attempt(
+        self,
+        query_hash: str,
+        result_count: int,
+        attempted_at: float,
+    ) -> None:
+        self.calls.append(
+            ("insert_query_attempt", (query_hash, result_count, attempted_at))
         )
 
     async def insert_engagement(
@@ -83,6 +94,10 @@ class FakeAsyncBackend:
         self.calls.append(("query_counts", (since,)))
         return self.query_rows
 
+    async def query_attempt_counts(self, since: float) -> list[dict]:
+        self.calls.append(("query_attempt_counts", (since,)))
+        return self.query_attempt_rows
+
     async def engagement_counts(self, since: float) -> list[dict]:
         self.calls.append(("engagement_counts", (since,)))
         return self.engagement_rows
@@ -102,12 +117,14 @@ class FakeSyncBackend:
         documents: list[dict],
         retrieval_rows: list[dict],
         query_rows: list[dict],
+        query_attempt_rows: list[dict],
         engagement_rows: list[dict],
         embedding_rows: list[dict],
     ):
         self.documents = documents
         self.retrieval_rows = retrieval_rows
         self.query_rows = query_rows
+        self.query_attempt_rows = query_attempt_rows
         self.engagement_rows = engagement_rows
         self.embedding_rows = embedding_rows
 
@@ -134,6 +151,9 @@ class FakeSyncBackend:
     def query_counts(self, since: float) -> list[dict]:
         return self.query_rows
 
+    def query_attempt_counts(self, since: float) -> list[dict]:
+        return self.query_attempt_rows
+
     def engagement_counts(self, since: float) -> list[dict]:
         return self.engagement_rows
 
@@ -147,12 +167,14 @@ def _shared_report_fixture_backends() -> tuple[FakeSyncBackend, FakeAsyncBackend
     async_backend.documents = snapshot["documents"]
     async_backend.retrieval_rows = snapshot["retrieval_rows"]
     async_backend.query_rows = snapshot.get("query_rows", [])
+    async_backend.query_attempt_rows = snapshot.get("query_attempt_rows", [])
     async_backend.engagement_rows = snapshot["engagement_rows"]
     async_backend.embedding_rows = snapshot["embedding_rows"]
     sync_backend = FakeSyncBackend(
         documents=snapshot["documents"],
         retrieval_rows=snapshot["retrieval_rows"],
         query_rows=snapshot.get("query_rows", []),
+        query_attempt_rows=snapshot.get("query_attempt_rows", []),
         engagement_rows=snapshot["engagement_rows"],
         embedding_rows=snapshot["embedding_rows"],
     )
@@ -262,7 +284,7 @@ def _analysis_fixture_rows() -> tuple[list[dict], list[dict], list[dict], list[d
     return documents, retrieval_rows, engagement_rows, embedding_rows
 
 
-def _query_analytics_rows() -> list[dict]:
+def _low_confidence_query_rows() -> list[dict]:
     day = 86_400
     return [
         {
@@ -289,17 +311,32 @@ def _query_analytics_rows() -> list[dict]:
             "first_retrieved_at": 20 * day,
             "last_retrieved_at": 20 * day,
         },
+    ]
+
+
+def _query_attempt_rows() -> list[dict]:
+    day = 86_400
+    return [
+        {
+            "query_hash": "healthy-query",
+            "cnt": 3,
+            "result_cnt": 3,
+            "first_attempted_at": 20 * day,
+            "last_attempted_at": 20 * day,
+        },
+        {
+            "query_hash": "mixed-query",
+            "cnt": 2,
+            "result_cnt": 1,
+            "first_attempted_at": 20 * day,
+            "last_attempted_at": 20 * day,
+        },
         {
             "query_hash": "zero-query",
-            "cnt": 0,
-            "avg_rank": None,
-            "avg_score": None,
-            "min_rank": None,
-            "max_rank": None,
-            "min_score": None,
-            "max_score": None,
-            "first_retrieved_at": None,
-            "last_retrieved_at": None,
+            "cnt": 1,
+            "result_cnt": 0,
+            "first_attempted_at": 20 * day,
+            "last_attempted_at": 20 * day,
         },
     ]
 
@@ -323,6 +360,10 @@ async def test_async_corpulse_log_retrieval_awaits_backend_writes(monkeypatch):
     )
 
     assert backend.calls == [
+        (
+            "insert_query_attempt",
+            (_hash_query("status"), 1, fixed_now),
+        ),
         (
             "upsert_document",
             ("doc-1", "guide.md", _vec_to_bytes([1.0, 2.0]), fixed_now),
@@ -396,17 +437,20 @@ async def test_async_corpulse_delete_document_delegates_to_backend():
 
 async def test_async_analysis_methods_match_sync_parity(monkeypatch):
     documents, retrieval_rows, engagement_rows, embedding_rows = _analysis_fixture_rows()
-    query_rows = _query_analytics_rows()
+    query_rows = _low_confidence_query_rows()
+    query_attempt_rows = _query_attempt_rows()
     async_backend = FakeAsyncBackend()
     async_backend.documents = documents
     async_backend.retrieval_rows = retrieval_rows
     async_backend.query_rows = query_rows
+    async_backend.query_attempt_rows = query_attempt_rows
     async_backend.engagement_rows = engagement_rows
     async_backend.embedding_rows = embedding_rows
     sync_backend = FakeSyncBackend(
         documents=documents,
         retrieval_rows=retrieval_rows,
         query_rows=query_rows,
+        query_attempt_rows=query_attempt_rows,
         engagement_rows=engagement_rows,
         embedding_rows=embedding_rows,
     )
@@ -471,15 +515,10 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
     assert await async_corpulse.get_zero_result_queries() == sync_corpulse.get_zero_result_queries() == [
         {
             "query_hash": "zero-query",
-            "cnt": 0,
-            "avg_rank": None,
-            "avg_score": None,
-            "min_rank": None,
-            "max_rank": None,
-            "min_score": None,
-            "max_score": None,
-            "first_retrieved_at": None,
-            "last_retrieved_at": None,
+            "cnt": 1,
+            "result_cnt": 0,
+            "first_attempted_at": 20 * 86_400,
+            "last_attempted_at": 20 * 86_400,
         }
     ]
     assert await async_corpulse.zero_result_rate() == sync_corpulse.zero_result_rate() == 0.33

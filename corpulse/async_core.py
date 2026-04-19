@@ -28,6 +28,7 @@ from .models import (
     ReportPayload, CleanupPayload, GhostItem, DuplicatePair,
     ObsoleteItem, StaleItem, SuspectItem, CorpusHealth,
     QueryRow, LowConfidenceQueryRow, ZeroResultQueryRow,
+    QueryAttemptRow,
 )
 
 
@@ -70,6 +71,7 @@ class AsyncCorpulse:
         """
         qhash = _hash_query(query)
         ts = _now()
+        await self.db.insert_query_attempt(qhash, len(results), ts)
 
         for rank, item in enumerate(results, start=1):
             doc_id = item["doc_id"]
@@ -230,6 +232,10 @@ class AsyncCorpulse:
         since = _days_ago(window_days or self.ghost_threshold_days)
         return await self.db.query_counts(since=since)
 
+    async def _query_attempt_rows(self, window_days: int | None = None) -> List[QueryAttemptRow]:
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return await self.db.query_attempt_counts(since=since)
+
     async def low_confidence_rate(
         self,
         window_days: int | None = None,
@@ -256,7 +262,7 @@ class AsyncCorpulse:
 
     async def zero_result_rate(self, window_days: int | None = None) -> float:
         """Return the share of query aggregates recorded with zero results."""
-        query_rows = await self._query_rows(window_days)
+        query_rows = await self._query_attempt_rows(window_days)
         zero_result_rows = _build_zero_result_queries(query_rows)
         return _build_query_rate(query_rows, zero_result_rows)
 
@@ -265,7 +271,7 @@ class AsyncCorpulse:
         window_days: int | None = None,
     ) -> List[ZeroResultQueryRow]:
         """Return query aggregates recorded with zero results."""
-        query_rows = await self._query_rows(window_days)
+        query_rows = await self._query_attempt_rows(window_days)
         return _build_zero_result_queries(query_rows)
 
     async def corpus_health(self) -> CorpusHealth:
