@@ -10,12 +10,15 @@ from .core import (
     _build_corpus_health,
     _build_dataframe_rows,
     _build_duplicate_pairs,
+    _build_low_confidence_queries,
     _build_ghosts,
     _build_obsolete_documents,
+    _build_query_rate,
     _build_report_rows,
     _build_report_summary,
     _build_stale_embeddings,
     _build_suspects,
+    _build_zero_result_queries,
     _days_ago,
     _hash_query,
     _now,
@@ -23,7 +26,8 @@ from .core import (
 )
 from .models import (
     ReportPayload, CleanupPayload, GhostItem, DuplicatePair,
-    ObsoleteItem, StaleItem, SuspectItem, CorpusHealth
+    ObsoleteItem, StaleItem, SuspectItem, CorpusHealth,
+    QueryRow, LowConfidenceQueryRow, ZeroResultQueryRow,
 )
 
 
@@ -36,6 +40,7 @@ class AsyncCorpulse:
         stale_threshold_days: int = 14,
         obsolete_pattern: str = r"v\d+",
         top_k_report: int = 20,
+        low_confidence_threshold: float = 0.8,
     ):
         self.db = backend
         self.ghost_threshold_days = ghost_threshold_days
@@ -43,6 +48,7 @@ class AsyncCorpulse:
         self.stale_threshold_days = stale_threshold_days
         self.obsolete_pattern = obsolete_pattern
         self.top_k_report = top_k_report
+        self.low_confidence_threshold = low_confidence_threshold
 
     async def log_retrieval(
         self,
@@ -219,6 +225,48 @@ class AsyncCorpulse:
         retrieval_rows = await self.db.retrieval_counts(since=since)
         engagement_rows = await self.db.engagement_counts(since=since)
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
+
+    async def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return await self.db.query_counts(since=since)
+
+    async def low_confidence_rate(
+        self,
+        window_days: int | None = None,
+        threshold: float | None = None,
+    ) -> float:
+        """Return the share of queries whose top score falls below *threshold*."""
+        query_rows = await self._query_rows(window_days)
+        confidence_threshold = threshold if threshold is not None else self.low_confidence_threshold
+        low_confidence_rows = _build_low_confidence_queries(query_rows, confidence_threshold)
+        return _build_query_rate(
+            [row for row in query_rows if int(row["cnt"]) > 0],
+            low_confidence_rows,
+        )
+
+    async def get_low_confidence_queries(
+        self,
+        window_days: int | None = None,
+        threshold: float | None = None,
+    ) -> List[LowConfidenceQueryRow]:
+        """Return query aggregates whose top score falls below *threshold*."""
+        query_rows = await self._query_rows(window_days)
+        confidence_threshold = threshold if threshold is not None else self.low_confidence_threshold
+        return _build_low_confidence_queries(query_rows, confidence_threshold)
+
+    async def zero_result_rate(self, window_days: int | None = None) -> float:
+        """Return the share of query aggregates recorded with zero results."""
+        query_rows = await self._query_rows(window_days)
+        zero_result_rows = _build_zero_result_queries(query_rows)
+        return _build_query_rate(query_rows, zero_result_rows)
+
+    async def get_zero_result_queries(
+        self,
+        window_days: int | None = None,
+    ) -> List[ZeroResultQueryRow]:
+        """Return query aggregates recorded with zero results."""
+        query_rows = await self._query_rows(window_days)
+        return _build_zero_result_queries(query_rows)
 
     async def corpus_health(self) -> CorpusHealth:
         """Return aggregate corpus-health metrics.
