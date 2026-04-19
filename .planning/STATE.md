@@ -1,36 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: — Multi-Tenant Integrations
-status: complete
-stopped_at: Completed Milestone v1.3
-last_updated: "2026-04-15T06:00:00.000Z"
-last_activity: 2026-04-15 — Completed all phases of v1.3 (Phases 15-20)
+milestone: v1.4
+milestone_name: — Nearly-Free RAG Analytics
+status: executing
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-04-19T06:54:30.075Z"
+last_activity: 2026-04-19
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-15)
+See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Milestone v1.3 is COMPLETE. corpulse is now service-ready for multi-tenant environments.
+**Current focus:** Phase 21 — low-confidence-zero-result-rate-analytics
 
 ## Current Position
 
-Phase: 20 — FastAPI Optional Integration
-Plan: 20-01 and 20-02 complete
-Status: Milestone v1.3 complete
-Last activity: 2026-04-15 — Completed FastAPI optional integration and integration tests.
-
-Progress bar: [██████████] 100%
+Phase: 21 (low-confidence-zero-result-rate-analytics) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-04-19
 
 ## Pending Todos
 
@@ -50,27 +48,23 @@ None.
 - Milestone v1.1 archived on 2026-04-09; roadmap collapsed to archive links
 - Milestone v1.2 roadmap created on 2026-04-10; Phases 11-14 defined
 - Milestone v1.3 roadmap created on 2026-04-15; Phases 15-20 defined
-- Milestone v1.3 completed on 2026-04-15.
+- Milestone v1.3 completed on 2026-04-15
+- Milestone v1.4 started on 2026-04-18; roadmap reconciled on 2026-04-19
+- Phase 21 added: Low-Confidence / Zero-Result Rate analytics
+- Phase 21 planned on 2026-04-19 with two execution plans
+
+## Accumulated Context
+
+- v1.4 scope: three analytics methods over existing stored data — zero schema changes
+- Low-Confidence Rate, MRR, User Acceptance Rate all computable from current retrieval + engagement tables
+- Poor-fit generation metrics (Faithfulness, Context Precision, etc.) documented as Out of Scope with rationale in PROJECT.md
+- Future milestones planned: v1.5 (Knowledge Gaps + Token Cost), v1.6 (Chunking Fragmentation, Vector Distribution Shift, Latency)
 
 ## Decisions
 
-- [Phase 11]: Pin sync report and cleanup_report stdout baselines before helper extraction.
-- [Phase 11]: Use a frozen InMemoryBackend fixture for byte-for-byte report regression tests.
-- [Phase 11]: Keep the new helper layer pure by accepting only pre-fetched lists, maps, and IDs rather than backend objects or formatter dependencies.
-- [Phase 11]: Represent the low-engagement divergence test with a tiny epsilon because Python evaluates 3 / 20 as exactly 0.15, which would not exercise the raw-vs-rounded split described in research.
-- [Phase 11]: Reused the Plan 01 golden strings as permanent regression gates for sync formatter rewiring.
-- [Phase 11]: Kept cleanup_report double-fetch behavior while moving section math into _build_cleanup_payload.
-- [Phase 14]: Document AsyncCorpulse as a structured-return API with explicit sync parity notes rather than stdout-oriented wording.
-- [Phase 14]: Use an inline AsyncInMemoryBackend adapter in the async demo so the example runs without external services.
-- [Phase 16]: Preserve the exact legacy default DDL string shape in `build_schema_sql()` so backend initialization remains byte-for-byte compatible.
-- [Phase 16]: Prefix-only tenancy must namespace index names as well as table names to avoid shared-schema collisions.
-- [Phase 16]: Both Postgres backends now resolve every SQL identifier through an instance _t(...) helper that combines validated schema and table-prefix state.
-- [Phase 16]: AsyncPostgresBackend.create() now builds schema statements from build_schema_sql(...) directly so async DDL cannot drift from sync behavior.
-- [Phase 16]: Keep fake SQL-path isolation tests alongside live coverage so tenant separation is still proven when CORPULSE_POSTGRES_TEST_CONNINFO is absent.
-- [Phase 16]: Generate unique schema names per live test run to avoid cross-test collisions while reusing a single Postgres database.
-- [Phase 18]: Implement transactional rollback for Qdrant points if Corpulse registration fails.
-- [Phase 19]: Use `TypedDict` for API payloads to provide IDE support while maintaining runtime dictionary compatibility.
-- [Phase 20]: Provide an optional FastAPI router factory that accepts a tenant-scoped `AsyncCorpulse` dependency.
+<!-- Phase decisions are appended here by gsd-tools. -->
+
+- [Phase 21]: Query aggregate SQL is ordered by query_hash to keep sync and async backend parity deterministic.
 
 ## Performance Metrics
 
@@ -89,9 +83,10 @@ None.
 | 19 | 02 | 20 min | 3 | 3 |
 | 20 | 01 | 10 min | 2 | 2 |
 | 20 | 02 | 5 min | 1 | 1 |
+| Phase 21 P01 | 4min | 2 tasks | 9 files |
 
 ## Session Continuity
 
-Last activity: 2026-04-15 - Completed Milestone v1.3
-Stopped at: Completed Phase 20
+Last activity: 2026-04-19 — Planned Phase 21 low-confidence / zero-result analytics
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None

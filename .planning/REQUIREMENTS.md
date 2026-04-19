@@ -3,6 +3,14 @@
 **Defined:** 2026-04-15
 **Core Value:** RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
 
+## v1.4 Requirements
+
+### Nearly-Free RAG Analytics
+
+- [ ] **v1.4-01**: `Corpulse` and `AsyncCorpulse` expose low-confidence retrieval analytics as both a summary metric and a query-level detail method over existing retrieval rows, with no schema changes.
+- [x] **v1.4-02**: Zero-result analytics remain a separate signal from low-confidence analytics and are computed from the same stored retrieval/query data without new ingestion APIs.
+- [x] **v1.4-03**: Query-level aggregation needed for these analytics is implemented consistently across SQLite, Postgres, async Postgres, and in-memory backends, with sync/async parity tests.
+
 ## v1.3 Requirements
 
 ### Postgres Multi-Tenancy
@@ -76,6 +84,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| v1.4-01 | Phase 21 | Planned |
+| v1.4-02 | Phase 21 | Planned |
+| v1.4-03 | Phase 21 | Planned |
 | DSN-01 | Phase 15 | Complete |
 | DSN-02 | Phase 15 | Complete |
 | DSN-03 | Phase 15 | Complete |
@@ -104,10 +115,10 @@
 | FASTAPI-04 | Phase 20 | Complete |
 
 **Coverage:**
-- v1.3 requirements: 26 total
-- Mapped to phases: 26
+- v1.3-v1.4 requirements: 29 total
+- Mapped to phases: 29
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-15*
-*Last updated: 2026-04-15 after milestone v1.3 definition*
+*Last updated: 2026-04-19 after Phase 21 planning*
