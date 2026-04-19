@@ -14,6 +14,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryRow,
     RetrievalRow,
 )
 
@@ -173,6 +174,26 @@ class SQLiteBackend(StorageBackend):
                 FROM retrievals
                 WHERE retrieved_at >= ?
                 GROUP BY doc_id
+                """,
+                (since,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    @_translate_sqlite_errors
+    def query_counts(self, since: float) -> list[QueryRow]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT query_hash, COUNT(*) AS cnt,
+                       AVG(rank) AS avg_rank, AVG(score) AS avg_score,
+                       MIN(rank) AS min_rank, MAX(rank) AS max_rank,
+                       MIN(score) AS min_score, MAX(score) AS max_score,
+                       MIN(retrieved_at) AS first_retrieved_at,
+                       MAX(retrieved_at) AS last_retrieved_at
+                FROM retrievals
+                WHERE retrieved_at >= ?
+                GROUP BY query_hash
+                ORDER BY query_hash
                 """,
                 (since,),
             ).fetchall()

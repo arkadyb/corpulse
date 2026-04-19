@@ -7,6 +7,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryRow,
     RetrievalRow,
 )
 
@@ -117,6 +118,95 @@ class InMemoryBackend(StorageBackend):
                 "avg_score": float(stats["score_total"]) / int(stats["cnt"]) if int(stats["cnt"]) else None,
             }
             for doc_id, stats in aggregates.items()
+        ]
+
+    def query_counts(self, since: float) -> list[QueryRow]:
+        aggregates: dict[str, dict[str, float | int | None]] = {}
+        for event in self._retrievals:
+            if float(event["retrieved_at"]) < since:
+                continue
+
+            query_hash = str(event["query_hash"])
+            query_stats = aggregates.setdefault(
+                query_hash,
+                {
+                    "cnt": 0,
+                    "rank_total": 0.0,
+                    "rank_count": 0,
+                    "score_total": 0.0,
+                    "score_count": 0,
+                    "min_rank": None,
+                    "max_rank": None,
+                    "min_score": None,
+                    "max_score": None,
+                    "first_retrieved_at": float(event["retrieved_at"]),
+                    "last_retrieved_at": float(event["retrieved_at"]),
+                },
+            )
+
+            query_stats["cnt"] = int(query_stats["cnt"]) + 1
+            retrieved_at = float(event["retrieved_at"])
+            query_stats["first_retrieved_at"] = min(
+                float(query_stats["first_retrieved_at"]), retrieved_at
+            )
+            query_stats["last_retrieved_at"] = max(
+                float(query_stats["last_retrieved_at"]), retrieved_at
+            )
+
+            rank = event.get("rank")
+            if rank is not None:
+                rank_value = int(rank)
+                query_stats["rank_total"] = float(query_stats["rank_total"]) + rank_value
+                query_stats["rank_count"] = int(query_stats["rank_count"]) + 1
+                query_stats["min_rank"] = (
+                    rank_value
+                    if query_stats["min_rank"] is None
+                    else min(int(query_stats["min_rank"]), rank_value)
+                )
+                query_stats["max_rank"] = (
+                    rank_value
+                    if query_stats["max_rank"] is None
+                    else max(int(query_stats["max_rank"]), rank_value)
+                )
+
+            score = event.get("score")
+            if score is not None:
+                score_value = float(score)
+                query_stats["score_total"] = float(query_stats["score_total"]) + score_value
+                query_stats["score_count"] = int(query_stats["score_count"]) + 1
+                query_stats["min_score"] = (
+                    score_value
+                    if query_stats["min_score"] is None
+                    else min(float(query_stats["min_score"]), score_value)
+                )
+                query_stats["max_score"] = (
+                    score_value
+                    if query_stats["max_score"] is None
+                    else max(float(query_stats["max_score"]), score_value)
+                )
+
+        return [
+            {
+                "query_hash": query_hash,
+                "cnt": int(stats["cnt"]),
+                "avg_rank": (
+                    float(stats["rank_total"]) / int(stats["rank_count"])
+                    if int(stats["rank_count"])
+                    else None
+                ),
+                "avg_score": (
+                    float(stats["score_total"]) / int(stats["score_count"])
+                    if int(stats["score_count"])
+                    else None
+                ),
+                "min_rank": stats["min_rank"],
+                "max_rank": stats["max_rank"],
+                "min_score": stats["min_score"],
+                "max_score": stats["max_score"],
+                "first_retrieved_at": float(stats["first_retrieved_at"]),
+                "last_retrieved_at": float(stats["last_retrieved_at"]),
+            }
+            for query_hash, stats in sorted(aggregates.items())
         ]
 
     def engagement_counts(self, since: float) -> list[EngagementRow]:

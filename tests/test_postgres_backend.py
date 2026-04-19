@@ -316,6 +316,36 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}]
+    query_conn = FakeConnection()
+    query_conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   AVG(rank) AS avg_rank, AVG(score) AS avg_score,
+                   MIN(rank) AS min_rank, MAX(rank) AS max_rank,
+                   MIN(score) AS min_score, MAX(score) AS max_score,
+                   MIN(retrieved_at) AS first_retrieved_at,
+                   MAX(retrieved_at) AS last_retrieved_at
+            FROM retrievals
+            WHERE retrieved_at >= %s
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.9,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.9,
+            "max_score": 0.9,
+            "first_retrieved_at": 25.0,
+            "last_retrieved_at": 25.0,
+        }
+    ]
     engagements_conn = FakeConnection()
     engagements_conn.rows[
         _normalize_sql(
@@ -339,6 +369,7 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     ] = [{"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}]
     pool.queue_connection(documents_conn)
     pool.queue_connection(retrievals_conn)
+    pool.queue_connection(query_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(embeddings_conn)
 
@@ -353,6 +384,20 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     ]
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+    ]
+    assert backend.query_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.9,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.9,
+            "max_score": 0.9,
+            "first_retrieved_at": 25.0,
+            "last_retrieved_at": 25.0,
+        }
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
     assert backend.all_embeddings() == [
@@ -370,6 +415,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     backend.update_source_timestamp("doc-1", 4.0)
     backend.delete_document("doc-1")
     backend.all_documents()
+    backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -379,6 +425,8 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "UPDATE tenant_alpha.documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = %s" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
+    assert "GROUP BY query_hash" in executed_sql
+    assert "FROM tenant_alpha.retrievals" in executed_sql
 
 
 def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
@@ -389,6 +437,7 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.all_embeddings()
+    backend.query_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -396,6 +445,7 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "FROM tenant_abc_retrievals" in executed_sql
 
 
 def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch):
@@ -424,6 +474,36 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
             """
         )
     ] = [{"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}]
+    querys_conn = FakeConnection()
+    querys_conn.rows[
+        _normalize_sql(
+            """
+            SELECT query_hash, COUNT(*) AS cnt,
+                   AVG(rank) AS avg_rank, AVG(score) AS avg_score,
+                   MIN(rank) AS min_rank, MAX(rank) AS max_rank,
+                   MIN(score) AS min_score, MAX(score) AS max_score,
+                   MIN(retrieved_at) AS first_retrieved_at,
+                   MAX(retrieved_at) AS last_retrieved_at
+            FROM tenant_abc_retrievals
+            WHERE retrieved_at >= %s
+            GROUP BY query_hash
+            ORDER BY query_hash
+            """
+        )
+    ] = [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.75,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.75,
+            "max_score": 0.75,
+            "first_retrieved_at": 2.0,
+            "last_retrieved_at": 2.0,
+        }
+    ]
     engagements_conn = FakeConnection()
     engagements_conn.rows[
         _normalize_sql(
@@ -447,12 +527,27 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     ] = [{"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}]
     pool.queue_connection(documents_conn)
     pool.queue_connection(retrievals_conn)
+    pool.queue_connection(querys_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "tenant-doc", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
+    ]
+    assert backend.query_counts(0.0) == [
+        {
+            "query_hash": "hash",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.75,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.75,
+            "max_score": 0.75,
+            "first_retrieved_at": 2.0,
+            "last_retrieved_at": 2.0,
+        }
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "tenant-doc", "cnt": 1}]
     assert backend.all_embeddings() == [
@@ -471,6 +566,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert "FROM tenant_abc_retrievals" in executed_sql
     assert "FROM tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
+    assert "GROUP BY query_hash" in executed_sql
     assert "tenant_abc.documents" not in executed_sql
 
 def test_postgres_backend_checks_out_a_connection_for_each_operation(monkeypatch):
@@ -530,6 +626,20 @@ def test_live_postgres_backend_round_trip():
         ]
         assert backend.retrieval_counts(0.0) == [
             {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+        ]
+        assert backend.query_counts(0.0) == [
+            {
+                "query_hash": "hash",
+                "cnt": 1,
+                "avg_rank": 1.0,
+                "avg_score": 0.9,
+                "min_rank": 1,
+                "max_rank": 1,
+                "min_score": 0.9,
+                "max_score": 0.9,
+                "first_retrieved_at": 25.0,
+                "last_retrieved_at": 25.0,
+            }
         ]
         assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
         assert backend.all_embeddings() == [

@@ -12,6 +12,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryRow,
     RetrievalRow,
 )
 from ._dsn import _normalize_postgres_dsn
@@ -266,6 +267,28 @@ class PostgresBackend(StorageBackend):
                     FROM {self._t("engagements")}
                     WHERE engaged_at >= %s
                     GROUP BY doc_id
+                    """,
+                    (since,),
+                ).fetchall()
+            ]
+        )
+
+    def query_counts(self, since: float) -> list[QueryRow]:
+        return self._run(
+            lambda conn: [
+                dict(row)
+                for row in conn.execute(
+                    f"""
+                    SELECT query_hash, COUNT(*) AS cnt,
+                           AVG(rank) AS avg_rank, AVG(score) AS avg_score,
+                           MIN(rank) AS min_rank, MAX(rank) AS max_rank,
+                           MIN(score) AS min_score, MAX(score) AS max_score,
+                           MIN(retrieved_at) AS first_retrieved_at,
+                           MAX(retrieved_at) AS last_retrieved_at
+                    FROM {self._t("retrievals")}
+                    WHERE retrieved_at >= %s
+                    GROUP BY query_hash
+                    ORDER BY query_hash
                     """,
                     (since,),
                 ).fetchall()

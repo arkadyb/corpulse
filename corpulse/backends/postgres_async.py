@@ -10,6 +10,7 @@ from ..models import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryRow,
     RetrievalRow,
 )
 from .postgres import build_schema_sql, _qualified_name, _validate_schema, _validate_table_prefix
@@ -191,6 +192,23 @@ class AsyncPostgresBackend:
             f"""
             SELECT doc_id, COUNT(*) AS cnt, AVG(rank) AS avg_rank, AVG(score) AS avg_score
             FROM {self._t("retrievals")} WHERE retrieved_at >= $1 GROUP BY doc_id
+            """,
+            since,
+        )
+        return [dict(row) for row in rows]
+
+    async def query_counts(self, since: float) -> list[QueryRow]:
+        rows = await self._fetch(
+            f"""
+            SELECT query_hash, COUNT(*) AS cnt,
+                   AVG(rank) AS avg_rank, AVG(score) AS avg_score,
+                   MIN(rank) AS min_rank, MAX(rank) AS max_rank,
+                   MIN(score) AS min_score, MAX(score) AS max_score,
+                   MIN(retrieved_at) AS first_retrieved_at,
+                   MAX(retrieved_at) AS last_retrieved_at
+            FROM {self._t("retrievals")} WHERE retrieved_at >= $1
+            GROUP BY query_hash
+            ORDER BY query_hash
             """,
             since,
         )
