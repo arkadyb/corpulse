@@ -12,6 +12,7 @@ from corpulse.backends.base import (
     DocumentRow,
     EmbeddingRow,
     EngagementRow,
+    QueryRow,
     RetrievalRow,
     StorageBackend,
     StorageBackendError,
@@ -28,6 +29,7 @@ def test_storage_backend_contract_is_frozen():
         "delete_document": ["self", "doc_id"],
         "all_documents": ["self"],
         "retrieval_counts": ["self", "since"],
+        "query_counts": ["self", "since"],
         "engagement_counts": ["self", "since"],
         "all_embeddings": ["self"],
         "close": ["self"],
@@ -45,6 +47,18 @@ def test_storage_backend_contract_is_frozen():
     expected_keys = {
         DocumentRow: {"doc_id", "filename", "source_updated_at", "embedding_vec", "embedded_at"},
         RetrievalRow: {"doc_id", "cnt", "avg_rank", "avg_score"},
+        QueryRow: {
+            "query_hash",
+            "cnt",
+            "avg_rank",
+            "avg_score",
+            "min_rank",
+            "max_rank",
+            "min_score",
+            "max_score",
+            "first_retrieved_at",
+            "last_retrieved_at",
+        },
         EngagementRow: {"doc_id", "cnt"},
         EmbeddingRow: {"doc_id", "filename", "embedding_vec"},
     }
@@ -62,11 +76,13 @@ def test_backend_parity(backend):
         embedded_at=12.5,
     )
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
+    backend.insert_retrieval("doc-1", "hash", 3, 0.7, 26.0)
     backend.insert_engagement("doc-1", "opened", 30.0)
     backend.update_source_timestamp("doc-1", 40.0)
 
     documents = backend.all_documents()
     retrievals = backend.retrieval_counts(0.0)
+    queries = backend.query_counts(0.0)
     engagements = backend.engagement_counts(0.0)
     embeddings = backend.all_embeddings()
 
@@ -80,7 +96,21 @@ def test_backend_parity(backend):
         }
     ]
     assert retrievals == [
-        {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.9}
+        {"doc_id": "doc-1", "cnt": 2, "avg_rank": 2.0, "avg_score": 0.8}
+    ]
+    assert queries == [
+        {
+            "query_hash": "hash",
+            "cnt": 2,
+            "avg_rank": 2.0,
+            "avg_score": 0.8,
+            "min_rank": 1,
+            "max_rank": 3,
+            "min_score": 0.7,
+            "max_score": 0.9,
+            "first_retrieved_at": 25.0,
+            "last_retrieved_at": 26.0,
+        }
     ]
     assert engagements == [{"doc_id": "doc-1", "cnt": 1}]
     assert embeddings == [
@@ -149,6 +179,20 @@ def test_inmemory_backend_persists_documents_and_events_without_filesystem():
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "doc-1", "cnt": 1, "avg_rank": 1.0, "avg_score": 0.75}
     ]
+    assert backend.query_counts(0.0) == [
+        {
+            "query_hash": "qhash",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.75,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.75,
+            "max_score": 0.75,
+            "first_retrieved_at": 20.0,
+            "last_retrieved_at": 20.0,
+        }
+    ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
 
 
@@ -180,6 +224,32 @@ def test_inmemory_backend_matches_sqlite_visible_aggregate_shapes():
 
     assert backend.retrieval_counts(0.0) == [
         {"doc_id": "doc-1", "cnt": 2, "avg_rank": 2.0, "avg_score": 0.75}
+    ]
+    assert backend.query_counts(0.0) == [
+        {
+            "query_hash": "qhash-1",
+            "cnt": 1,
+            "avg_rank": 1.0,
+            "avg_score": 0.5,
+            "min_rank": 1,
+            "max_rank": 1,
+            "min_score": 0.5,
+            "max_score": 0.5,
+            "first_retrieved_at": 20.0,
+            "last_retrieved_at": 20.0,
+        },
+        {
+            "query_hash": "qhash-2",
+            "cnt": 1,
+            "avg_rank": 3.0,
+            "avg_score": 1.0,
+            "min_rank": 3,
+            "max_rank": 3,
+            "min_score": 1.0,
+            "max_score": 1.0,
+            "first_retrieved_at": 21.0,
+            "last_retrieved_at": 21.0,
+        },
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
     assert backend.all_embeddings() == [

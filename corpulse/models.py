@@ -22,6 +22,19 @@ class RetrievalRow(TypedDict):
     avg_score: float | None
 
 
+class QueryRow(TypedDict):
+    query_hash: str
+    cnt: int
+    avg_rank: float | None
+    avg_score: float | None
+    min_rank: int | None
+    max_rank: int | None
+    min_score: float | None
+    max_score: float | None
+    first_retrieved_at: float | None
+    last_retrieved_at: float | None
+
+
 class EngagementRow(TypedDict):
     doc_id: str
     cnt: int
