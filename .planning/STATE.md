@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Retrieval Ordering + Acceptance Analytics
-status: ready_for_execution
-stopped_at: Phase 22 plan created
-last_updated: "2026-04-20T00:00:00.000Z"
+status: ready_for_planning
+stopped_at: Phase 22 completed; Phase 23 ready for planning
+last_updated: "2026-04-20T01:27:17.237Z"
 last_activity: 2026-04-20
 progress:
-  total_phases: 1
-  completed_phases: 0
+  total_phases: 2
+  completed_phases: 1
   total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 22 — Mean Reciprocal Rank analytics
+**Current focus:** Phase 23 — User Acceptance Rate analytics
 
 ## Current Position
 
-Phase: 22 (mean-reciprocal-rank-analytics) — PLANNED
-Plan: 1 of 1
-Status: Ready to execute
+Phase: 23 (user-acceptance-rate-analytics) — NOT STARTED
+Plan: —
+Status: Ready to plan
 Last activity: 2026-04-20
 
 ## Pending Todos
@@ -54,6 +54,7 @@ None.
 - Phase 21 planned on 2026-04-19 with two execution plans
 - Milestone v1.5 started on 2026-04-20; MRR and User Acceptance Rate became the next target metrics
 - Phase 22 planned on 2026-04-20; mean reciprocal rank is the next execution target
+- Phase 22 completed on 2026-04-20; Phase 23 is now the next work item
 
 ## Accumulated Context
 
@@ -61,6 +62,7 @@ None.
 - v1.5 scope: two analytics methods over existing stored data — MRR and User Acceptance Rate, still no schema changes
 - Low-Confidence Rate, MRR, User Acceptance Rate all computable from current retrieval + engagement tables
 - Phase 22 scope: document-level proxy MRR using existing retrieval averages joined with engagement counts
+- Phase 23 scope: document-level acceptance rate over existing engagement events with a documented accepted-event convention
 - Poor-fit generation metrics (Faithfulness, Context Precision, etc.) documented as Out of Scope with rationale in PROJECT.md
 - Future milestones planned: v1.5 (Knowledge Gaps + Token Cost), v1.6 (Chunking Fragmentation, Vector Distribution Shift, Latency)
 
@@ -95,6 +97,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-04-20 — Started milestone v1.5 retrieval ordering / acceptance analytics
-Stopped at: Phase 22 plan created and ready for execution
+Last activity: 2026-04-20 — Completed Phase 22 mean reciprocal rank analytics
+Stopped at: Phase 23 ready for planning
 Resume file: None

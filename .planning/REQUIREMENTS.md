@@ -92,9 +92,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| v1.5-01 | Phase 22 | Planned |
+| v1.5-01 | Phase 22 | Complete |
 | v1.5-02 | Phase 23 | Planned |
-| v1.5-03 | Phase 22-23 | Planned |
+| v1.5-03 | Phase 22-23 | Complete |
 | v1.4-01 | Phase 21 | Complete |
 | v1.4-02 | Phase 21 | Complete |
 | v1.4-03 | Phase 21 | Complete |
@@ -127,11 +127,12 @@
 
 **Coverage:**
 - v1.3-v1.5 requirements: 32 total
-- Mapped to phases: 29
-- Unmapped: 3
+- Mapped to phases: 32
+- Unmapped: 0
 
 **Notes:**
-- v1.5 requirements are defined but not yet assigned to execution plans.
+- v1.5-01 and v1.5-03 are complete from Phase 22.
+- v1.5-02 remains planned for Phase 23.
 - v1.4 requirements remain validated in the shipped milestone history.
 
 ---

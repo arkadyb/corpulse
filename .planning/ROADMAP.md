@@ -27,7 +27,7 @@ v1.5 phase breakdown:
 
 Plans:
 
-- [ ] 22-01-PLAN.md — Extend query aggregation helpers and implement MRR analytics with parity coverage
+- [x] 22-01-PLAN.md — Extend query aggregation helpers and implement MRR analytics with parity coverage
 
 ### Phase 23: User Acceptance Rate analytics
 
@@ -43,6 +43,6 @@ Plans:
 
 - Active milestone: `v1.5 — Retrieval Ordering + Acceptance Analytics`
 - Latest shipped milestone: `v1.4 — Nearly-Free RAG Analytics`
-- Next workflow step: plan phase 22
+- Next workflow step: plan phase 23
 
 ---
