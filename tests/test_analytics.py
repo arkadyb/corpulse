@@ -2,7 +2,7 @@
 Analytics test suite for corpulse.
 
 Covers: get_ghosts, get_duplicates, get_obsolete, get_stale_embeddings,
-get_suspects, corpus_health, FIX-01 (single get_duplicates call),
+get_suspects, mean_reciprocal_rank, corpus_health, FIX-01 (single get_duplicates call),
 FIX-02 (WAL mode enabled).
 """
 
@@ -16,6 +16,7 @@ import corpulse.core as c_mod
 from corpulse.backends import InMemoryBackend
 from corpulse.db import DB
 from corpulse.core import Corpulse, _hash_query, _vec_to_bytes
+from tests.report_fixtures import expected_mean_reciprocal_rank
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,52 @@ def test_suspect_below_min_retrievals(corpulse, monkeypatch):
         corpulse.db.insert_retrieval("low1", f"q{i}", 1, 0.9, recent_ts)
 
     assert corpulse.get_suspects() == []
+
+
+# ── MRR tests ───────────────────────────────────────────────────────────────
+
+
+def test_mean_reciprocal_rank_uses_retrieval_and_engagement_overlap(corpulse, monkeypatch):
+    """MRR should average reciprocal ranks for engaged docs only."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    recent_ts = FROZEN - 5 * 86400
+    corpulse.db.upsert_document("doc-a", "doc-a.md")
+    corpulse.db.upsert_document("doc-b", "doc-b.md")
+    corpulse.db.upsert_document("doc-c", "doc-c.md")
+
+    corpulse.db.insert_retrieval("doc-a", "q1", 1, 0.95, recent_ts)
+    corpulse.db.insert_retrieval("doc-a", "q2", 3, 0.85, recent_ts)
+    corpulse.db.insert_retrieval("doc-b", "q3", 4, 0.75, recent_ts)
+    corpulse.db.insert_retrieval("doc-c", "q4", 2, 0.65, recent_ts)
+
+    corpulse.db.insert_engagement("doc-a", "opened", recent_ts)
+    corpulse.db.insert_engagement("doc-b", "opened", recent_ts)
+
+    assert corpulse.mean_reciprocal_rank() == 0.375
+
+
+def test_mean_reciprocal_rank_matches_canonical_fixture(corpulse, monkeypatch):
+    """The canonical fixture should exercise the shared MRR proxy definition."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    # Seed the known fixture corpus into a fresh backend-backed Corpulse instance.
+    from tests.report_fixtures import build_report_fixture_backend
+
+    fixture_corpulse = Corpulse(backend=build_report_fixture_backend())
+
+    assert fixture_corpulse.mean_reciprocal_rank() == expected_mean_reciprocal_rank()
+
+
+def test_mean_reciprocal_rank_returns_zero_without_engagements(corpulse, monkeypatch):
+    """Retrievals without matching engagements should produce 0.0 rather than erroring."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    recent_ts = FROZEN - 5 * 86400
+    corpulse.db.upsert_document("doc-a", "doc-a.md")
+    corpulse.db.insert_retrieval("doc-a", "q1", 1, 0.95, recent_ts)
+
+    assert corpulse.mean_reciprocal_rank() == 0.0
 
 
 # ── query analytics tests ────────────────────────────────────────────────────

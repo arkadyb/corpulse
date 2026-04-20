@@ -10,6 +10,7 @@ from corpulse.core import (
     _build_cleanup_payload,
     _build_corpus_health,
     _build_duplicate_pairs,
+    _build_mean_reciprocal_rank,
     _build_ghosts,
     _build_obsolete_documents,
     _build_report_rows,
@@ -270,6 +271,13 @@ def expected_cleanup_payload(window_days: int = 30, ghost_threshold_days: int = 
         inputs["suspects"],
         ghost_threshold_days,
     )
+
+
+def expected_mean_reciprocal_rank(window_days: int = 30) -> float:
+    snapshot = build_report_fixture_snapshot(window_days=window_days)
+    retrieval_rows = snapshot["retrieval_rows"]
+    engagement_rows = snapshot["engagement_rows"]
+    return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
 
 
 async def seed_async_backend(backend) -> None:

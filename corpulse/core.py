@@ -327,6 +327,40 @@ def _build_suspects(
     return sorted(suspects, key=lambda x: x["retrievals"], reverse=True)
 
 
+def _build_mean_reciprocal_rank(
+    retrieval_rows: List[RetrievalRow],
+    engagement_rows: List[EngagementRow],
+) -> float:
+    """Compute the Phase 22 MRR proxy from doc-level retrieval and engagement aggregates."""
+    if not retrieval_rows or not engagement_rows:
+        return 0.0
+
+    engaged_docs = {
+        row["doc_id"]
+        for row in engagement_rows
+        if int(row["cnt"]) > 0
+    }
+    reciprocal_ranks: List[float] = []
+    for row in retrieval_rows:
+        if row["doc_id"] not in engaged_docs:
+            continue
+
+        avg_rank = row.get("avg_rank")
+        if avg_rank is None:
+            continue
+
+        rank_value = float(avg_rank)
+        if rank_value <= 0:
+            continue
+
+        reciprocal_ranks.append(1.0 / rank_value)
+
+    if not reciprocal_ranks:
+        return 0.0
+
+    return round(sum(reciprocal_ranks) / len(reciprocal_ranks), 4)
+
+
 def _build_low_confidence_queries(
     query_rows: List[QueryRow],
     threshold: float,
@@ -676,6 +710,13 @@ class Corpulse:
         retrieval_rows = self.db.retrieval_counts(since=since)
         engagement_rows = self.db.engagement_counts(since=since)
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
+
+    def mean_reciprocal_rank(self, window_days: int | None = None) -> float:
+        """Return the Phase 22 proxy MRR from retrieval rank and engagement overlap."""
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        retrieval_rows = self.db.retrieval_counts(since=since)
+        engagement_rows = self.db.engagement_counts(since=since)
+        return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
 
     def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)
