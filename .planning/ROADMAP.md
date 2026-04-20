@@ -7,33 +7,42 @@
 - ✅ **v1.2 — Full Async Parity** - Phases 11-14 (shipped 2026-04-12, archive: `.planning/milestones/v1.2-ROADMAP.md`)
 - ✅ **v1.3 — Multi-Tenant Integrations** - Phases 15-20 (shipped 2026-04-15)
 - ✅ **v1.4 — Nearly-Free RAG Analytics** - Phase 21 (completed 2026-04-19)
+- 🔄 **v1.5 — Retrieval Ordering + Acceptance Analytics** - planning
 
-## Current Milestone: v1.4 — Nearly-Free RAG Analytics
+## Current Milestone: v1.5 — Retrieval Ordering + Acceptance Analytics
 
-**Goal:** Unlock three retrieval quality signals already latent in the stored data with no new schema and no new ingestion API surface.
+**Goal:** Add the remaining low-change retrieval quality metrics already supported by the current retrieval and engagement tables.
 
-**Current status:** Phase 21 is complete.
+**Current status:** Requirements are defined and phase planning is next.
 
 ## Phases
 
-v1.4 phase breakdown is complete. Phase 21 has shipped.
+v1.5 phase breakdown:
 
-## Current Status
+### Phase 22: Mean Reciprocal Rank analytics
 
-- Active milestone: `v1.4 — Nearly-Free RAG Analytics`
-- Latest shipped milestone: `v1.3 — Multi-Tenant Integrations`
-- Next workflow step: none
-
-### Phase 21: Low-Confidence / Zero-Result Rate analytics (COMPLETE)
-
-**Goal**: Turn existing retrieval logs into low-confidence / zero-result analytics without adding schema or new ingestion APIs.
-**Depends on**: Phase 20
-**Requirements**: v1.4-01, v1.4-02, v1.4-03
+**Goal**: Expose `mean_reciprocal_rank()` over existing retrieval rows and engagement events with sync/async parity.
+**Depends on**: Phase 21
+**Plans**: 1 plan
 
 Plans:
 
-- [x] 21-01-PLAN.md — Extend backend query aggregation contract and implement parity across all storage backends
-- [x] 21-02-PLAN.md — Add sync/async low-confidence and zero-result analytics with parity tests
-- [x] 21-03-PLAN.md — Close the live zero-result observability gap and accept the schema deviation
+- [ ] 22-01-PLAN.md — Extend query aggregation helpers and implement MRR analytics with parity coverage
+
+### Phase 23: User Acceptance Rate analytics
+
+**Goal**: Expose `acceptance_rate()` over the existing engagement table using a documented accepted-event convention.
+**Depends on**: Phase 22
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 23-01-PLAN.md — Formalize accepted-event conventions and implement acceptance rate analytics with parity coverage
+
+## Current Status
+
+- Active milestone: `v1.5 — Retrieval Ordering + Acceptance Analytics`
+- Latest shipped milestone: `v1.4 — Nearly-Free RAG Analytics`
+- Next workflow step: plan phase 22
 
 ---

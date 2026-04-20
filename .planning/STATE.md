@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: — Nearly-Free RAG Analytics
-status: complete
-stopped_at: Completed 21-03-PLAN.md
-last_updated: "2026-04-19T07:25:41.742Z"
-last_activity: 2026-04-19
+milestone: v1.5
+milestone_name: — Retrieval Ordering + Acceptance Analytics
+status: defining_requirements
+stopped_at: Milestone v1.5 started
+last_updated: "2026-04-20T00:00:00.000Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 1
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-19)
+See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Phase 21 — low-confidence-zero-result-rate-analytics
+**Current focus:** Phase 22 — Mean Reciprocal Rank analytics
 
 ## Current Position
 
-Phase: 21 (low-confidence-zero-result-rate-analytics) — COMPLETE
-Plan: 3 of 3
-Status: Complete
-Last activity: 2026-04-19
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-20
 
 ## Pending Todos
 
@@ -52,10 +52,12 @@ None.
 - Milestone v1.4 started on 2026-04-18; roadmap reconciled on 2026-04-19
 - Phase 21 added: Low-Confidence / Zero-Result Rate analytics
 - Phase 21 planned on 2026-04-19 with two execution plans
+- Milestone v1.5 started on 2026-04-20; MRR and User Acceptance Rate became the next target metrics
 
 ## Accumulated Context
 
 - v1.4 scope: three analytics methods over existing stored data — zero schema changes
+- v1.5 scope: two analytics methods over existing stored data — MRR and User Acceptance Rate, still no schema changes
 - Low-Confidence Rate, MRR, User Acceptance Rate all computable from current retrieval + engagement tables
 - Poor-fit generation metrics (Faithfulness, Context Precision, etc.) documented as Out of Scope with rationale in PROJECT.md
 - Future milestones planned: v1.5 (Knowledge Gaps + Token Cost), v1.6 (Chunking Fragmentation, Vector Distribution Shift, Latency)
@@ -91,6 +93,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-04-19 — Completed Phase 21 low-confidence / zero-result analytics
-Stopped at: Completed 21-03-PLAN.md
+Last activity: 2026-04-20 — Started milestone v1.5 retrieval ordering / acceptance analytics
+Stopped at: Milestone v1.5 requirements definition
 Resume file: None

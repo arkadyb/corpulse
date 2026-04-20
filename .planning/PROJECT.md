@@ -45,14 +45,14 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ A minimal indexing pipeline over AsyncCorpulse + Qdrant with rollback semantics — Phase 18
 - ✓ Typed async payload models that preserve current `report()` / `cleanup_report()` compatibility — Phase 19
 - ✓ Optional FastAPI router helpers built on the typed payload layer — Phase 20
+- ✓ Low-Confidence / Zero-Result Rate analytics — Phase 21
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- Low-Confidence / Zero-Result Rate — v1.4
-- Mean Reciprocal Rank (MRR) — v1.4
-- User Acceptance Rate method — v1.4
+- Mean Reciprocal Rank (MRR) — v1.5
+- User Acceptance Rate method — v1.5
 
 ### Out of Scope
 
@@ -70,12 +70,11 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - **Contradictory Information Density** — requires periodic LLM scan of high-similarity embedding clusters; adds LLM dependency and async job infrastructure incompatible with the library's zero-inference design principle
 - **Answer Relevance / Context Utilization** — measures generation quality (how much retrieved context was used); a generation-layer metric requiring prompt + completion access; out of scope for a retrieval-layer analytics library
 
-## Current Milestone: v1.4 — Nearly-Free RAG Analytics
+## Current Milestone: v1.5 — Retrieval Ordering + Acceptance Analytics
 
-**Goal:** Unlock three retrieval quality signals already latent in the stored data — no new schema, no new ingestion API surface required.
+**Goal:** Unlock the remaining low-change retrieval quality signals already latent in the stored data — no new schema and no new ingestion API surface required.
 
 **Target features:**
-- Low-Confidence / Zero-Result Rate — per-query score aggregation from existing retrieval rows; flag queries where top score falls below a configurable threshold
 - Mean Reciprocal Rank (MRR) — correlate stored rank with existing engagement events to measure retrieval ordering quality
 - User Acceptance Rate — formalize engagement event conventions and expose an `acceptance_rate()` method over the existing engagement table
 
@@ -92,7 +91,7 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
-corpulse has completed milestone `v1.3`, making it service-ready for multi-tenant environments with robust Qdrant primitives and a FastAPI integration layer.
+corpulse has completed milestone `v1.4`, adding low-confidence and zero-result analytics on top of the existing corpus-health surface. The project is now moving into `v1.5` to ship the remaining low-change retrieval quality metrics.
 
 <details>
 <summary>Archived v1.2 milestone framing</summary>
@@ -191,4 +190,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-19 — Roadmap reconciled for milestone v1.4*
+*Last updated: 2026-04-20 — milestone v1.5 started*

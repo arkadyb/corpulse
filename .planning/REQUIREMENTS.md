@@ -1,7 +1,15 @@
 # Requirements: corpulse
 
-**Defined:** 2026-04-15
+**Defined:** 2026-04-20
 **Core Value:** RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
+
+## v1.5 Requirements
+
+### Retrieval Ordering + Acceptance Analytics
+
+- [ ] **v1.5-01**: `Corpulse` and `AsyncCorpulse` expose `mean_reciprocal_rank()` over existing retrieval rows and engagement events, with sync/async parity and no schema changes.
+- [ ] **v1.5-02**: `Corpulse` and `AsyncCorpulse` expose `acceptance_rate()` over the existing engagement table using a documented accepted-event convention, with no new ingestion APIs.
+- [ ] **v1.5-03**: Shared aggregation helpers and backend query contracts support SQLite, Postgres, async Postgres, and in-memory backends with deterministic ordering and parity tests.
 
 ## v1.4 Requirements
 
@@ -84,9 +92,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| v1.4-01 | Phase 21 | Planned |
-| v1.4-02 | Phase 21 | Planned |
-| v1.4-03 | Phase 21 | Planned |
+| v1.5-01 | Phase 22 | Planned |
+| v1.5-02 | Phase 23 | Planned |
+| v1.5-03 | Phase 22-23 | Planned |
+| v1.4-01 | Phase 21 | Complete |
+| v1.4-02 | Phase 21 | Complete |
+| v1.4-03 | Phase 21 | Complete |
 | DSN-01 | Phase 15 | Complete |
 | DSN-02 | Phase 15 | Complete |
 | DSN-03 | Phase 15 | Complete |
@@ -115,10 +126,14 @@
 | FASTAPI-04 | Phase 20 | Complete |
 
 **Coverage:**
-- v1.3-v1.4 requirements: 29 total
+- v1.3-v1.5 requirements: 32 total
 - Mapped to phases: 29
-- Unmapped: 0 ✓
+- Unmapped: 3
+
+**Notes:**
+- v1.5 requirements are defined but not yet assigned to execution plans.
+- v1.4 requirements remain validated in the shipped milestone history.
 
 ---
-*Requirements defined: 2026-04-15*
-*Last updated: 2026-04-19 after Phase 21 planning*
+*Requirements defined: 2026-04-20*
+*Last updated: 2026-04-20 after milestone v1.5 start*
