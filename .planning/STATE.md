@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: — Retrieval Ordering + Acceptance Analytics
-status: complete
-stopped_at: Phase 23 completed; milestone v1.5 ready for closeout
-last_updated: "2026-04-20T01:56:09Z"
-last_activity: 2026-04-20 -- Phase 23 execution completed
+milestone: v1.6
+milestone_name: — Generation Trace Capture
+status: milestone complete
+stopped_at: Milestone v1.6 complete
+last_updated: "2026-04-20T05:30:13Z"
+last_activity: 2026-04-20 -- Milestone v1.6 completed
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Milestone v1.5 complete; ready for closeout
+**Current focus:** Milestone v1.6 complete; trace-capture foundation is available for future generation metrics
 
 ## Current Position
 
-Phase: 23 (user-acceptance-rate-analytics) — COMPLETE
-Plan: 1 of 1
+Phase: Complete
+Plan: 24-01
 Status: Complete
-Last activity: 2026-04-20 -- Phase 23 execution completed
+Last activity: 2026-04-20 -- Milestone v1.6 completed
 
 ## Pending Todos
 
@@ -55,16 +55,16 @@ None.
 - Milestone v1.5 started on 2026-04-20; MRR and User Acceptance Rate became the next target metrics
 - Phase 22 planned on 2026-04-20; mean reciprocal rank is the next execution target
 - Phase 22 completed on 2026-04-20; Phase 23 is now the next work item
+- Phase 24 completed on 2026-04-20; generation trace capture foundation is now shipped
 
 ## Accumulated Context
 
 - v1.4 scope: three analytics methods over existing stored data — zero schema changes
 - v1.5 scope: two analytics methods over existing stored data — MRR and User Acceptance Rate, still no schema changes
-- Low-Confidence Rate, MRR, User Acceptance Rate all computable from current retrieval + engagement tables
-- Phase 22 scope: document-level proxy MRR using existing retrieval averages joined with engagement counts
-- Phase 23 scope: document-level acceptance rate over existing engagement events with a documented accepted-event convention
-- Poor-fit generation metrics (Faithfulness, Context Precision, etc.) documented as Out of Scope with rationale in PROJECT.md
-- Future milestones planned: v1.5 (Knowledge Gaps + Token Cost), v1.6 (Chunking Fragmentation, Vector Distribution Shift, Latency)
+- v1.6 scope: capture-only foundation for generation-layer evaluation data, no scoring yet
+- Trace capture should preserve prompt/query text, retrieved context references, final answer text, and optional labels/judgments
+- Poor-fit generation metrics (Faithfulness, Context Precision, Contradictory Information Density, Answer Relevance / Context Utilization) remain out of scope until trace capture exists
+- Existing retrieval/engagement analytics and corpus-health reporting should remain unchanged while adding the new trace layer
 
 ## Decisions
 
@@ -97,6 +97,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-04-20 — Completed Phase 22 mean reciprocal rank analytics
-Stopped at: Phase 23 ready for planning
+Last activity: 2026-04-20 — Completed Phase 24 generation trace capture foundation
+Stopped at: Milestone v1.6 complete
 Resume file: None

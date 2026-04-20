@@ -157,6 +157,26 @@ asyncio.run(main())
 
 `AsyncCorpulse.report()` and `AsyncCorpulse.cleanup_report()` return dictionaries with structured payloads, so you can log them, send them over HTTP, or render them in your own UI without parsing stdout.
 
+## Generation trace capture
+
+corpulse also supports append-only trace capture for future generation metrics. Use it to store the prompt or query text, the retrieved context references you fed into generation, the final answer text, and optional evaluation labels.
+
+```python
+from corpulse import Corpulse
+
+corp = Corpulse()
+corp.log_generation_trace(
+    prompt_text="Answer the user's question",
+    retrieved_context_refs=[{"doc_id": "abc123", "chunk_id": "c-1"}],
+    final_answer_text="Here is the response.",
+    evaluation_labels=["grounded"],
+)
+
+traces = corp.get_generation_traces()
+```
+
+Trace records are read-only once written and do not change any existing corpus-health analytics.
+
 ---
 
 ## What It Measures
@@ -168,6 +188,7 @@ asyncio.run(main())
 - Low-engagement suspects — retrieved often but users rarely act on them
 - Mean Reciprocal Rank — retrieval-order quality proxy based on existing ranks plus engagement overlap
 - User Acceptance Rate — share of engagement rows whose `event_type` is one of `opened`, `clicked`, `copied`, or `thumbs_up`
+- Generation trace capture — append-only prompt/query text, retrieved context refs, final answer text, and optional labels for future generation metrics
 
 ---
 

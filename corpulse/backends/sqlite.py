@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from functools import wraps
@@ -15,6 +16,7 @@ from ..models import (
     EmbeddingRow,
     EngagementEventRow,
     EngagementRow,
+    GenerationTraceRow,
     QueryRow,
     RetrievalRow,
 )
@@ -53,11 +55,21 @@ CREATE TABLE IF NOT EXISTS engagements (
     engaged_at   REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS generation_traces (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt_text           TEXT NOT NULL,
+    retrieved_context_refs TEXT NOT NULL,
+    final_answer_text     TEXT NOT NULL,
+    evaluation_labels     TEXT DEFAULT NULL,
+    captured_at           REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc    ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time   ON retrievals(retrieved_at);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc   ON engagements(doc_id);
+CREATE INDEX IF NOT EXISTS idx_generation_traces_time ON generation_traces(captured_at);
 """
 
 P = ParamSpec("P")
@@ -168,6 +180,36 @@ class SQLiteBackend(StorageBackend):
             )
 
     @_translate_sqlite_errors
+    def insert_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, object]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None,
+        captured_at: float,
+    ) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO generation_traces (
+                    prompt_text,
+                    retrieved_context_refs,
+                    final_answer_text,
+                    evaluation_labels,
+                    captured_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    prompt_text,
+                    json.dumps(retrieved_context_refs),
+                    final_answer_text,
+                    json.dumps(evaluation_labels) if evaluation_labels is not None else None,
+                    captured_at,
+                ),
+            )
+
+    @_translate_sqlite_errors
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         with self._conn() as conn:
             conn.execute(
@@ -271,6 +313,37 @@ class SQLiteBackend(StorageBackend):
                 (since,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    @_translate_sqlite_errors
+    def generation_traces(self, since: float) -> list[GenerationTraceRow]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id AS trace_id,
+                       prompt_text,
+                       retrieved_context_refs,
+                       final_answer_text,
+                       evaluation_labels,
+                       captured_at
+                FROM generation_traces
+                WHERE captured_at >= ?
+                ORDER BY captured_at, id
+                """,
+                (since,),
+            ).fetchall()
+
+        traces: list[GenerationTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["retrieved_context_refs"] = (
+                json.loads(trace["retrieved_context_refs"])
+                if isinstance(trace["retrieved_context_refs"], str)
+                else list(trace["retrieved_context_refs"])
+            )
+            if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
+                trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
 
     @_translate_sqlite_errors
     def all_embeddings(self) -> list[EmbeddingRow]:

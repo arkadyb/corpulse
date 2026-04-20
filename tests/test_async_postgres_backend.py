@@ -202,6 +202,7 @@ async def test_async_postgres_backend_initializes_schema(monkeypatch):
     assert fake_module.pool.conn.calls
     assert any("CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in fake_module.pool.conn.calls)
     assert any("CREATE TABLE IF NOT EXISTS query_attempts" in sql for sql, _ in fake_module.pool.conn.calls)
+    assert any("CREATE TABLE IF NOT EXISTS generation_traces" in sql for sql, _ in fake_module.pool.conn.calls)
     await backend.close()
 
 
@@ -212,12 +213,14 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
     await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
+    await backend.insert_generation_trace("prompt", [{"doc_id": "d1"}], "answer", ["grounded"], 31.0)
     await backend.update_source_timestamp("d1", 40.0)
     await backend.delete_document("d1")
     await backend.all_documents()
     await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
     await backend.engagement_event_counts(0.0)
+    await backend.generation_traces(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -225,12 +228,14 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
     assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
+    assert "INSERT INTO tenant_alpha.generation_traces" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = $1" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
     assert "FROM tenant_alpha.query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
+    assert "FROM tenant_alpha.generation_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
     await backend.close()
 
 
@@ -342,6 +347,30 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     pool.conn.rows[
         _normalize_sql(
             """
+            SELECT id AS trace_id,
+                   prompt_text,
+                   retrieved_context_refs,
+                   final_answer_text,
+                   evaluation_labels,
+                   captured_at
+            FROM tenant_abc_generation_traces
+            WHERE captured_at >= $1
+            ORDER BY captured_at, id
+            """
+        )
+    ] = [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": '[{"doc_id": "tenant-doc", "rank": 1}]',
+            "final_answer_text": "answer-1",
+            "evaluation_labels": '["grounded"]',
+            "captured_at": 4.0,
+        }
+    ]
+    pool.conn.rows[
+        _normalize_sql(
+            """
             SELECT doc_id, filename, embedding_vec FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL
             """
         )
@@ -352,6 +381,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     await backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
     await backend.insert_query_attempt("hash", 1, 1.5)
     await backend.insert_engagement("tenant-doc", "opened", 3.0)
+    await backend.insert_generation_trace("prompt-1", [{"doc_id": "tenant-doc", "rank": 1}], "answer-1", ["grounded"], 4.0)
     await backend.update_source_timestamp("tenant-doc", 4.0)
     await backend.delete_document("tenant-doc")
 
@@ -386,6 +416,16 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert await backend.engagement_event_counts(0.0) == [
         {"event_type": "opened", "cnt": 1}
     ]
+    assert await backend.generation_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": [{"doc_id": "tenant-doc", "rank": 1}],
+            "final_answer_text": "answer-1",
+            "evaluation_labels": ["grounded"],
+            "captured_at": 4.0,
+        }
+    ]
     assert await backend.all_embeddings() == [
         {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
     ]
@@ -395,6 +435,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = $1" in executed_sql
     assert "DELETE FROM tenant_abc_engagements WHERE doc_id = $1" in executed_sql
@@ -403,6 +444,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY doc_id" in executed_sql
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY doc_id" in executed_sql
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
+    assert "FROM tenant_abc_generation_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "tenant_abc.documents" not in executed_sql
     await backend.close()
@@ -443,6 +485,25 @@ async def test_async_postgres_backend_insert_engagement(monkeypatch):
     await backend.insert_engagement("d1", "opened", 30.0)
 
     assert any("INSERT INTO engagements" in sql and args == ("d1", "opened", 30.0) for sql, args in fake_module.pool.conn.calls)
+    await backend.close()
+
+
+async def test_async_postgres_backend_insert_generation_trace(monkeypatch):
+    backend, fake_module = await _build_backend(monkeypatch)
+
+    await backend.insert_generation_trace(
+        "prompt",
+        [{"doc_id": "d1"}],
+        "answer",
+        ["grounded"],
+        30.0,
+    )
+
+    assert any(
+        "INSERT INTO generation_traces" in sql
+        and args == ("prompt", '[{"doc_id": "d1"}]', "answer", '["grounded"]', 30.0)
+        for sql, args in fake_module.pool.conn.calls
+    )
     await backend.close()
 
 

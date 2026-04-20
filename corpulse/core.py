@@ -19,6 +19,7 @@ from .models import (
     DuplicatePair, ObsoleteItem, StaleItem, SuspectItem,
     CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, EngagementEventRow, QueryRow,
     QueryAttemptRow,
+    GenerationTraceRow,
     LowConfidenceQueryRow, ZeroResultQueryRow,
     EmbeddingRow
 )
@@ -604,6 +605,32 @@ class Corpulse:
         """
         self.db.insert_engagement(doc_id, event, _now())
 
+    def log_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, Any]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None = None,
+    ) -> None:
+        """
+        Record an append-only generation trace for future evaluation metrics.
+
+        Args:
+            prompt_text: Prompt or query text that initiated generation.
+            retrieved_context_refs: Ordered references to the retrieved
+                context used for generation.
+            final_answer_text: Final generated answer text.
+            evaluation_labels: Optional evaluation labels or judgments
+                associated with the generation trace.
+        """
+        self.db.insert_generation_trace(
+            prompt_text=prompt_text,
+            retrieved_context_refs=retrieved_context_refs,
+            final_answer_text=final_answer_text,
+            evaluation_labels=evaluation_labels,
+            captured_at=_now(),
+        )
+
     def log_source_update(
         self,
         doc_id: str,
@@ -753,6 +780,17 @@ class Corpulse:
         since = _days_ago(window_days or self.ghost_threshold_days)
         event_rows = self.db.engagement_event_counts(since=since)
         return _build_acceptance_rate(event_rows)
+
+    def get_generation_traces(self, window_days: int | None = None) -> list[GenerationTraceRow]:
+        """
+        Return append-only generation traces from the lookback window.
+
+        Args:
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+        """
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return self.db.generation_traces(since=since)
 
     def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)

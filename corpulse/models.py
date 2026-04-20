@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict, List, Union
+from typing import Any, TypedDict, List, Union
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,6 +59,15 @@ class EngagementRow(TypedDict):
 class EngagementEventRow(TypedDict):
     event_type: str
     cnt: int
+
+
+class GenerationTraceRow(TypedDict):
+    trace_id: int
+    prompt_text: str
+    retrieved_context_refs: list[dict[str, Any]]
+    final_answer_text: str
+    evaluation_labels: list[str] | None
+    captured_at: float
 
 
 class EmbeddingRow(TypedDict):

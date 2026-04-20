@@ -49,11 +49,21 @@ CREATE TABLE IF NOT EXISTS engagements (
     engaged_at DOUBLE PRECISION NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS generation_traces (
+    id BIGSERIAL PRIMARY KEY,
+    prompt_text TEXT NOT NULL,
+    retrieved_context_refs TEXT NOT NULL,
+    final_answer_text TEXT NOT NULL,
+    evaluation_labels TEXT DEFAULT NULL,
+    captured_at DOUBLE PRECISION NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time ON retrievals(retrieved_at);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
+CREATE INDEX IF NOT EXISTS idx_generation_traces_time ON generation_traces(captured_at);
 """
 
 
@@ -260,6 +270,7 @@ def test_build_schema_sql_supports_schema_qualified_output():
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.retrievals" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.query_attempts" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_alpha.engagements" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_alpha.generation_traces" in sql
     assert "CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON tenant_alpha.retrievals(doc_id);" in sql
     assert "CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON tenant_alpha.query_attempts(query_hash);" in sql
 
@@ -271,9 +282,11 @@ def test_build_schema_sql_supports_prefix_only_output():
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_retrievals" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_query_attempts" in sql
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_engagements" in sql
+    assert "CREATE TABLE IF NOT EXISTS tenant_abc_generation_traces" in sql
     assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_retrievals_doc ON tenant_abc_retrievals(doc_id);" in sql
     assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_query_attempts_query ON tenant_abc_query_attempts(query_hash);" in sql
     assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_engagements_doc ON tenant_abc_engagements(doc_id);" in sql
+    assert "CREATE INDEX IF NOT EXISTS tenant_abc_idx_generation_traces_time ON tenant_abc_generation_traces(captured_at);" in sql
 
 
 @pytest.mark.parametrize(
@@ -405,6 +418,31 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"event_type": "opened", "cnt": 1}]
+    traces_conn = FakeConnection()
+    traces_conn.rows[
+        _normalize_sql(
+            """
+            SELECT id AS trace_id,
+                   prompt_text,
+                   retrieved_context_refs,
+                   final_answer_text,
+                   evaluation_labels,
+                   captured_at
+            FROM generation_traces
+            WHERE captured_at >= %s
+            ORDER BY captured_at, id
+            """
+        )
+    ] = [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": '[{"doc_id": "doc-1", "rank": 1}]',
+            "final_answer_text": "answer-1",
+            "evaluation_labels": '["grounded"]',
+            "captured_at": 29.0,
+        }
+    ]
     embeddings_conn = FakeConnection()
     embeddings_conn.rows[
         _normalize_sql(
@@ -421,6 +459,7 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     pool.queue_connection(query_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(event_counts_conn)
+    pool.queue_connection(traces_conn)
     pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [
@@ -462,6 +501,16 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     assert backend.engagement_event_counts(0.0) == [
         {"event_type": "opened", "cnt": 1}
     ]
+    assert backend.generation_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": [{"doc_id": "doc-1", "rank": 1}],
+            "final_answer_text": "answer-1",
+            "evaluation_labels": ["grounded"],
+            "captured_at": 29.0,
+        }
+    ]
     assert backend.all_embeddings() == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
@@ -475,12 +524,14 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
+    backend.insert_generation_trace("prompt", [{"doc_id": "doc-1"}], "answer", ["grounded"], 4.0)
     backend.update_source_timestamp("doc-1", 4.0)
     backend.delete_document("doc-1")
     backend.all_documents()
     backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
     backend.engagement_event_counts(0.0)
+    backend.generation_traces(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -488,6 +539,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "INSERT INTO tenant_alpha.retrievals" in executed_sql
     assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
+    assert "INSERT INTO tenant_alpha.generation_traces" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = %s" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
@@ -496,6 +548,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "FROM tenant_alpha.retrievals" in executed_sql
     assert "FROM tenant_alpha.engagements" in executed_sql
     assert "GROUP BY event_type" in executed_sql
+    assert "FROM tenant_alpha.generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
 
 
 def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
@@ -506,10 +559,12 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, 2.0)
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
+    backend.insert_generation_trace("prompt", [{"doc_id": "doc-1"}], "answer", ["grounded"], 4.0)
     backend.all_embeddings()
     backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
     backend.engagement_event_counts(0.0)
+    backend.generation_traces(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -517,11 +572,33 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "FROM tenant_abc_query_attempts" in executed_sql
     assert "FROM tenant_abc_retrievals" in executed_sql
     assert "FROM tenant_abc_engagements" in executed_sql
+    assert "FROM tenant_abc_generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
     assert "GROUP BY event_type" in executed_sql
+
+
+def test_postgres_backend_insert_generation_trace_serializes_json(monkeypatch):
+    backend, pool_factory, _ = _make_backend(monkeypatch)
+    pool = pool_factory.pools[0]
+
+    backend.insert_generation_trace(
+        "prompt",
+        [{"doc_id": "doc-1", "rank": 1}],
+        "answer",
+        ["grounded"],
+        31.0,
+    )
+
+    assert any(
+        "INSERT INTO generation_traces" in sql
+        and args == ("prompt", '[{"doc_id": "doc-1", "rank": 1}]', "answer", '["grounded"]', 31.0)
+        for conn in pool.connections
+        for sql, args in conn.calls
+    )
 
 
 def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch):
@@ -532,6 +609,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     backend.insert_retrieval("tenant-doc", "hash", 1, 0.75, 2.0)
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("tenant-doc", "opened", 3.0)
+    backend.insert_generation_trace("prompt", [{"doc_id": "tenant-doc"}], "answer", ["grounded"], 4.0)
     backend.update_source_timestamp("tenant-doc", 4.0)
     backend.delete_document("tenant-doc")
 
@@ -615,6 +693,31 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
             """
         )
     ] = [{"doc_id": "tenant-doc", "cnt": 1}]
+    traces_conn = FakeConnection()
+    traces_conn.rows[
+        _normalize_sql(
+            """
+            SELECT id AS trace_id,
+                   prompt_text,
+                   retrieved_context_refs,
+                   final_answer_text,
+                   evaluation_labels,
+                   captured_at
+            FROM tenant_abc_generation_traces
+            WHERE captured_at >= %s
+            ORDER BY captured_at, id
+            """
+        )
+    ] = [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt",
+            "retrieved_context_refs": '[{"doc_id": "tenant-doc"}]',
+            "final_answer_text": "answer",
+            "evaluation_labels": '["grounded"]',
+            "captured_at": 4.0,
+        }
+    ]
     embeddings_conn = FakeConnection()
     embeddings_conn.rows[
         _normalize_sql(
@@ -630,6 +733,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     pool.queue_connection(attempts_conn)
     pool.queue_connection(querys_conn)
     pool.queue_connection(engagements_conn)
+    pool.queue_connection(traces_conn)
     pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
@@ -660,6 +764,16 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
         }
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "tenant-doc", "cnt": 1}]
+    assert backend.generation_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt",
+            "retrieved_context_refs": [{"doc_id": "tenant-doc"}],
+            "final_answer_text": "answer",
+            "evaluation_labels": ["grounded"],
+            "captured_at": 4.0,
+        }
+    ]
     assert backend.all_embeddings() == [
         {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
     ]
@@ -669,6 +783,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_abc_engagements WHERE doc_id = %s" in executed_sql
@@ -676,6 +791,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert "SELECT * FROM tenant_abc_documents" in executed_sql
     assert "FROM tenant_abc_retrievals" in executed_sql
     assert "FROM tenant_abc_engagements" in executed_sql
+    assert "FROM tenant_abc_generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "GROUP BY query_hash" in executed_sql
     assert "tenant_abc.documents" not in executed_sql

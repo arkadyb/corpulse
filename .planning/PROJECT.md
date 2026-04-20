@@ -46,13 +46,13 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Typed async payload models that preserve current `report()` / `cleanup_report()` compatibility — Phase 19
 - ✓ Optional FastAPI router helpers built on the typed payload layer — Phase 20
 - ✓ Low-Confidence / Zero-Result Rate analytics — Phase 21
+- ✓ Generation trace capture foundation — Phase 24
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- Mean Reciprocal Rank (MRR) — v1.5
-- User Acceptance Rate method — v1.5
+- None
 
 ### Out of Scope
 
@@ -70,13 +70,15 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - **Contradictory Information Density** — requires periodic LLM scan of high-similarity embedding clusters; adds LLM dependency and async job infrastructure incompatible with the library's zero-inference design principle
 - **Answer Relevance / Context Utilization** — measures generation quality (how much retrieved context was used); a generation-layer metric requiring prompt + completion access; out of scope for a retrieval-layer analytics library
 
-## Current Milestone: v1.5 — Retrieval Ordering + Acceptance Analytics (COMPLETE)
+## Current State
 
-**Goal:** Unlock the remaining low-change retrieval quality signals already latent in the stored data — no new schema and no new ingestion API surface required.
+corpulse has completed milestone `v1.6`, adding generation-trace capture on top of the existing corpus-health surface. The project now has append-only trace storage, sync/async parity, and regression coverage for future generation-layer evaluation metrics.
 
-**Target features:**
-- Mean Reciprocal Rank (MRR) — correlate stored rank with existing engagement events to measure retrieval ordering quality
-- User Acceptance Rate — formalize engagement event conventions and expose an `acceptance_rate()` method over the existing engagement table
+## Next Milestone Goals
+
+- Define and ship the first generation-quality metric on top of captured traces.
+- Keep retrieval and engagement analytics unchanged while adding generation-layer evaluation on a separate surface.
+- Preserve sync/async parity and append-only semantics for any future trace consumers.
 
 ## Previous Milestone: v1.3 Multi-Tenant Integrations (COMPLETE)
 
@@ -88,10 +90,6 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Tenant-friendly Qdrant helpers plus an indexing pipeline MVP with rollback semantics
 - ✓ Typed async payload models that preserve current `report()` / `cleanup_report()` contracts
 - ✓ Optional FastAPI router helpers layered on the typed payloads
-
-## Current State
-
-corpulse has completed milestone `v1.5`, adding mean reciprocal rank and user acceptance rate analytics on top of the existing corpus-health surface. The project is now ready for `v1.6` planning.
 
 <details>
 <summary>Archived v1.2 milestone framing</summary>
@@ -190,4 +188,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 — milestone v1.5 completed*
+*Last updated: 2026-04-20 after v1.6 milestone*

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from ._dsn import _normalize_postgres_dsn
@@ -11,6 +12,7 @@ from ..models import (
     EmbeddingRow,
     EngagementEventRow,
     EngagementRow,
+    GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
     RetrievalRow,
@@ -173,6 +175,32 @@ class AsyncPostgresBackend:
             engaged_at,
         )
 
+    async def insert_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, object]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None,
+        captured_at: float,
+    ) -> None:
+        await self._execute(
+            f"""
+            INSERT INTO {self._t("generation_traces")} (
+                prompt_text,
+                retrieved_context_refs,
+                final_answer_text,
+                evaluation_labels,
+                captured_at
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            """,
+            prompt_text,
+            json.dumps(retrieved_context_refs),
+            final_answer_text,
+            json.dumps(evaluation_labels) if evaluation_labels is not None else None,
+            captured_at,
+        )
+
     async def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         await self._execute(
             f"""
@@ -268,6 +296,34 @@ class AsyncPostgresBackend:
             since,
         )
         return [dict(row) for row in rows]
+
+    async def generation_traces(self, since: float) -> list[GenerationTraceRow]:
+        rows = await self._fetch(
+            f"""
+            SELECT id AS trace_id,
+                   prompt_text,
+                   retrieved_context_refs,
+                   final_answer_text,
+                   evaluation_labels,
+                   captured_at
+            FROM {self._t("generation_traces")}
+            WHERE captured_at >= $1
+            ORDER BY captured_at, id
+            """,
+            since,
+        )
+        traces: list[GenerationTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["retrieved_context_refs"] = (
+                json.loads(trace["retrieved_context_refs"])
+                if isinstance(trace["retrieved_context_refs"], str)
+                else list(trace["retrieved_context_refs"])
+            )
+            if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
+                trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
 
     async def all_embeddings(self) -> list[EmbeddingRow]:
         rows = await self._fetch(

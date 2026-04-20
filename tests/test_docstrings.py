@@ -20,10 +20,12 @@ def test_corpulse_public_methods_have_docstrings():
 _METHODS_WITH_PARAMS = [
     "log_retrieval",
     "log_engagement",
+    "log_generation_trace",
     "log_source_update",
     "register_document",
     "get_duplicates",
     "get_suspects",
+    "get_generation_traces",
     "to_dataframe",
     "report",
 ]
@@ -55,10 +57,12 @@ def test_async_corpulse_public_methods_have_docstrings():
 _ASYNC_METHODS_WITH_PARAMS = [
     "log_retrieval",
     "log_engagement",
+    "log_generation_trace",
     "log_source_update",
     "register_document",
     "get_duplicates",
     "get_suspects",
+    "get_generation_traces",
     "to_dataframe",
     "report",
 ]

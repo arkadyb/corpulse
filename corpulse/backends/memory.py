@@ -8,6 +8,7 @@ from ..models import (
     EmbeddingRow,
     EngagementEventRow,
     EngagementRow,
+    GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
     RetrievalRow,
@@ -20,6 +21,7 @@ class InMemoryBackend(StorageBackend):
         self._retrievals: list[dict[str, str | int | float]] = []
         self._query_attempts: list[dict[str, int | float | str]] = []
         self._engagements: list[dict[str, str | float]] = []
+        self._generation_traces: list[dict[str, object]] = []
         self._closed = False
 
     def upsert_document(
@@ -85,6 +87,25 @@ class InMemoryBackend(StorageBackend):
                 "doc_id": doc_id,
                 "event_type": event_type,
                 "engaged_at": engaged_at,
+            }
+        )
+
+    def insert_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, object]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None,
+        captured_at: float,
+    ) -> None:
+        self._generation_traces.append(
+            {
+                "trace_id": len(self._generation_traces) + 1,
+                "prompt_text": prompt_text,
+                "retrieved_context_refs": [ref.copy() if isinstance(ref, dict) else ref for ref in retrieved_context_refs],
+                "final_answer_text": final_answer_text,
+                "evaluation_labels": None if evaluation_labels is None else list(evaluation_labels),
+                "captured_at": captured_at,
             }
         )
 
@@ -291,6 +312,17 @@ class InMemoryBackend(StorageBackend):
             {"event_type": event_type, "cnt": count}
             for event_type, count in sorted(aggregates.items())
         ]
+
+    def generation_traces(self, since: float) -> list[GenerationTraceRow]:
+        traces = [
+            trace.copy()
+            for trace in self._generation_traces
+            if float(trace["captured_at"]) >= since
+        ]
+        return sorted(
+            traces,
+            key=lambda trace: (float(trace["captured_at"]), int(trace["trace_id"])),
+        )
 
     def all_embeddings(self) -> list[EmbeddingRow]:
         return [

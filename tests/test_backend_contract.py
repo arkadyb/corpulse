@@ -13,6 +13,7 @@ from corpulse.backends.base import (
     EmbeddingRow,
     EngagementEventRow,
     EngagementRow,
+    GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
     RetrievalRow,
@@ -29,6 +30,14 @@ def test_storage_backend_contract_is_frozen():
         "insert_retrieval": ["self", "doc_id", "query_hash", "rank", "score", "retrieved_at"],
         "insert_query_attempt": ["self", "query_hash", "result_count", "attempted_at"],
         "insert_engagement": ["self", "doc_id", "event_type", "engaged_at"],
+        "insert_generation_trace": [
+            "self",
+            "prompt_text",
+            "retrieved_context_refs",
+            "final_answer_text",
+            "evaluation_labels",
+            "captured_at",
+        ],
         "update_source_timestamp": ["self", "doc_id", "updated_at"],
         "delete_document": ["self", "doc_id"],
         "all_documents": ["self"],
@@ -37,6 +46,7 @@ def test_storage_backend_contract_is_frozen():
         "query_attempt_counts": ["self", "since"],
         "engagement_counts": ["self", "since"],
         "engagement_event_counts": ["self", "since"],
+        "generation_traces": ["self", "since"],
         "all_embeddings": ["self"],
         "close": ["self"],
     }
@@ -74,6 +84,14 @@ def test_storage_backend_contract_is_frozen():
         },
         EngagementRow: {"doc_id", "cnt"},
         EngagementEventRow: {"event_type", "cnt"},
+        GenerationTraceRow: {
+            "trace_id",
+            "prompt_text",
+            "retrieved_context_refs",
+            "final_answer_text",
+            "evaluation_labels",
+            "captured_at",
+        },
         EmbeddingRow: {"doc_id", "filename", "embedding_vec"},
     }
     for row_type, keys in expected_keys.items():
@@ -94,6 +112,20 @@ def test_backend_parity(backend):
     backend.insert_query_attempt("hash", 2, 24.0)
     backend.insert_query_attempt("hash", 0, 27.0)
     backend.insert_engagement("doc-1", "opened", 30.0)
+    backend.insert_generation_trace(
+        "prompt-1",
+        [{"doc_id": "doc-1", "rank": 1}],
+        "answer-1",
+        ["grounded"],
+        29.0,
+    )
+    backend.insert_generation_trace(
+        "prompt-2",
+        [],
+        "answer-2",
+        None,
+        31.0,
+    )
     backend.update_source_timestamp("doc-1", 40.0)
 
     documents = backend.all_documents()
@@ -102,6 +134,7 @@ def test_backend_parity(backend):
     query_attempts = backend.query_attempt_counts(0.0)
     engagements = backend.engagement_counts(0.0)
     engagement_events = backend.engagement_event_counts(0.0)
+    traces = backend.generation_traces(0.0)
     embeddings = backend.all_embeddings()
 
     assert documents == [
@@ -141,6 +174,24 @@ def test_backend_parity(backend):
     ]
     assert engagements == [{"doc_id": "doc-1", "cnt": 1}]
     assert engagement_events == [{"event_type": "opened", "cnt": 1}]
+    assert traces == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": [{"doc_id": "doc-1", "rank": 1}],
+            "final_answer_text": "answer-1",
+            "evaluation_labels": ["grounded"],
+            "captured_at": 29.0,
+        },
+        {
+            "trace_id": 2,
+            "prompt_text": "prompt-2",
+            "retrieved_context_refs": [],
+            "final_answer_text": "answer-2",
+            "evaluation_labels": None,
+            "captured_at": 31.0,
+        },
+    ]
     assert embeddings == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
@@ -160,6 +211,24 @@ def test_backend_parity(backend):
     ]
     assert backend.engagement_counts(0.0) == []
     assert backend.engagement_event_counts(0.0) == []
+    assert backend.generation_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt-1",
+            "retrieved_context_refs": [{"doc_id": "doc-1", "rank": 1}],
+            "final_answer_text": "answer-1",
+            "evaluation_labels": ["grounded"],
+            "captured_at": 29.0,
+        },
+        {
+            "trace_id": 2,
+            "prompt_text": "prompt-2",
+            "retrieved_context_refs": [],
+            "final_answer_text": "answer-2",
+            "evaluation_labels": None,
+            "captured_at": 31.0,
+        },
+    ]
     assert backend.all_embeddings() == []
 
 
@@ -171,10 +240,27 @@ def test_mean_reciprocal_rank_works_across_backends(backend, monkeypatch):
     backend.upsert_document("doc-1", "doc-1.md")
     backend.insert_retrieval("doc-1", "hash", 1, 0.9, recent_ts)
     backend.insert_engagement("doc-1", "opened", recent_ts)
+    backend.insert_generation_trace(
+        "prompt",
+        [{"doc_id": "doc-1"}],
+        "answer",
+        ["grounded"],
+        recent_ts,
+    )
 
     corpulse = Corpulse(backend=backend)
 
     assert corpulse.mean_reciprocal_rank() == 1.0
+    assert corpulse.get_generation_traces() == [
+        {
+            "trace_id": 1,
+            "prompt_text": "prompt",
+            "retrieved_context_refs": [{"doc_id": "doc-1"}],
+            "final_answer_text": "answer",
+            "evaluation_labels": ["grounded"],
+            "captured_at": recent_ts,
+        }
+    ]
 
 
 def test_sqlite_backend_enables_wal(sqlite_backend):

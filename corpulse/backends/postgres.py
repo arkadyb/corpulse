@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 import re
 from typing import Any
@@ -13,6 +14,7 @@ from ..models import (
     EmbeddingRow,
     EngagementEventRow,
     EngagementRow,
+    GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
     RetrievalRow,
@@ -65,11 +67,13 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     retrievals = _qualified_name("retrievals", schema=schema, prefix=prefix)
     query_attempts = _qualified_name("query_attempts", schema=schema, prefix=prefix)
     engagements = _qualified_name("engagements", schema=schema, prefix=prefix)
+    generation_traces = _qualified_name("generation_traces", schema=schema, prefix=prefix)
     retrievals_doc_idx = _index_name("idx_retrievals_doc", prefix=prefix)
     retrievals_time_idx = _index_name("idx_retrievals_time", prefix=prefix)
     query_attempts_query_idx = _index_name("idx_query_attempts_query", prefix=prefix)
     query_attempts_time_idx = _index_name("idx_query_attempts_time", prefix=prefix)
     engagements_doc_idx = _index_name("idx_engagements_doc", prefix=prefix)
+    generation_traces_time_idx = _index_name("idx_generation_traces_time", prefix=prefix)
 
     tables = [
         f"""CREATE TABLE IF NOT EXISTS {documents} (
@@ -99,6 +103,14 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     event_type TEXT NOT NULL,
     engaged_at DOUBLE PRECISION NOT NULL
 );""",
+        f"""CREATE TABLE IF NOT EXISTS {generation_traces} (
+    id BIGSERIAL PRIMARY KEY,
+    prompt_text TEXT NOT NULL,
+    retrieved_context_refs TEXT NOT NULL,
+    final_answer_text TEXT NOT NULL,
+    evaluation_labels TEXT DEFAULT NULL,
+    captured_at DOUBLE PRECISION NOT NULL
+);""",
     ]
     indexes = [
         f"CREATE INDEX IF NOT EXISTS {retrievals_doc_idx} ON {retrievals}(doc_id);",
@@ -106,6 +118,7 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
         f"CREATE INDEX IF NOT EXISTS {query_attempts_query_idx} ON {query_attempts}(query_hash);",
         f"CREATE INDEX IF NOT EXISTS {query_attempts_time_idx} ON {query_attempts}(attempted_at);",
         f"CREATE INDEX IF NOT EXISTS {engagements_doc_idx} ON {engagements}(doc_id);",
+        f"CREATE INDEX IF NOT EXISTS {generation_traces_time_idx} ON {generation_traces}(captured_at);",
     ]
 
     sql_sections: list[str] = []
@@ -243,6 +256,36 @@ class PostgresBackend(StorageBackend):
             )
         )
 
+    def insert_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, object]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None,
+        captured_at: float,
+    ) -> None:
+        self._run(
+            lambda conn: conn.execute(
+                f"""
+                INSERT INTO {self._t("generation_traces")} (
+                    prompt_text,
+                    retrieved_context_refs,
+                    final_answer_text,
+                    evaluation_labels,
+                    captured_at
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    prompt_text,
+                    json.dumps(retrieved_context_refs),
+                    final_answer_text,
+                    json.dumps(evaluation_labels) if evaluation_labels is not None else None,
+                    captured_at,
+                ),
+            )
+        )
+
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         self._run(
             lambda conn: conn.execute(
@@ -360,6 +403,39 @@ class PostgresBackend(StorageBackend):
                 ).fetchall()
             ]
         )
+
+    def generation_traces(self, since: float) -> list[GenerationTraceRow]:
+        rows = self._run(
+            lambda conn: [
+                dict(row)
+                for row in conn.execute(
+                    f"""
+                    SELECT id AS trace_id,
+                           prompt_text,
+                           retrieved_context_refs,
+                           final_answer_text,
+                           evaluation_labels,
+                           captured_at
+                    FROM {self._t("generation_traces")}
+                    WHERE captured_at >= %s
+                    ORDER BY captured_at, id
+                    """,
+                    (since,),
+                ).fetchall()
+            ]
+        )
+        traces: list[GenerationTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["retrieved_context_refs"] = (
+                json.loads(trace["retrieved_context_refs"])
+                if isinstance(trace["retrieved_context_refs"], str)
+                else list(trace["retrieved_context_refs"])
+            )
+            if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
+                trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
 
     def all_embeddings(self) -> list[EmbeddingRow]:
         return self._run(

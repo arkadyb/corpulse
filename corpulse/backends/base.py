@@ -7,6 +7,7 @@ from ..models import (
     QueryAttemptRow as QueryAttemptRow,
     QueryRow as QueryRow,
     RetrievalRow as RetrievalRow,
+    GenerationTraceRow as GenerationTraceRow,
     EngagementRow as EngagementRow,
     EmbeddingRow as EmbeddingRow,
 )
@@ -57,6 +58,17 @@ class StorageBackend(ABC):
         """Record an engagement event."""
 
     @abstractmethod
+    def insert_generation_trace(
+        self,
+        prompt_text: str,
+        retrieved_context_refs: list[dict[str, object]],
+        final_answer_text: str,
+        evaluation_labels: list[str] | None,
+        captured_at: float,
+    ) -> None:
+        """Record an append-only generation trace."""
+
+    @abstractmethod
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         """Store the latest known source update time for a document."""
 
@@ -87,6 +99,10 @@ class StorageBackend(ABC):
     @abstractmethod
     def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
         """Return engagement event-type aggregates since a timestamp."""
+
+    @abstractmethod
+    def generation_traces(self, since: float) -> list[GenerationTraceRow]:
+        """Return append-only generation traces since a timestamp."""
 
     @abstractmethod
     def all_embeddings(self) -> list[EmbeddingRow]:
