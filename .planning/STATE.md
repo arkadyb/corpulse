@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: — Generation Trace Capture
 status: milestone complete
-stopped_at: Milestone v1.6 complete
-last_updated: "2026-04-20T05:30:13Z"
+stopped_at: Milestone v1.6 summary generated
+last_updated: "2026-04-20T10:42:26.933Z"
 last_activity: 2026-04-20 -- Milestone v1.6 completed
 progress:
   total_phases: 1
@@ -98,5 +98,5 @@ None.
 ## Session Continuity
 
 Last activity: 2026-04-20 — Completed Phase 24 generation trace capture foundation
-Stopped at: Milestone v1.6 complete
-Resume file: None
+Stopped at: Milestone v1.6 summary generated
+Resume file: .planning/reports/MILESTONE_SUMMARY-v1.6.md
