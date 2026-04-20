@@ -6,6 +6,7 @@ from .base import (
 from ..models import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryAttemptRow,
     QueryRow,
@@ -276,6 +277,19 @@ class InMemoryBackend(StorageBackend):
         return [
             {"doc_id": doc_id, "cnt": count}
             for doc_id, count in aggregates.items()
+        ]
+
+    def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
+        aggregates: dict[str, int] = {}
+        for event in self._engagements:
+            if float(event["engaged_at"]) < since:
+                continue
+            event_type = str(event["event_type"])
+            aggregates[event_type] = aggregates.get(event_type, 0) + 1
+
+        return [
+            {"event_type": event_type, "cnt": count}
+            for event_type, count in sorted(aggregates.items())
         ]
 
     def all_embeddings(self) -> list[EmbeddingRow]:

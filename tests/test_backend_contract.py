@@ -11,6 +11,7 @@ from corpulse.backends import InMemoryBackend
 from corpulse.backends.base import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryAttemptRow,
     QueryRow,
@@ -35,6 +36,7 @@ def test_storage_backend_contract_is_frozen():
         "query_counts": ["self", "since"],
         "query_attempt_counts": ["self", "since"],
         "engagement_counts": ["self", "since"],
+        "engagement_event_counts": ["self", "since"],
         "all_embeddings": ["self"],
         "close": ["self"],
     }
@@ -71,6 +73,7 @@ def test_storage_backend_contract_is_frozen():
             "last_attempted_at",
         },
         EngagementRow: {"doc_id", "cnt"},
+        EngagementEventRow: {"event_type", "cnt"},
         EmbeddingRow: {"doc_id", "filename", "embedding_vec"},
     }
     for row_type, keys in expected_keys.items():
@@ -98,6 +101,7 @@ def test_backend_parity(backend):
     queries = backend.query_counts(0.0)
     query_attempts = backend.query_attempt_counts(0.0)
     engagements = backend.engagement_counts(0.0)
+    engagement_events = backend.engagement_event_counts(0.0)
     embeddings = backend.all_embeddings()
 
     assert documents == [
@@ -136,6 +140,7 @@ def test_backend_parity(backend):
         }
     ]
     assert engagements == [{"doc_id": "doc-1", "cnt": 1}]
+    assert engagement_events == [{"event_type": "opened", "cnt": 1}]
     assert embeddings == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
@@ -154,6 +159,7 @@ def test_backend_parity(backend):
         }
     ]
     assert backend.engagement_counts(0.0) == []
+    assert backend.engagement_event_counts(0.0) == []
     assert backend.all_embeddings() == []
 
 
@@ -251,6 +257,9 @@ def test_inmemory_backend_persists_documents_and_events_without_filesystem():
         }
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
+    assert backend.engagement_event_counts(0.0) == [
+        {"event_type": "opened", "cnt": 1}
+    ]
 
 
 def test_inmemory_backend_upsert_preserves_existing_embedding_fields_on_none():
@@ -327,6 +336,9 @@ def test_inmemory_backend_matches_sqlite_visible_aggregate_shapes():
         },
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
+    assert backend.engagement_event_counts(0.0) == [
+        {"event_type": "opened", "cnt": 1}
+    ]
     assert backend.all_embeddings() == [
         {"doc_id": "doc-1", "filename": "guide.md", "embedding_vec": b"vec-1"}
     ]

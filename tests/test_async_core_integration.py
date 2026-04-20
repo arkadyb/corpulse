@@ -17,6 +17,7 @@ from corpulse.core import (
 )
 from tests.report_fixtures import (
     build_report_fixture_snapshot,
+    expected_acceptance_rate,
     expected_cleanup_payload,
     expected_report_payload,
     helper_inputs,
@@ -32,6 +33,7 @@ class FakeAsyncBackend:
         self.query_rows: list[dict] = []
         self.query_attempt_rows: list[dict] = []
         self.engagement_rows: list[dict] = []
+        self.engagement_event_rows: list[dict] = []
         self.embedding_rows: list[dict] = []
         self.closed = False
 
@@ -102,6 +104,10 @@ class FakeAsyncBackend:
         self.calls.append(("engagement_counts", (since,)))
         return self.engagement_rows
 
+    async def engagement_event_counts(self, since: float) -> list[dict]:
+        self.calls.append(("engagement_event_counts", (since,)))
+        return self.engagement_event_rows
+
     async def all_embeddings(self) -> list[dict]:
         self.calls.append(("all_embeddings", ()))
         return self.embedding_rows
@@ -119,6 +125,7 @@ class FakeSyncBackend:
         query_rows: list[dict],
         query_attempt_rows: list[dict],
         engagement_rows: list[dict],
+        engagement_event_rows: list[dict],
         embedding_rows: list[dict],
     ):
         self.documents = documents
@@ -126,6 +133,7 @@ class FakeSyncBackend:
         self.query_rows = query_rows
         self.query_attempt_rows = query_attempt_rows
         self.engagement_rows = engagement_rows
+        self.engagement_event_rows = engagement_event_rows
         self.embedding_rows = embedding_rows
 
     def all_documents(self) -> list[dict]:
@@ -140,6 +148,9 @@ class FakeSyncBackend:
         ]
         self.engagement_rows = [
             row for row in self.engagement_rows if row["doc_id"] != doc_id
+        ]
+        self.engagement_event_rows = [
+            row for row in self.engagement_event_rows if row["doc_id"] != doc_id
         ]
         self.embedding_rows = [
             row for row in self.embedding_rows if row["doc_id"] != doc_id
@@ -157,6 +168,9 @@ class FakeSyncBackend:
     def engagement_counts(self, since: float) -> list[dict]:
         return self.engagement_rows
 
+    def engagement_event_counts(self, since: float) -> list[dict]:
+        return self.engagement_event_rows
+
     def all_embeddings(self) -> list[dict]:
         return self.embedding_rows
 
@@ -169,6 +183,7 @@ def _shared_report_fixture_backends() -> tuple[FakeSyncBackend, FakeAsyncBackend
     async_backend.query_rows = snapshot.get("query_rows", [])
     async_backend.query_attempt_rows = snapshot.get("query_attempt_rows", [])
     async_backend.engagement_rows = snapshot["engagement_rows"]
+    async_backend.engagement_event_rows = snapshot["engagement_event_rows"]
     async_backend.embedding_rows = snapshot["embedding_rows"]
     sync_backend = FakeSyncBackend(
         documents=snapshot["documents"],
@@ -176,6 +191,7 @@ def _shared_report_fixture_backends() -> tuple[FakeSyncBackend, FakeAsyncBackend
         query_rows=snapshot.get("query_rows", []),
         query_attempt_rows=snapshot.get("query_attempt_rows", []),
         engagement_rows=snapshot["engagement_rows"],
+        engagement_event_rows=snapshot["engagement_event_rows"],
         embedding_rows=snapshot["embedding_rows"],
     )
     return sync_backend, async_backend
@@ -397,6 +413,19 @@ async def test_async_corpulse_other_ingestion_methods_await_backend(monkeypatch)
     ]
 
 
+async def test_async_corpulse_acceptance_rate_awaits_event_type_counts(monkeypatch):
+    backend = FakeAsyncBackend()
+    backend.engagement_event_rows = [
+        {"event_type": "opened", "cnt": 2},
+        {"event_type": "bookmarked", "cnt": 1},
+    ]
+    corpulse = AsyncCorpulse(backend=backend)
+    monkeypatch.setattr("corpulse.async_core._days_ago", lambda days: 123.0)
+
+    assert await corpulse.acceptance_rate() == 0.67
+    assert backend.calls == [("engagement_event_counts", (123.0,))]
+
+
 async def test_async_corpulse_get_ghosts_matches_sync_shape(monkeypatch):
     backend = FakeAsyncBackend()
     backend.documents = [
@@ -445,6 +474,10 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
     async_backend.query_rows = query_rows
     async_backend.query_attempt_rows = query_attempt_rows
     async_backend.engagement_rows = engagement_rows
+    async_backend.engagement_event_rows = [
+        {"event_type": "opened", "cnt": 2},
+        {"event_type": "bookmarked", "cnt": 1},
+    ]
     async_backend.embedding_rows = embedding_rows
     sync_backend = FakeSyncBackend(
         documents=documents,
@@ -452,6 +485,10 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
         query_rows=query_rows,
         query_attempt_rows=query_attempt_rows,
         engagement_rows=engagement_rows,
+        engagement_event_rows=[
+            {"event_type": "opened", "cnt": 2},
+            {"event_type": "bookmarked", "cnt": 1},
+        ],
         embedding_rows=embedding_rows,
     )
 
@@ -523,6 +560,7 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
     ]
     assert await async_corpulse.zero_result_rate() == sync_corpulse.zero_result_rate() == 0.33
     assert await async_corpulse.mean_reciprocal_rank() == sync_corpulse.mean_reciprocal_rank() == 0.9091
+    assert await async_corpulse.acceptance_rate() == sync_corpulse.acceptance_rate() == 0.67
     assert await async_corpulse.corpus_health() == sync_corpulse.corpus_health() == {
         "total_docs": 7,
         "ghosts": 2,

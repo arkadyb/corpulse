@@ -70,7 +70,7 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - **Contradictory Information Density** — requires periodic LLM scan of high-similarity embedding clusters; adds LLM dependency and async job infrastructure incompatible with the library's zero-inference design principle
 - **Answer Relevance / Context Utilization** — measures generation quality (how much retrieved context was used); a generation-layer metric requiring prompt + completion access; out of scope for a retrieval-layer analytics library
 
-## Current Milestone: v1.5 — Retrieval Ordering + Acceptance Analytics
+## Current Milestone: v1.5 — Retrieval Ordering + Acceptance Analytics (COMPLETE)
 
 **Goal:** Unlock the remaining low-change retrieval quality signals already latent in the stored data — no new schema and no new ingestion API surface required.
 
@@ -91,7 +91,7 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
-corpulse has completed milestone `v1.4`, adding low-confidence and zero-result analytics on top of the existing corpus-health surface. The project is now moving into `v1.5` to ship the remaining low-change retrieval quality metrics.
+corpulse has completed milestone `v1.5`, adding mean reciprocal rank and user acceptance rate analytics on top of the existing corpus-health surface. The project is now ready for `v1.6` planning.
 
 <details>
 <summary>Archived v1.2 milestone framing</summary>
@@ -190,4 +190,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 — milestone v1.5 started*
+*Last updated: 2026-04-20 — milestone v1.5 completed*

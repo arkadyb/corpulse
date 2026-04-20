@@ -9,6 +9,7 @@ from .base import (
 from ..models import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryAttemptRow,
     QueryRow,
@@ -250,6 +251,19 @@ class AsyncPostgresBackend:
         rows = await self._fetch(
             f"""
             SELECT doc_id, COUNT(*) AS cnt FROM {self._t("engagements")} WHERE engaged_at >= $1 GROUP BY doc_id
+            """,
+            since,
+        )
+        return [dict(row) for row in rows]
+
+    async def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
+        rows = await self._fetch(
+            f"""
+            SELECT event_type, COUNT(*) AS cnt
+            FROM {self._t("engagements")}
+            WHERE engaged_at >= $1
+            GROUP BY event_type
+            ORDER BY event_type
             """,
             since,
         )

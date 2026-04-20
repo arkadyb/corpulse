@@ -17,7 +17,7 @@ from .backends import SQLiteBackend, StorageBackend
 from .models import (
     ReportRow, ReportSummary, CleanupPayload, GhostItem,
     DuplicatePair, ObsoleteItem, StaleItem, SuspectItem,
-    CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, QueryRow,
+    CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, EngagementEventRow, QueryRow,
     QueryAttemptRow,
     LowConfidenceQueryRow, ZeroResultQueryRow,
     EmbeddingRow
@@ -67,6 +67,12 @@ _STATUS_ICON = {
     "low_engagement": "◌  low eng.",
     "healthy": "✓  healthy",
 }
+
+_ACCEPTED_ENGAGEMENT_EVENTS = {"opened", "clicked", "copied", "thumbs_up"}
+
+
+def _normalize_engagement_event_type(event_type: str) -> str:
+    return event_type.strip().lower()
 
 
 def _build_dataframe_rows(
@@ -359,6 +365,26 @@ def _build_mean_reciprocal_rank(
         return 0.0
 
     return round(sum(reciprocal_ranks) / len(reciprocal_ranks), 4)
+
+
+def _build_acceptance_rate(
+    event_rows: List[EngagementEventRow],
+) -> float:
+    if not event_rows:
+        return 0.0
+
+    accepted_count = 0
+    total_count = 0
+    for row in event_rows:
+        cnt = int(row["cnt"])
+        total_count += cnt
+        if _normalize_engagement_event_type(row["event_type"]) in _ACCEPTED_ENGAGEMENT_EVENTS:
+            accepted_count += cnt
+
+    if total_count == 0:
+        return 0.0
+
+    return round(accepted_count / total_count, 2)
 
 
 def _build_low_confidence_queries(
@@ -717,6 +743,16 @@ class Corpulse:
         retrieval_rows = self.db.retrieval_counts(since=since)
         engagement_rows = self.db.engagement_counts(since=since)
         return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
+
+    def acceptance_rate(self, window_days: int | None = None) -> float:
+        """Return the share of accepted engagement rows in the lookback window.
+
+        Accepted rows are those whose normalized ``event_type`` matches the
+        fixed v1.5 allowlist.
+        """
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        event_rows = self.db.engagement_event_counts(since=since)
+        return _build_acceptance_rate(event_rows)
 
     def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)

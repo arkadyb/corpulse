@@ -217,6 +217,7 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     await backend.all_documents()
     await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
+    await backend.engagement_event_counts(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -229,6 +230,7 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
     assert "FROM tenant_alpha.query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
+    assert "FROM tenant_alpha.engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
     await backend.close()
 
 
@@ -242,6 +244,7 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
     await backend.all_embeddings()
     await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
+    await backend.engagement_event_counts(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -252,6 +255,7 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "FROM tenant_abc_query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
+    assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
     await backend.close()
 
 
@@ -327,6 +331,17 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     pool.conn.rows[
         _normalize_sql(
             """
+            SELECT event_type, COUNT(*) AS cnt
+            FROM tenant_abc_engagements
+            WHERE engaged_at >= $1
+            GROUP BY event_type
+            ORDER BY event_type
+            """
+        )
+    ] = [{"event_type": "opened", "cnt": 1}]
+    pool.conn.rows[
+        _normalize_sql(
+            """
             SELECT doc_id, filename, embedding_vec FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL
             """
         )
@@ -368,6 +383,9 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
         }
     ]
     assert await backend.engagement_counts(0.0) == [{"doc_id": "tenant-doc", "cnt": 1}]
+    assert await backend.engagement_event_counts(0.0) == [
+        {"event_type": "opened", "cnt": 1}
+    ]
     assert await backend.all_embeddings() == [
         {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
     ]
@@ -384,6 +402,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert "SELECT * FROM tenant_abc_documents" in executed_sql
     assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY doc_id" in executed_sql
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY doc_id" in executed_sql
+    assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "tenant_abc.documents" not in executed_sql
     await backend.close()
@@ -544,6 +563,31 @@ async def test_async_postgres_backend_engagement_counts(monkeypatch):
     await backend.close()
 
 
+async def test_async_postgres_backend_engagement_event_counts(monkeypatch):
+    pool = FakeAsyncpgPool()
+    pool.conn.rows[
+        _normalize_sql(
+            """
+            SELECT event_type, COUNT(*) AS cnt
+            FROM engagements
+            WHERE engaged_at >= $1
+            GROUP BY event_type
+            ORDER BY event_type
+            """
+        )
+    ] = [
+        {"event_type": "clicked", "cnt": 2},
+        {"event_type": "opened", "cnt": 1},
+    ]
+    backend, _ = await _build_backend(monkeypatch, pool=pool)
+
+    assert await backend.engagement_event_counts(0.0) == [
+        {"event_type": "clicked", "cnt": 2},
+        {"event_type": "opened", "cnt": 1},
+    ]
+    await backend.close()
+
+
 async def test_async_postgres_backend_all_embeddings(monkeypatch):
     pool = FakeAsyncpgPool()
     pool.conn.rows[
@@ -606,6 +650,7 @@ async def test_async_postgres_backend_uses_pool_acquire(monkeypatch):
     await backend.query_attempt_counts(0.0)
     await backend.retrieval_counts(0.0)
     await backend.engagement_counts(0.0)
+    await backend.engagement_event_counts(0.0)
     await backend.all_embeddings()
 
     assert pool.acquire_calls >= 10
@@ -669,6 +714,9 @@ async def test_live_async_postgres_backend_round_trip():
             }
         ]
         assert await backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
+        assert await backend.engagement_event_counts(0.0) == [
+            {"event_type": "opened", "cnt": 1}
+        ]
         assert await backend.all_embeddings() == [
             {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
         ]

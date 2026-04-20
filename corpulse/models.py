@@ -56,6 +56,11 @@ class EngagementRow(TypedDict):
     cnt: int
 
 
+class EngagementEventRow(TypedDict):
+    event_type: str
+    cnt: int
+
+
 class EmbeddingRow(TypedDict):
     doc_id: str
     filename: str

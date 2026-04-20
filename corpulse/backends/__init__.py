@@ -3,6 +3,7 @@
 from .base import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryAttemptRow,
     RetrievalRow,
@@ -16,6 +17,7 @@ __all__ = [
     "AsyncPostgresBackend",
     "DocumentRow",
     "EmbeddingRow",
+    "EngagementEventRow",
     "EngagementRow",
     "QueryAttemptRow",
     "RetrievalRow",

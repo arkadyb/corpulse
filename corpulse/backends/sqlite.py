@@ -13,6 +13,7 @@ from .base import (
 from ..models import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryRow,
     RetrievalRow,
@@ -251,6 +252,21 @@ class SQLiteBackend(StorageBackend):
                 FROM engagements
                 WHERE engaged_at >= ?
                 GROUP BY doc_id
+                """,
+                (since,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    @_translate_sqlite_errors
+    def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT event_type, COUNT(*) AS cnt
+                FROM engagements
+                WHERE engaged_at >= ?
+                GROUP BY event_type
+                ORDER BY event_type
                 """,
                 (since,),
             ).fetchall()

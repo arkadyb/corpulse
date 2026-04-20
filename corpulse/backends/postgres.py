@@ -11,6 +11,7 @@ from .base import (
 from ..models import (
     DocumentRow,
     EmbeddingRow,
+    EngagementEventRow,
     EngagementRow,
     QueryAttemptRow,
     QueryRow,
@@ -337,6 +338,23 @@ class PostgresBackend(StorageBackend):
                     WHERE attempted_at >= %s
                     GROUP BY query_hash
                     ORDER BY query_hash
+                    """,
+                    (since,),
+                ).fetchall()
+            ]
+        )
+
+    def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
+        return self._run(
+            lambda conn: [
+                dict(row)
+                for row in conn.execute(
+                    f"""
+                    SELECT event_type, COUNT(*) AS cnt
+                    FROM {self._t("engagements")}
+                    WHERE engaged_at >= %s
+                    GROUP BY event_type
+                    ORDER BY event_type
                     """,
                     (since,),
                 ).fetchall()

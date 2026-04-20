@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from ..models import (
     DocumentRow as DocumentRow,
+    EngagementEventRow as EngagementEventRow,
     QueryAttemptRow as QueryAttemptRow,
     QueryRow as QueryRow,
     RetrievalRow as RetrievalRow,
@@ -82,6 +83,10 @@ class StorageBackend(ABC):
     @abstractmethod
     def engagement_counts(self, since: float) -> list[EngagementRow]:
         """Return engagement aggregates since a timestamp."""
+
+    @abstractmethod
+    def engagement_event_counts(self, since: float) -> list[EngagementEventRow]:
+        """Return engagement event-type aggregates since a timestamp."""
 
     @abstractmethod
     def all_embeddings(self) -> list[EmbeddingRow]:

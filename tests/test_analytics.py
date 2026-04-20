@@ -16,7 +16,11 @@ import corpulse.core as c_mod
 from corpulse.backends import InMemoryBackend
 from corpulse.db import DB
 from corpulse.core import Corpulse, _hash_query, _vec_to_bytes
-from tests.report_fixtures import expected_mean_reciprocal_rank
+from tests.report_fixtures import (
+    build_report_fixture_backend,
+    expected_acceptance_rate,
+    expected_mean_reciprocal_rank,
+)
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -250,6 +254,30 @@ def test_mean_reciprocal_rank_returns_zero_without_engagements(corpulse, monkeyp
     corpulse.db.insert_retrieval("doc-a", "q1", 1, 0.95, recent_ts)
 
     assert corpulse.mean_reciprocal_rank() == 0.0
+
+
+# ── acceptance rate tests ──────────────────────────────────────────────────
+
+
+def test_acceptance_rate_uses_allowed_event_types(corpulse, monkeypatch):
+    """Acceptance rate should use the fixed accepted-event convention."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    fixture_corpulse = Corpulse(backend=build_report_fixture_backend())
+
+    assert fixture_corpulse.acceptance_rate() == expected_acceptance_rate()
+
+
+def test_acceptance_rate_returns_zero_for_empty_or_non_matching_events(corpulse, monkeypatch):
+    """Empty or ignored engagement streams should return 0.0."""
+    monkeypatch.setattr(c_mod, "_now", lambda: FROZEN)
+
+    assert corpulse.acceptance_rate() == 0.0
+
+    corpulse.db.upsert_document("doc-a", "doc-a.md")
+    corpulse.db.insert_engagement("doc-a", "bookmarked", FROZEN - 5 * 86400)
+
+    assert corpulse.acceptance_rate() == 0.0
 
 
 # ── query analytics tests ────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import numpy as np
 from corpulse.backends.memory import InMemoryBackend
 from corpulse.core import (
     _SKLEARN,
+    _build_acceptance_rate,
     _build_cleanup_payload,
     _build_corpus_health,
     _build_duplicate_pairs,
@@ -148,17 +149,17 @@ def _engagement_seed_rows() -> list[dict[str, Any]]:
     return [
         {"doc_id": "api-v2", "event_type": "opened", "engaged_at": recent_ts},
         *[
-            {"doc_id": "guide-v2", "event_type": "opened", "engaged_at": recent_ts}
-            for _ in range(2)
+            {"doc_id": "guide-v2", "event_type": event_type, "engaged_at": recent_ts}
+            for event_type in ("opened", "clicked")
         ],
-        {"doc_id": "noisy-doc", "event_type": "opened", "engaged_at": recent_ts},
+        {"doc_id": "noisy-doc", "event_type": "bookmarked", "engaged_at": recent_ts},
         *[
-            {"doc_id": "healthy-a", "event_type": "opened", "engaged_at": recent_ts}
-            for _ in range(3)
+            {"doc_id": "healthy-a", "event_type": event_type, "engaged_at": recent_ts}
+            for event_type in ("opened", "copied", "OPENED")
         ],
         *[
-            {"doc_id": "healthy-b", "event_type": "opened", "engaged_at": recent_ts}
-            for _ in range(2)
+            {"doc_id": "healthy-b", "event_type": event_type, "engaged_at": recent_ts}
+            for event_type in ("thumbs_up", "opened")
         ],
     ]
 
@@ -202,6 +203,7 @@ def build_report_fixture_snapshot(window_days: int = 30) -> dict[str, Any]:
         "documents": backend.all_documents(),
         "retrieval_rows": backend.retrieval_counts(since=since),
         "engagement_rows": backend.engagement_counts(since=since),
+        "engagement_event_rows": backend.engagement_event_counts(since=since),
         "embedding_rows": backend.all_embeddings(),
     }
 
@@ -278,6 +280,11 @@ def expected_mean_reciprocal_rank(window_days: int = 30) -> float:
     retrieval_rows = snapshot["retrieval_rows"]
     engagement_rows = snapshot["engagement_rows"]
     return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
+
+
+def expected_acceptance_rate(window_days: int = 30) -> float:
+    snapshot = build_report_fixture_snapshot(window_days=window_days)
+    return _build_acceptance_rate(snapshot["engagement_event_rows"])
 
 
 async def seed_async_backend(backend) -> None:

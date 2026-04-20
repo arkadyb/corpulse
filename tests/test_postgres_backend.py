@@ -393,6 +393,18 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
             """
         )
     ] = [{"doc_id": "doc-1", "cnt": 1}]
+    event_counts_conn = FakeConnection()
+    event_counts_conn.rows[
+        _normalize_sql(
+            """
+            SELECT event_type, COUNT(*) AS cnt
+            FROM engagements
+            WHERE engaged_at >= %s
+            GROUP BY event_type
+            ORDER BY event_type
+            """
+        )
+    ] = [{"event_type": "opened", "cnt": 1}]
     embeddings_conn = FakeConnection()
     embeddings_conn.rows[
         _normalize_sql(
@@ -408,6 +420,7 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
     pool.queue_connection(attempts_conn)
     pool.queue_connection(query_conn)
     pool.queue_connection(engagements_conn)
+    pool.queue_connection(event_counts_conn)
     pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [
@@ -446,6 +459,9 @@ def test_postgres_backend_returns_mapping_rows(monkeypatch):
         }
     ]
     assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
+    assert backend.engagement_event_counts(0.0) == [
+        {"event_type": "opened", "cnt": 1}
+    ]
     assert backend.all_embeddings() == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
@@ -464,6 +480,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     backend.all_documents()
     backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
+    backend.engagement_event_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -477,6 +494,8 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "FROM tenant_alpha.query_attempts" in executed_sql
     assert "GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.retrievals" in executed_sql
+    assert "FROM tenant_alpha.engagements" in executed_sql
+    assert "GROUP BY event_type" in executed_sql
 
 
 def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
@@ -490,6 +509,7 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     backend.all_embeddings()
     backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
+    backend.engagement_event_counts(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -500,6 +520,8 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "FROM tenant_abc_query_attempts" in executed_sql
     assert "FROM tenant_abc_retrievals" in executed_sql
+    assert "FROM tenant_abc_engagements" in executed_sql
+    assert "GROUP BY event_type" in executed_sql
 
 
 def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch):

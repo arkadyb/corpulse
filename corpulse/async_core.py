@@ -10,6 +10,7 @@ from .core import (
     _build_corpus_health,
     _build_dataframe_rows,
     _build_duplicate_pairs,
+    _build_acceptance_rate,
     _build_mean_reciprocal_rank,
     _build_low_confidence_queries,
     _build_ghosts,
@@ -235,6 +236,16 @@ class AsyncCorpulse:
         retrieval_rows = await self.db.retrieval_counts(since=since)
         engagement_rows = await self.db.engagement_counts(since=since)
         return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
+
+    async def acceptance_rate(self, window_days: int | None = None) -> float:
+        """Return the share of accepted engagement rows in the lookback window.
+
+        Accepted rows are those whose normalized ``event_type`` matches the
+        fixed v1.5 allowlist.
+        """
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        event_rows = await self.db.engagement_event_counts(since=since)
+        return _build_acceptance_rate(event_rows)
 
     async def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)
