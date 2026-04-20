@@ -188,19 +188,21 @@ corp = Corpulse(
 
 ## Analysis Methods
 
-| Method | Returns |
-|--------|---------|
-| `get_ghosts()` | Documents never retrieved in threshold window |
-| `get_duplicates()` | Embedding-similar document pairs |
-| `get_obsolete()` | Documents superseded by newer versions |
-| `get_stale_embeddings()` | Documents with outdated embeddings |
-| `get_suspects()` | High-retrieval, low-engagement documents |
-| `mean_reciprocal_rank()` | Retrieval-ordering proxy over retrieval rank and engagement overlap |
-| `acceptance_rate()` | Share of accepted engagement rows in the lookback window |
-| `corpus_health()` | Overall noise estimate and bloat warning |
-| `to_dataframe()` | Full stats as pandas DataFrame |
-| `report()` | Print corpus health table to stdout |
-| `cleanup_report()` | Print prioritised action list |
+All analysis methods use the configured lookback window. If you do not pass `window_days`, corpulse uses `ghost_threshold_days`.
+
+| Method | What it measures | Example use |
+|--------|------------------|-------------|
+| `get_ghosts()` | Documents that were registered but not retrieved during the lookback window. | Find files that exist in the index but never show up in search, such as a stale draft nobody clicks. |
+| `get_duplicates()` | Pairs of documents whose embeddings are above the configured cosine similarity threshold. | Spot near-identical files like `api-v1.md` and `api-v1-copy.md` that are both being indexed. |
+| `get_obsolete()` | Older documents that appear to have been superseded by a newer filename version. | Detect versioned docs such as `guide-v1.md` that should probably be replaced by `guide-v2.md`. |
+| `get_stale_embeddings()` | Documents whose source file timestamp is newer than the stored embedding timestamp. | Catch a document that was edited yesterday but still has an embedding from last week. |
+| `get_suspects()` | Documents with high retrieval volume but low engagement rate. | Identify pages that are frequently returned by search but rarely opened or acted on. |
+| `mean_reciprocal_rank()` | A retrieval-order quality proxy based on retrieval rank and whether the document was engaged with. Higher is better. | Use it to check whether documents that users actually interact with tend to appear near the top of results. |
+| `acceptance_rate()` | The share of engagement events whose normalized `event_type` is in the accepted allowlist: `opened`, `clicked`, `copied`, or `thumbs_up`. | If you log 80 total engagement events and 60 are opens/clicks/copies/thumbs-up, the acceptance rate is `0.75`. |
+| `corpus_health()` | A summary of corpus noise: ghosts, obsolete docs, stale embeddings, duplicates, plus a bloat warning and recommendation. | Get a quick “how healthy is my index?” snapshot before deciding whether cleanup is urgent. |
+| `to_dataframe()` | A per-document pandas DataFrame with retrievals, engagements, engagement rate, and status. | Load the full stats into a notebook or BI tool to sort by retrievals and inspect outliers. |
+| `report()` | A human-readable corpus health report printed to stdout. | Run it in a CLI job or cron task to print a quick snapshot without writing custom formatting code. |
+| `cleanup_report()` | A prioritized cleanup payload with ghosts, obsolete docs, stale embeddings, and suspects. | Feed it into a maintenance workflow that decides what to delete, refresh, or review first. |
 
 ---
 
