@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: — Retrieval Ordering + Acceptance Analytics
-status: defining_requirements
-stopped_at: Milestone v1.5 started
+status: ready_for_execution
+stopped_at: Phase 22 plan created
 last_updated: "2026-04-20T00:00:00.000Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 0
   percent: 0
 ---
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
+Phase: 22 (mean-reciprocal-rank-analytics) — PLANNED
+Plan: 1 of 1
+Status: Ready to execute
 Last activity: 2026-04-20
 
 ## Pending Todos
@@ -53,12 +53,14 @@ None.
 - Phase 21 added: Low-Confidence / Zero-Result Rate analytics
 - Phase 21 planned on 2026-04-19 with two execution plans
 - Milestone v1.5 started on 2026-04-20; MRR and User Acceptance Rate became the next target metrics
+- Phase 22 planned on 2026-04-20; mean reciprocal rank is the next execution target
 
 ## Accumulated Context
 
 - v1.4 scope: three analytics methods over existing stored data — zero schema changes
 - v1.5 scope: two analytics methods over existing stored data — MRR and User Acceptance Rate, still no schema changes
 - Low-Confidence Rate, MRR, User Acceptance Rate all computable from current retrieval + engagement tables
+- Phase 22 scope: document-level proxy MRR using existing retrieval averages joined with engagement counts
 - Poor-fit generation metrics (Faithfulness, Context Precision, etc.) documented as Out of Scope with rationale in PROJECT.md
 - Future milestones planned: v1.5 (Knowledge Gaps + Token Cost), v1.6 (Chunking Fragmentation, Vector Distribution Shift, Latency)
 
@@ -94,5 +96,5 @@ None.
 ## Session Continuity
 
 Last activity: 2026-04-20 — Started milestone v1.5 retrieval ordering / acceptance analytics
-Stopped at: Milestone v1.5 requirements definition
+Stopped at: Phase 22 plan created and ready for execution
 Resume file: None
