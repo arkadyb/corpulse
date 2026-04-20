@@ -10,6 +10,7 @@ from .core import (
     _build_corpus_health,
     _build_dataframe_rows,
     _build_duplicate_pairs,
+    _build_mean_reciprocal_rank,
     _build_low_confidence_queries,
     _build_ghosts,
     _build_obsolete_documents,
@@ -227,6 +228,13 @@ class AsyncCorpulse:
         retrieval_rows = await self.db.retrieval_counts(since=since)
         engagement_rows = await self.db.engagement_counts(since=since)
         return _build_suspects(all_docs, retrieval_rows, engagement_rows)
+
+    async def mean_reciprocal_rank(self, window_days: int | None = None) -> float:
+        """Return the Phase 22 proxy MRR from retrieval rank and engagement overlap."""
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        retrieval_rows = await self.db.retrieval_counts(since=since)
+        engagement_rows = await self.db.engagement_counts(since=since)
+        return _build_mean_reciprocal_rank(retrieval_rows, engagement_rows)
 
     async def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)

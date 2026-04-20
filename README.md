@@ -166,6 +166,7 @@ asyncio.run(main())
 - Obsolete versions — e.g. `api-v1.md` superseded by `api-v2.md`
 - Stale embeddings — source file updated but embedding not refreshed
 - Low-engagement suspects — retrieved often but users rarely act on them
+- Mean Reciprocal Rank — retrieval-order quality proxy based on existing ranks plus engagement overlap
 
 ---
 
@@ -193,6 +194,7 @@ corp = Corpulse(
 | `get_obsolete()` | Documents superseded by newer versions |
 | `get_stale_embeddings()` | Documents with outdated embeddings |
 | `get_suspects()` | High-retrieval, low-engagement documents |
+| `mean_reciprocal_rank()` | Retrieval-ordering proxy over retrieval rank and engagement overlap |
 | `corpus_health()` | Overall noise estimate and bloat warning |
 | `to_dataframe()` | Full stats as pandas DataFrame |
 | `report()` | Print corpus health table to stdout |

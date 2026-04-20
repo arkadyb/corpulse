@@ -18,6 +18,7 @@ from corpulse.backends.base import (
     StorageBackend,
     StorageBackendError,
 )
+from corpulse.core import Corpulse
 from corpulse.db import DB
 
 
@@ -154,6 +155,20 @@ def test_backend_parity(backend):
     ]
     assert backend.engagement_counts(0.0) == []
     assert backend.all_embeddings() == []
+
+
+def test_mean_reciprocal_rank_works_across_backends(backend, monkeypatch):
+    fixed_now = 1_700_000_000.0
+    monkeypatch.setattr("corpulse.core._now", lambda: fixed_now)
+
+    recent_ts = fixed_now - 5 * 86_400
+    backend.upsert_document("doc-1", "doc-1.md")
+    backend.insert_retrieval("doc-1", "hash", 1, 0.9, recent_ts)
+    backend.insert_engagement("doc-1", "opened", recent_ts)
+
+    corpulse = Corpulse(backend=backend)
+
+    assert corpulse.mean_reciprocal_rank() == 1.0
 
 
 def test_sqlite_backend_enables_wal(sqlite_backend):

@@ -522,6 +522,7 @@ async def test_async_analysis_methods_match_sync_parity(monkeypatch):
         }
     ]
     assert await async_corpulse.zero_result_rate() == sync_corpulse.zero_result_rate() == 0.33
+    assert await async_corpulse.mean_reciprocal_rank() == sync_corpulse.mean_reciprocal_rank() == 0.9091
     assert await async_corpulse.corpus_health() == sync_corpulse.corpus_health() == {
         "total_docs": 7,
         "ghosts": 2,
