@@ -118,6 +118,37 @@ asyncio.run(main())
 - `payload_id_field` — payload key to use as document ID (default: `None`, uses Qdrant point ID)
 - `payload_filename_key` — payload key for filename (default: `"filename"`)
 
+**Advanced: generic wrapper engine**
+
+If a client exposes stable query methods and you can normalize its native
+response into Corpulse records, you can use the generic `wrap()` API instead of
+writing a dedicated class:
+
+```python
+from corpulse import Corpulse, WrapMethod, wrap
+
+wrapped = wrap(
+    client,
+    Corpulse(),
+    methods={
+        "search": WrapMethod(
+            normalize=lambda result, args, kwargs: [
+                {
+                    "doc_id": hit["id"],
+                    "filename": hit["name"],
+                    "score": hit["score"],
+                    "embedding": None,
+                }
+                for hit in result.hits
+            ]
+        )
+    },
+)
+```
+
+This removes most wrapper boilerplate, but each database still needs a
+normalization recipe for its response shape.
+
 ---
 
 ## Async usage

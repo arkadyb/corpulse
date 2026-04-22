@@ -47,12 +47,15 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Optional FastAPI router helpers built on the typed payload layer — Phase 20
 - ✓ Low-Confidence / Zero-Result Rate analytics — Phase 21
 - ✓ Generation trace capture foundation — Phase 24
+- ✓ Generic sync/async wrapper engine for retrieval client integrations — v1.7
+- ✓ Qdrant wrappers migrated onto the shared engine with no API regression — v1.7
+- ✓ Public extension surface and docs for thin future integration adapters — v1.7
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- None
+- None yet — define the next milestone
 
 ### Out of Scope
 
@@ -72,13 +75,28 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
-corpulse has completed milestone `v1.6`, adding generation-trace capture on top of the existing corpus-health surface. The project now has append-only trace storage, sync/async parity, and regression coverage for future generation-layer evaluation metrics.
+corpulse completed milestone `v1.7`, adding a shared generic wrapping engine and migrating the Qdrant compatibility wrappers onto that architecture. The library now supports a documented advanced adapter path for future integrations while preserving lazy optional dependency behavior and Qdrant compatibility.
 
 ## Next Milestone Goals
 
-- Define and ship the first generation-quality metric on top of captured traces.
-- Keep retrieval and engagement analytics unchanged while adding generation-layer evaluation on a separate surface.
-- Preserve sync/async parity and append-only semantics for any future trace consumers.
+- Ship a second first-party integration on top of the shared wrapper engine, most likely Chroma or Pinecone
+- Keep import-safety and compatibility guarantees intact while proving the adapter pattern on another client shape
+- Reassess whether a registry or plugin mechanism is warranted only after a second adapter reveals repeatable needs
+
+<details>
+<summary>Archived v1.7 milestone framing</summary>
+
+### Milestone Goal
+
+Replace dedicated wrapper boilerplate with a shared sync/async wrapping engine while preserving the current Qdrant public API and documenting the extension path for future integrations.
+
+### Delivered Scope
+
+- Shared `wrap()` / `WrapMethod` infrastructure for sync and async retrieval clients
+- Qdrant wrappers rebuilt on top of the shared engine with lazy optional dependency behavior preserved
+- Public documentation and tests that show how future integrations can use thin adapter specs instead of full wrapper classes
+
+</details>
 
 ## Previous Milestone: v1.3 Multi-Tenant Integrations (COMPLETE)
 
@@ -119,6 +137,7 @@ Close the remaining gap between `AsyncCorpulse` and sync `Corpulse` so the async
 - Target audience: RAG teams who need corpus observability without heavy instrumentation
 - Long-term vision: multiple integration layers (wrappers, framework plugins, standalone audit)
 - Library will be consumed by a separate service repo that exposes REST APIs
+- Spike 001 established the key boundary for future wrapper work: interception can be generic, but response normalization still needs explicit per-client recipes
 
 <details>
 <summary>Archived v1.1 milestone framing</summary>
@@ -169,6 +188,8 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Async demo defaults to in-memory adapter | Keeps the example runnable without external services or library-level async memory backend changes | Shipped in Phase 14 |
 | v1.3 follows integration-readiness order over showcase order | DSN normalization and Postgres tenancy reduce immediate service friction; typed models and FastAPI helpers come later after payload semantics are preserved | Shipped in v1.3 |
 | Typed async payload work must preserve current method semantics | README and tests already define dict payloads for `report()` and `cleanup_report()`; model layers should mirror rather than replace that contract | Shipped in Phase 19 |
+| Generic wrapping should replace proxy boilerplate, not backend-specific normalization | The spike proved interception is reusable, but result-shape extraction still varies across clients and must stay explicit | Shipped in v1.7 |
+| Qdrant remains first-class while the generic API serves advanced adapter authors | Keeps the common path simple for existing users while making future integrations cheaper to build | Shipped in v1.7 |
 
 ## Evolution
 
@@ -188,4 +209,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 after v1.6 milestone*
+*Last updated: 2026-04-22 after v1.7 milestone*

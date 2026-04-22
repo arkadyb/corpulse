@@ -3,6 +3,8 @@ from .core import Corpulse
 __all__ = [
     "Corpulse",
     "AsyncCorpulse",
+    "WrapMethod",
+    "wrap",
     "QdrantCorpulseClient",
     "AsyncQdrantCorpulseClient",
 ]
@@ -15,6 +17,12 @@ def __getattr__(name):
 
         globals()["AsyncCorpulse"] = AsyncCorpulse
         return AsyncCorpulse
+    if name in ("WrapMethod", "wrap"):
+        from .integrations.wrapper import WrapMethod, wrap
+
+        globals()["WrapMethod"] = WrapMethod
+        globals()["wrap"] = wrap
+        return globals()[name]
     if name in ("QdrantCorpulseClient", "AsyncQdrantCorpulseClient"):
         from .integrations.qdrant import QdrantCorpulseClient, AsyncQdrantCorpulseClient
         globals()["QdrantCorpulseClient"] = QdrantCorpulseClient

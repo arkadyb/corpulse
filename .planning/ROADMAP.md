@@ -9,11 +9,11 @@
 - ✅ **v1.4 — Nearly-Free RAG Analytics** - Phase 21 (completed 2026-04-19)
 - ✅ **v1.5 — Retrieval Ordering + Acceptance Analytics** - completed 2026-04-20
 - ✅ **v1.6 — Generation Trace Capture** - completed 2026-04-20, archive: `.planning/milestones/v1.6-ROADMAP.md`
+- ✅ **v1.7 — Generic Integration Wrapping** - Phases 25-26 (completed 2026-04-22, archive: `.planning/milestones/v1.7-ROADMAP.md`)
 
 ## Current Status
 
-- Latest shipped milestone: `v1.6 — Generation Trace Capture`
-- Next workflow step: `/gsd-new-milestone` when a new milestone is ready to define
-
+- Latest shipped milestone: `v1.7 — Generic Integration Wrapping`
+- Next workflow step: `/gsd-new-milestone` when the next integration target is ready
 
 ---

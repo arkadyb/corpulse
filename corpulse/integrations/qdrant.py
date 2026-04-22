@@ -10,11 +10,11 @@ Lazy import: qdrant_client is NOT imported at module level so that
 """
 from __future__ import annotations
 
-import asyncio
-import inspect
 import re
 import uuid
 from collections.abc import Sequence
+
+from .wrapper import AsyncWrappedClient, WrapMethod, WrappedClient, wrap
 
 __all__ = [
     "QdrantCorpulseClient",
@@ -99,7 +99,28 @@ def _normalize_points(points, call_kwargs, payload_id_field, payload_filename_ke
     return records
 
 
-class QdrantCorpulseClient:
+def _qdrant_methods(payload_id_field, payload_filename_key):
+    return {
+        "query_points": WrapMethod(
+            normalize=lambda result, args, kwargs: _normalize_points(
+                result.points,
+                kwargs,
+                payload_id_field,
+                payload_filename_key,
+            )
+        ),
+        "search": WrapMethod(
+            normalize=lambda result, args, kwargs: _normalize_points(
+                result,
+                kwargs,
+                payload_id_field,
+                payload_filename_key,
+            )
+        ),
+    }
+
+
+class QdrantCorpulseClient(WrappedClient):
     """Sync Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps a QdrantClient via composition. Intercepts query_points() and
@@ -135,44 +156,14 @@ class QdrantCorpulseClient:
             raise ImportError(
                 "Install qdrant-client: pip install corpulse[qdrant]"
             )
-
-    def query_points(self, collection_name, *, query_text="", **kwargs):
-        """Log query attempts for query_points() results, then return the upstream response."""
-        result = self._client.query_points(collection_name=collection_name, **kwargs)
-        # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
-        records = _normalize_points(
-            result.points,
-            kwargs,
-            self._payload_id_field,
-            self._payload_filename_key,
+        super().__init__(
+            client,
+            corpulse,
+            _qdrant_methods(payload_id_field, payload_filename_key),
         )
-        self._corpulse.log_retrieval(records, query=query_text)
-        return result
-
-    def search(self, collection_name, *, query_text="", **kwargs):
-        """Log query attempts for search() results and return the upstream object unchanged.
-
-        The wrapper delegates directly to ``self._client.search(...)``.
-        If the configured client does not expose ``search()``, the resulting
-        ``AttributeError`` propagates naturally. No compatibility shim or
-        result emulation is added here.
-        """
-        # search() returns the client's native list response shape when available.
-        result = self._client.search(collection_name=collection_name, **kwargs)
-        records = _normalize_points(
-            result,
-            kwargs,
-            self._payload_id_field,
-            self._payload_filename_key,
-        )
-        self._corpulse.log_retrieval(records, query=query_text)
-        return result
-
-    def __getattr__(self, name):
-        return getattr(self._client, name)
 
 
-class AsyncQdrantCorpulseClient:
+class AsyncQdrantCorpulseClient(AsyncWrappedClient):
     """Async Qdrant wrapper that auto-logs retrievals to Corpulse.
 
     Wraps an AsyncQdrantClient via composition. Intercepts async query_points()
@@ -208,50 +199,11 @@ class AsyncQdrantCorpulseClient:
             raise ImportError(
                 "Install qdrant-client: pip install corpulse[qdrant]"
             )
-
-    async def query_points(self, collection_name, *, query_text="", **kwargs):
-        """Log query attempts for async query_points() results, then return the upstream response."""
-        result = await self._client.query_points(
-            collection_name=collection_name, **kwargs
+        super().__init__(
+            client,
+            corpulse,
+            _qdrant_methods(payload_id_field, payload_filename_key),
         )
-        # Access .points — result is QueryResponse, NOT list[ScoredPoint] (Pitfall 2)
-        records = _normalize_points(
-            result.points,
-            kwargs,
-            self._payload_id_field,
-            self._payload_filename_key,
-        )
-        await self._log_retrieval(records, query_text)
-        return result
-
-    async def search(self, collection_name, *, query_text="", **kwargs):
-        """Log query attempts for async search() results and return the upstream object unchanged.
-
-        The wrapper delegates directly to ``self._client.search(...)``.
-        If the configured client does not expose ``search()``, the resulting
-        ``AttributeError`` propagates naturally. No compatibility shim or
-        result emulation is added here.
-        """
-        # search() returns the client's native list response shape when available.
-        result = await self._client.search(collection_name=collection_name, **kwargs)
-        records = _normalize_points(
-            result,
-            kwargs,
-            self._payload_id_field,
-            self._payload_filename_key,
-        )
-        await self._log_retrieval(records, query_text)
-        return result
-
-    async def _log_retrieval(self, records, query_text="") -> None:
-        log_retrieval = self._corpulse.log_retrieval
-        if inspect.iscoroutinefunction(log_retrieval):
-            await log_retrieval(records, query=query_text)
-            return
-        await asyncio.to_thread(log_retrieval, records, query=query_text)
-
-    def __getattr__(self, name):
-        return getattr(self._client, name)
 
 
 def delete_document_points(
