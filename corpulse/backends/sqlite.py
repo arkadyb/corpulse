@@ -227,6 +227,36 @@ class SQLiteBackend(StorageBackend):
             conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
 
     @_translate_sqlite_errors
+    def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        clauses: list[str] = []
+        params: list[object] = []
+        if trace_ids:
+            placeholders = ",".join("?" for _ in trace_ids)
+            clauses.append(f"id IN ({placeholders})")
+            params.extend(trace_ids)
+        if prompt_text is not None:
+            clauses.append("prompt_text = ?")
+            params.append(prompt_text)
+        if evaluation_label is not None:
+            clauses.append("evaluation_labels LIKE ?")
+            params.append(f'%"{evaluation_label}"%')
+
+        if not clauses:
+            return
+
+        with self._conn() as conn:
+            conn.execute(
+                f"DELETE FROM generation_traces WHERE {' OR '.join(clauses)}",
+                params,
+            )
+
+    @_translate_sqlite_errors
     def all_documents(self) -> list[DocumentRow]:
         with self._conn() as conn:
             rows = conn.execute("SELECT * FROM documents").fetchall()

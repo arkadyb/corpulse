@@ -304,6 +304,39 @@ class PostgresBackend(StorageBackend):
 
         self._run(operation)
 
+    def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        clauses = []
+        params: list[Any] = []
+        if trace_ids:
+            placeholders = []
+            for trace_id in trace_ids:
+                placeholders.append(f"%s")
+                params.append(trace_id)
+            clauses.append(f"id IN ({', '.join(placeholders)})")
+        if prompt_text is not None:
+            clauses.append("prompt_text = %s")
+            params.append(prompt_text)
+        if evaluation_label is not None:
+            clauses.append("evaluation_labels LIKE %s")
+            params.append(f'%"{evaluation_label}"%')
+
+        if not clauses:
+            return
+
+        def operation(conn):
+            conn.execute(
+                f"DELETE FROM {self._t('generation_traces')} WHERE {' OR '.join(clauses)}",
+                tuple(params),
+            )
+
+        self._run(operation)
+
     def all_documents(self) -> list[DocumentRow]:
         return self._run(
             lambda conn: [

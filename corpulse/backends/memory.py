@@ -131,6 +131,26 @@ class InMemoryBackend(StorageBackend):
             event for event in self._engagements if str(event["doc_id"]) != doc_id
         ]
 
+    def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        def _matches(trace: dict[str, object]) -> bool:
+            if trace_ids is not None and int(trace.get("trace_id", -1)) in trace_ids:
+                return True
+            if prompt_text is not None and trace.get("prompt_text") == prompt_text:
+                return True
+            if evaluation_label is not None:
+                labels = trace.get("evaluation_labels")
+                if isinstance(labels, list) and evaluation_label in labels:
+                    return True
+            return False
+
+        self._generation_traces = [trace for trace in self._generation_traces if not _matches(trace)]
+
     def all_documents(self) -> list[DocumentRow]:
         return [document.copy() for document in self._documents.values()]
 

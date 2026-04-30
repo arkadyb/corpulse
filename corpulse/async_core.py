@@ -182,6 +182,20 @@ class AsyncCorpulse:
         """Delete a document and its associated retrieval and engagement history."""
         await self.db.delete_document(doc_id)
 
+    async def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        """Delete generation traces matching the supplied identifiers or demo markers."""
+        await self.db.delete_generation_traces(
+            trace_ids=trace_ids,
+            prompt_text=prompt_text,
+            evaluation_label=evaluation_label,
+        )
+
     async def get_ghosts(self) -> List[GhostItem]:
         """Return documents not retrieved within the ghost threshold window.
 

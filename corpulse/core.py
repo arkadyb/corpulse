@@ -676,6 +676,20 @@ class Corpulse:
         """Delete a document and its associated retrieval and engagement history."""
         self.db.delete_document(doc_id)
 
+    def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        """Delete generation traces matching the supplied identifiers or demo markers."""
+        self.db.delete_generation_traces(
+            trace_ids=trace_ids,
+            prompt_text=prompt_text,
+            evaluation_label=evaluation_label,
+        )
+
     # ── analysis ──────────────────────────────────────────────────────────────
 
     def get_ghosts(self) -> List[GhostItem]:

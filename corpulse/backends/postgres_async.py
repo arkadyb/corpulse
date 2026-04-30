@@ -229,6 +229,35 @@ class AsyncPostgresBackend:
         except self._error_cls as exc:
             raise StorageBackendError(str(exc)) from exc
 
+    async def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        clauses = []
+        params: list[Any] = []
+        if trace_ids:
+            placeholders = []
+            for trace_id in trace_ids:
+                placeholders.append(f"${len(params) + 1}")
+                params.append(trace_id)
+            clauses.append(f"id IN ({', '.join(placeholders)})")
+        if prompt_text is not None:
+            clauses.append(f"prompt_text = ${len(params) + 1}")
+            params.append(prompt_text)
+        if evaluation_label is not None:
+            placeholder = f"${len(params) + 1}"
+            clauses.append(f"evaluation_labels LIKE {placeholder}")
+            params.append(f'%"{evaluation_label}"%')
+
+        if not clauses:
+            return
+
+        sql = f"DELETE FROM {self._t('generation_traces')} WHERE {' OR '.join(clauses)}"
+        await self._execute(sql, *params)
+
     async def all_documents(self) -> list[DocumentRow]:
         rows = await self._fetch(f"SELECT * FROM {self._t('documents')}")
         return [dict(row) for row in rows]

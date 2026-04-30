@@ -77,6 +77,16 @@ class StorageBackend(ABC):
         """Delete a document and its related retrieval and engagement rows."""
 
     @abstractmethod
+    def delete_generation_traces(
+        self,
+        *,
+        trace_ids: list[int] | None = None,
+        prompt_text: str | None = None,
+        evaluation_label: str | None = None,
+    ) -> None:
+        """Delete generation traces matching the provided identifiers or demo markers."""
+
+    @abstractmethod
     def all_documents(self) -> list[DocumentRow]:
         """Return every stored document row."""
 
