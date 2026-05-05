@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from pathlib import Path
 from typing import Any, List
 
 import numpy as np
@@ -18,6 +20,9 @@ from .core import (
     _build_query_rate,
     _build_report_rows,
     _build_report_summary,
+    _build_serving_report,
+    _build_session_report,
+    _build_workload_report,
     _build_stale_embeddings,
     _build_suspects,
     _build_zero_result_queries,
@@ -32,6 +37,21 @@ from .models import (
     QueryRow, LowConfidenceQueryRow, ZeroResultQueryRow,
     QueryAttemptRow,
     GenerationTraceRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceImportResult,
+    RagRequestTraceRow,
+    WorkloadReportPayload,
+    ServingReportPayload,
+    SessionReportPayload,
+    ReplayReportPayload,
+)
+from .replay import AsyncReplayHandler, async_replay_rag_request_traces
+from .workload_io import (
+    existing_rag_request_trace_fingerprints,
+    parse_rag_request_trace_jsonl_line,
+    rag_request_trace_fingerprint,
+    serialize_rag_request_trace_jsonl,
 )
 
 
@@ -130,6 +150,47 @@ class AsyncCorpulse:
             retrieved_context_refs=retrieved_context_refs,
             final_answer_text=final_answer_text,
             evaluation_labels=evaluation_labels,
+            captured_at=_now(),
+        )
+
+    async def alog_rag_request(
+        self,
+        session_id: str | None = None,
+        query: str | None = None,
+        request_id: str | None = None,
+        components: list[RagRequestComponent] | None = None,
+        input_token_count: int | None = None,
+        output_token_count: int | None = None,
+        timings: RagRequestTimings | None = None,
+        timeout: bool = False,
+        error: str | None = None,
+    ) -> None:
+        """Record an append-only RAG request trace.
+
+        Args:
+            session_id: Optional session or conversation identifier.
+            query: Optional raw query text. When provided, corpulse stores
+                a stable hash alongside the trace.
+            request_id: Optional caller-provided request identifier.
+            components: Structured request components such as system prompt,
+                vector DB context, chat history, web search, or user input.
+            input_token_count: Optional total input token count.
+            output_token_count: Optional total output token count.
+            timings: Optional stage timing payload in milliseconds.
+            timeout: True when the request timed out.
+            error: Optional error string or code.
+        """
+        await self.db.insert_rag_request_trace(
+            request_id=request_id,
+            session_id=session_id,
+            query_text=query,
+            query_hash=_hash_query(query) if query is not None else None,
+            input_token_count=input_token_count,
+            output_token_count=output_token_count,
+            components=deepcopy(components) if components is not None else [],
+            timings=deepcopy(timings) if timings is not None else {},
+            timeout=timeout,
+            error=error,
             captured_at=_now(),
         )
 
@@ -296,6 +357,133 @@ class AsyncCorpulse:
         """
         since = _days_ago(window_days or self.ghost_threshold_days)
         return await self.db.generation_traces(since=since)
+
+    async def get_rag_request_traces(self, window_days: int | None = None) -> list[RagRequestTraceRow]:
+        """Return append-only RAG request traces from the lookback window.
+
+        Args:
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+        """
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return await self.db.rag_request_traces(since=since)
+
+    async def aexport_rag_request_traces_jsonl(
+        self,
+        destination,
+        *,
+        window_days: int | None = None,
+        include_raw_text: bool = False,
+        include_component_metadata: bool = False,
+    ) -> int:
+        """Export append-only RAG request traces as JSONL.
+
+        Args:
+            destination: Path or text stream to receive one JSON object per line.
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+            include_raw_text: True to include raw query text in exported rows.
+            include_component_metadata: True to include component metadata.
+
+        Returns:
+            Number of traces written.
+        """
+        traces = await self.get_rag_request_traces(window_days=window_days)
+        needs_close = False
+        if hasattr(destination, "write"):
+            writer = destination
+        else:
+            writer = Path(destination).open("w", encoding="utf-8")
+            needs_close = True
+        try:
+            for trace in traces:
+                writer.write(
+                    serialize_rag_request_trace_jsonl(
+                        trace,
+                        include_raw_text=include_raw_text,
+                        include_component_metadata=include_component_metadata,
+                    )
+                    + "\n"
+                )
+        finally:
+            if needs_close:
+                writer.close()
+        return len(traces)
+
+    async def aimport_rag_request_traces_jsonl(
+        self,
+        source,
+        *,
+        strict: bool = True,
+    ) -> RagRequestTraceImportResult:
+        """Import RAG request traces from JSONL into the active backend.
+
+        Args:
+            source: Path or text stream providing one JSON object per line.
+            strict: True to fail fast on invalid records. False to continue and
+                accumulate errors in the returned result.
+
+        Returns:
+            Structured import counts and error messages.
+        """
+        needs_close = False
+        if hasattr(source, "read"):
+            reader = source
+        else:
+            reader = Path(source).open("r", encoding="utf-8")
+            needs_close = True
+        total = imported = skipped_duplicates = invalid = 0
+        errors: list[str] = []
+        existing = existing_rag_request_trace_fingerprints(
+            await self.get_rag_request_traces(window_days=None)
+        )
+        try:
+            for line_number, line in enumerate(reader, start=1):
+                if not line.strip():
+                    continue
+                total += 1
+                try:
+                    trace = parse_rag_request_trace_jsonl_line(
+                        line,
+                        line_number=line_number,
+                        strict=strict,
+                    )
+                except ValueError as exc:
+                    invalid += 1
+                    message = str(exc)
+                    errors.append(message)
+                    if strict:
+                        raise
+                    continue
+                fingerprint = rag_request_trace_fingerprint(trace)
+                if fingerprint in existing:
+                    skipped_duplicates += 1
+                    continue
+                await self.db.insert_rag_request_trace(
+                    request_id=trace["request_id"],
+                    session_id=trace["session_id"],
+                    query_text=trace["query_text"],
+                    query_hash=trace["query_hash"],
+                    input_token_count=trace["input_token_count"],
+                    output_token_count=trace["output_token_count"],
+                    components=deepcopy(trace["components"]),
+                    timings=deepcopy(trace["timings"]),
+                    timeout=trace["timeout"],
+                    error=trace["error"],
+                    captured_at=trace["captured_at"],
+                )
+                existing.add(fingerprint)
+                imported += 1
+        finally:
+            if needs_close:
+                reader.close()
+        return {
+            "total": total,
+            "imported": imported,
+            "skipped_duplicates": skipped_duplicates,
+            "invalid": invalid,
+            "errors": errors,
+        }
 
     async def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)
@@ -478,6 +666,101 @@ class AsyncCorpulse:
                 self.top_k_report,
             ),
         }
+
+    async def workload_report(
+        self,
+        window_days: int | None = None,
+        long_context_threshold: int = 8000,
+    ) -> WorkloadReportPayload:
+        """Return workload analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+            long_context_threshold: Input-token threshold used to flag
+                long-context requests. Defaults to 8000.
+
+        Returns:
+            WorkloadReportPayload with traffic, token, and component summaries.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = await self.get_rag_request_traces(window_days=report_window_days)
+        return _build_workload_report(
+            traces,
+            report_window_days,
+            long_context_threshold=long_context_threshold,
+        )
+
+    async def serving_report(
+        self,
+        window_days: int | None = None,
+    ) -> ServingReportPayload:
+        """Return serving latency analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            ServingReportPayload with latency distributions, error rates,
+            and slow-request contributor summaries.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = await self.get_rag_request_traces(window_days=report_window_days)
+        return _build_serving_report(traces)
+
+    async def session_report(
+        self,
+        window_days: int | None = None,
+    ) -> SessionReportPayload:
+        """Return session analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            SessionReportPayload with session summary, per-session details,
+            and repeated-context reuse rows.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = await self.get_rag_request_traces(window_days=report_window_days)
+        return _build_session_report(traces)
+
+    async def areplay_rag_request_traces(
+        self,
+        handler: AsyncReplayHandler,
+        window_days: int | None = None,
+        time_scale: float | None = None,
+        max_delay_seconds: float | None = None,
+        stop_on_error: bool = False,
+    ) -> ReplayReportPayload:
+        """Replay captured RAG request traces through an async handler.
+
+        Args:
+            handler: Async callable invoked once per captured trace with a
+                ReplayRequest envelope. The return value is ignored and not
+                stored.
+            window_days: Lookback window in days for trace selection.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+            time_scale: Optional timing scale. ``None`` means no sleeping;
+                ``1.0`` replays captured deltas in real time.
+            max_delay_seconds: Optional cap applied to each scheduled delay.
+            stop_on_error: True to stop after the first handler exception and
+                count remaining traces as skipped.
+
+        Returns:
+            ReplayReportPayload with summary counts and per-trace results.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = await self.get_rag_request_traces(window_days=report_window_days)
+        return await async_replay_rag_request_traces(
+            traces,
+            handler,
+            time_scale=time_scale,
+            max_delay_seconds=max_delay_seconds,
+            stop_on_error=stop_on_error,
+        )
 
     async def close(self) -> None:
         """Close the underlying async backend.

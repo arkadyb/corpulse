@@ -50,12 +50,12 @@ def backend(request, tmp_path):
 
         with PostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as storage_backend:
             with storage_backend._pool.connection() as conn:
-                conn.execute("TRUNCATE engagements, generation_traces, retrievals, query_attempts, documents RESTART IDENTITY")
+                conn.execute("TRUNCATE engagements, generation_traces, rag_request_traces, retrievals, query_attempts, documents RESTART IDENTITY")
             try:
                 yield storage_backend
             finally:
                 with storage_backend._pool.connection() as conn:
-                    conn.execute("TRUNCATE engagements, generation_traces, retrievals, query_attempts, documents RESTART IDENTITY")
+                    conn.execute("TRUNCATE engagements, generation_traces, rag_request_traces, retrievals, query_attempts, documents RESTART IDENTITY")
         return
 
     with InMemoryBackend() as storage_backend:
@@ -73,12 +73,12 @@ async def async_backend(request):
         os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]
     )
     async with backend._pool.acquire() as conn:
-        await conn.execute("TRUNCATE engagements, generation_traces, retrievals, query_attempts, documents RESTART IDENTITY")
+        await conn.execute("TRUNCATE engagements, generation_traces, rag_request_traces, retrievals, query_attempts, documents RESTART IDENTITY")
     try:
         yield backend
     finally:
         async with backend._pool.acquire() as conn:
             await conn.execute(
-                "TRUNCATE engagements, generation_traces, retrievals, query_attempts, documents RESTART IDENTITY"
+                "TRUNCATE engagements, generation_traces, rag_request_traces, retrievals, query_attempts, documents RESTART IDENTITY"
             )
         await backend.close()

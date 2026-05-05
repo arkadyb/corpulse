@@ -15,6 +15,9 @@ from ..models import (
     GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceRow,
     RetrievalRow,
 )
 from .postgres import build_schema_sql, _qualified_name, _validate_schema, _validate_table_prefix
@@ -201,6 +204,50 @@ class AsyncPostgresBackend:
             captured_at,
         )
 
+    async def insert_rag_request_trace(
+        self,
+        request_id: str | None,
+        session_id: str | None,
+        query_text: str | None,
+        query_hash: str | None,
+        input_token_count: int | None,
+        output_token_count: int | None,
+        components: list[RagRequestComponent],
+        timings: RagRequestTimings,
+        timeout: bool,
+        error: str | None,
+        captured_at: float,
+    ) -> None:
+        await self._execute(
+            f"""
+            INSERT INTO {self._t("rag_request_traces")} (
+                request_id,
+                session_id,
+                query_text,
+                query_hash,
+                input_token_count,
+                output_token_count,
+                components,
+                timings,
+                timeout,
+                error,
+                captured_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            """,
+            request_id,
+            session_id,
+            query_text,
+            query_hash,
+            input_token_count,
+            output_token_count,
+            json.dumps(components),
+            json.dumps(timings),
+            timeout,
+            error,
+            captured_at,
+        )
+
     async def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         await self._execute(
             f"""
@@ -351,6 +398,47 @@ class AsyncPostgresBackend:
             )
             if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
                 trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
+
+    async def rag_request_traces(self, since: float) -> list[RagRequestTraceRow]:
+        rows = await self._fetch(
+            f"""
+            SELECT id AS trace_id,
+                   request_id,
+                   session_id,
+                   query_text,
+                   query_hash,
+                   input_token_count,
+                   output_token_count,
+                   components,
+                   timings,
+                   timeout,
+                   error,
+                   captured_at
+            FROM {self._t("rag_request_traces")}
+            WHERE captured_at >= $1
+            ORDER BY captured_at, id
+            """,
+            since,
+        )
+        traces: list[RagRequestTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["components"] = (
+                json.loads(trace["components"])
+                if isinstance(trace["components"], str)
+                else list(trace["components"])
+            )
+            trace["timings"] = (
+                json.loads(trace["timings"])
+                if isinstance(trace["timings"], str)
+                else dict(trace["timings"])
+            )
+            if isinstance(trace["timeout"], str):
+                trace["timeout"] = trace["timeout"].lower() in {"t", "true", "1"}
+            else:
+                trace["timeout"] = bool(trace["timeout"])
             traces.append(trace)
         return traces
 

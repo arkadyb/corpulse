@@ -18,6 +18,9 @@ from ..models import (
     EngagementRow,
     GenerationTraceRow,
     QueryRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceRow,
     RetrievalRow,
 )
 
@@ -64,12 +67,30 @@ CREATE TABLE IF NOT EXISTS generation_traces (
     captured_at           REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rag_request_traces (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id         TEXT DEFAULT NULL,
+    session_id         TEXT DEFAULT NULL,
+    query_text         TEXT DEFAULT NULL,
+    query_hash         TEXT DEFAULT NULL,
+    input_token_count  INTEGER DEFAULT NULL,
+    output_token_count INTEGER DEFAULT NULL,
+    components         TEXT NOT NULL,
+    timings            TEXT NOT NULL,
+    timeout            INTEGER NOT NULL,
+    error              TEXT DEFAULT NULL,
+    captured_at        REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc    ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time   ON retrievals(retrieved_at);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc   ON engagements(doc_id);
 CREATE INDEX IF NOT EXISTS idx_generation_traces_time ON generation_traces(captured_at);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_time ON rag_request_traces(captured_at);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_session ON rag_request_traces(session_id);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_query ON rag_request_traces(query_hash);
 """
 
 P = ParamSpec("P")
@@ -205,6 +226,54 @@ class SQLiteBackend(StorageBackend):
                     json.dumps(retrieved_context_refs),
                     final_answer_text,
                     json.dumps(evaluation_labels) if evaluation_labels is not None else None,
+                    captured_at,
+                ),
+            )
+
+    @_translate_sqlite_errors
+    def insert_rag_request_trace(
+        self,
+        request_id: str | None,
+        session_id: str | None,
+        query_text: str | None,
+        query_hash: str | None,
+        input_token_count: int | None,
+        output_token_count: int | None,
+        components: list[RagRequestComponent],
+        timings: RagRequestTimings,
+        timeout: bool,
+        error: str | None,
+        captured_at: float,
+    ) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO rag_request_traces (
+                    request_id,
+                    session_id,
+                    query_text,
+                    query_hash,
+                    input_token_count,
+                    output_token_count,
+                    components,
+                    timings,
+                    timeout,
+                    error,
+                    captured_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    request_id,
+                    session_id,
+                    query_text,
+                    query_hash,
+                    input_token_count,
+                    output_token_count,
+                    json.dumps(components),
+                    json.dumps(timings),
+                    1 if timeout else 0,
+                    error,
                     captured_at,
                 ),
             )
@@ -372,6 +441,47 @@ class SQLiteBackend(StorageBackend):
             )
             if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
                 trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
+
+    @_translate_sqlite_errors
+    def rag_request_traces(self, since: float) -> list[RagRequestTraceRow]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id AS trace_id,
+                       request_id,
+                       session_id,
+                       query_text,
+                       query_hash,
+                       input_token_count,
+                       output_token_count,
+                       components,
+                       timings,
+                       timeout,
+                       error,
+                       captured_at
+                FROM rag_request_traces
+                WHERE captured_at >= ?
+                ORDER BY captured_at, id
+                """,
+                (since,),
+            ).fetchall()
+
+        traces: list[RagRequestTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["components"] = (
+                json.loads(trace["components"])
+                if isinstance(trace["components"], str)
+                else list(trace["components"])
+            )
+            trace["timings"] = (
+                json.loads(trace["timings"])
+                if isinstance(trace["timings"], str)
+                else dict(trace["timings"])
+            )
+            trace["timeout"] = bool(trace["timeout"])
             traces.append(trace)
         return traces
 

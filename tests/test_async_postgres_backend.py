@@ -203,6 +203,7 @@ async def test_async_postgres_backend_initializes_schema(monkeypatch):
     assert any("CREATE TABLE IF NOT EXISTS documents" in sql for sql, _ in fake_module.pool.conn.calls)
     assert any("CREATE TABLE IF NOT EXISTS query_attempts" in sql for sql, _ in fake_module.pool.conn.calls)
     assert any("CREATE TABLE IF NOT EXISTS generation_traces" in sql for sql, _ in fake_module.pool.conn.calls)
+    assert any("CREATE TABLE IF NOT EXISTS rag_request_traces" in sql for sql, _ in fake_module.pool.conn.calls)
     await backend.close()
 
 
@@ -214,6 +215,19 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
     await backend.insert_generation_trace("prompt", [{"doc_id": "d1"}], "answer", ["grounded"], 31.0)
+    await backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        32.0,
+    )
     await backend.update_source_timestamp("d1", 40.0)
     await backend.delete_document("d1")
     await backend.all_documents()
@@ -221,6 +235,7 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     await backend.query_counts(0.0)
     await backend.engagement_event_counts(0.0)
     await backend.generation_traces(0.0)
+    await backend.rag_request_traces(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -229,6 +244,7 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
     assert "INSERT INTO tenant_alpha.generation_traces" in executed_sql
+    assert "INSERT INTO tenant_alpha.rag_request_traces" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = $1" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
@@ -236,6 +252,7 @@ async def test_async_postgres_backend_uses_schema_qualified_names(monkeypatch):
     assert "FROM tenant_alpha.retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_alpha.engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
     assert "FROM tenant_alpha.generation_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_alpha.rag_request_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
     await backend.close()
 
 
@@ -246,10 +263,26 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
     await backend.insert_retrieval("d1", "h", 1, 0.9, 25.0)
     await backend.insert_query_attempt("h", 1, 24.0)
     await backend.insert_engagement("d1", "opened", 30.0)
+    await backend.insert_generation_trace("prompt", [{"doc_id": "d1"}], "answer", ["grounded"], 31.0)
+    await backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        32.0,
+    )
     await backend.all_embeddings()
     await backend.query_attempt_counts(0.0)
     await backend.query_counts(0.0)
     await backend.engagement_event_counts(0.0)
+    await backend.generation_traces(0.0)
+    await backend.rag_request_traces(0.0)
 
     executed_sql = "\n".join(sql for sql, _ in fake_module.pool.conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -257,10 +290,14 @@ async def test_async_postgres_backend_uses_prefixed_names(monkeypatch):
     assert "INSERT INTO tenant_abc_retrievals" in executed_sql
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
+    assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
+    assert "INSERT INTO tenant_abc_rag_request_traces" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "FROM tenant_abc_query_attempts WHERE attempted_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_abc_retrievals WHERE retrieved_at >= $1 GROUP BY query_hash" in executed_sql
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
+    assert "FROM tenant_abc_generation_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_abc_rag_request_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
     await backend.close()
 
 
@@ -371,6 +408,42 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     pool.conn.rows[
         _normalize_sql(
             """
+            SELECT id AS trace_id,
+                   request_id,
+                   session_id,
+                   query_text,
+                   query_hash,
+                   input_token_count,
+                   output_token_count,
+                   components,
+                   timings,
+                   timeout,
+                   error,
+                   captured_at
+            FROM tenant_abc_rag_request_traces
+            WHERE captured_at >= $1
+            ORDER BY captured_at, id
+            """
+        )
+    ] = [
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": '[{"type": "system_prompt", "token_count": 12, "refs": null, "content_hash": "sp-1", "metadata": {"scope": "system"}}]',
+            "timings": '{"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0}',
+            "timeout": False,
+            "error": None,
+            "captured_at": 3.5,
+        }
+    ]
+    pool.conn.rows[
+        _normalize_sql(
+            """
             SELECT doc_id, filename, embedding_vec FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL
             """
         )
@@ -382,6 +455,19 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     await backend.insert_query_attempt("hash", 1, 1.5)
     await backend.insert_engagement("tenant-doc", "opened", 3.0)
     await backend.insert_generation_trace("prompt-1", [{"doc_id": "tenant-doc", "rank": 1}], "answer-1", ["grounded"], 4.0)
+    await backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        3.5,
+    )
     await backend.update_source_timestamp("tenant-doc", 4.0)
     await backend.delete_document("tenant-doc")
 
@@ -426,6 +512,34 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
             "captured_at": 4.0,
         }
     ]
+    assert await backend.rag_request_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": [
+                {
+                    "type": "system_prompt",
+                    "token_count": 12,
+                    "refs": None,
+                    "content_hash": "sp-1",
+                    "metadata": {"scope": "system"},
+                }
+            ],
+            "timings": {
+                "ttft_ms": 210.0,
+                "tpot_ms": 18.0,
+                "retrieval_ms": 42.0,
+            },
+            "timeout": False,
+            "error": None,
+            "captured_at": 3.5,
+        }
+    ]
     assert await backend.all_embeddings() == [
         {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
     ]
@@ -436,6 +550,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
+    assert "INSERT INTO tenant_abc_rag_request_traces" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = $1 WHERE doc_id = $2" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = $1" in executed_sql
     assert "DELETE FROM tenant_abc_engagements WHERE doc_id = $1" in executed_sql
@@ -445,6 +560,7 @@ async def test_async_postgres_backend_prefix_only_mode_rewrites_all_query_paths(
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY doc_id" in executed_sql
     assert "FROM tenant_abc_engagements WHERE engaged_at >= $1 GROUP BY event_type ORDER BY event_type" in executed_sql
     assert "FROM tenant_abc_generation_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_abc_rag_request_traces WHERE captured_at >= $1 ORDER BY captured_at, id" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "tenant_abc.documents" not in executed_sql
     await backend.close()
@@ -498,10 +614,40 @@ async def test_async_postgres_backend_insert_generation_trace(monkeypatch):
         ["grounded"],
         30.0,
     )
+    await backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        31.0,
+    )
 
     assert any(
         "INSERT INTO generation_traces" in sql
         and args == ("prompt", '[{"doc_id": "d1"}]', "answer", '["grounded"]', 30.0)
+        for sql, args in fake_module.pool.conn.calls
+    )
+    assert any(
+        "INSERT INTO rag_request_traces" in sql
+        and args == (
+            "req-1",
+            "session-1",
+            "What is happening?",
+            "hash-1",
+            123,
+            45,
+            '[{"type": "system_prompt", "token_count": 12, "refs": null, "content_hash": "sp-1", "metadata": {"scope": "system"}}]',
+            '{"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0}',
+            False,
+            None,
+            31.0,
+        )
         for sql, args in fake_module.pool.conn.calls
     )
     await backend.close()

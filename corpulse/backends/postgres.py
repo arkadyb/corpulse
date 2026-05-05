@@ -17,6 +17,9 @@ from ..models import (
     GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceRow,
     RetrievalRow,
 )
 from ._dsn import _normalize_postgres_dsn
@@ -68,12 +71,16 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     query_attempts = _qualified_name("query_attempts", schema=schema, prefix=prefix)
     engagements = _qualified_name("engagements", schema=schema, prefix=prefix)
     generation_traces = _qualified_name("generation_traces", schema=schema, prefix=prefix)
+    rag_request_traces = _qualified_name("rag_request_traces", schema=schema, prefix=prefix)
     retrievals_doc_idx = _index_name("idx_retrievals_doc", prefix=prefix)
     retrievals_time_idx = _index_name("idx_retrievals_time", prefix=prefix)
     query_attempts_query_idx = _index_name("idx_query_attempts_query", prefix=prefix)
     query_attempts_time_idx = _index_name("idx_query_attempts_time", prefix=prefix)
     engagements_doc_idx = _index_name("idx_engagements_doc", prefix=prefix)
     generation_traces_time_idx = _index_name("idx_generation_traces_time", prefix=prefix)
+    rag_request_traces_time_idx = _index_name("idx_rag_request_traces_time", prefix=prefix)
+    rag_request_traces_session_idx = _index_name("idx_rag_request_traces_session", prefix=prefix)
+    rag_request_traces_query_idx = _index_name("idx_rag_request_traces_query", prefix=prefix)
 
     tables = [
         f"""CREATE TABLE IF NOT EXISTS {documents} (
@@ -111,6 +118,20 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
     evaluation_labels TEXT DEFAULT NULL,
     captured_at DOUBLE PRECISION NOT NULL
 );""",
+        f"""CREATE TABLE IF NOT EXISTS {rag_request_traces} (
+    id BIGSERIAL PRIMARY KEY,
+    request_id TEXT DEFAULT NULL,
+    session_id TEXT DEFAULT NULL,
+    query_text TEXT DEFAULT NULL,
+    query_hash TEXT DEFAULT NULL,
+    input_token_count INTEGER DEFAULT NULL,
+    output_token_count INTEGER DEFAULT NULL,
+    components TEXT NOT NULL,
+    timings TEXT NOT NULL,
+    timeout BOOLEAN NOT NULL,
+    error TEXT DEFAULT NULL,
+    captured_at DOUBLE PRECISION NOT NULL
+);""",
     ]
     indexes = [
         f"CREATE INDEX IF NOT EXISTS {retrievals_doc_idx} ON {retrievals}(doc_id);",
@@ -119,6 +140,9 @@ def build_schema_sql(schema: str | None = None, prefix: str = "") -> str:
         f"CREATE INDEX IF NOT EXISTS {query_attempts_time_idx} ON {query_attempts}(attempted_at);",
         f"CREATE INDEX IF NOT EXISTS {engagements_doc_idx} ON {engagements}(doc_id);",
         f"CREATE INDEX IF NOT EXISTS {generation_traces_time_idx} ON {generation_traces}(captured_at);",
+        f"CREATE INDEX IF NOT EXISTS {rag_request_traces_time_idx} ON {rag_request_traces}(captured_at);",
+        f"CREATE INDEX IF NOT EXISTS {rag_request_traces_session_idx} ON {rag_request_traces}(session_id);",
+        f"CREATE INDEX IF NOT EXISTS {rag_request_traces_query_idx} ON {rag_request_traces}(query_hash);",
     ]
 
     sql_sections: list[str] = []
@@ -281,6 +305,54 @@ class PostgresBackend(StorageBackend):
                     json.dumps(retrieved_context_refs),
                     final_answer_text,
                     json.dumps(evaluation_labels) if evaluation_labels is not None else None,
+                    captured_at,
+                ),
+            )
+        )
+
+    def insert_rag_request_trace(
+        self,
+        request_id: str | None,
+        session_id: str | None,
+        query_text: str | None,
+        query_hash: str | None,
+        input_token_count: int | None,
+        output_token_count: int | None,
+        components: list[RagRequestComponent],
+        timings: RagRequestTimings,
+        timeout: bool,
+        error: str | None,
+        captured_at: float,
+    ) -> None:
+        self._run(
+            lambda conn: conn.execute(
+                f"""
+                INSERT INTO {self._t("rag_request_traces")} (
+                    request_id,
+                    session_id,
+                    query_text,
+                    query_hash,
+                    input_token_count,
+                    output_token_count,
+                    components,
+                    timings,
+                    timeout,
+                    error,
+                    captured_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    request_id,
+                    session_id,
+                    query_text,
+                    query_hash,
+                    input_token_count,
+                    output_token_count,
+                    json.dumps(components),
+                    json.dumps(timings),
+                    timeout,
+                    error,
                     captured_at,
                 ),
             )
@@ -467,6 +539,52 @@ class PostgresBackend(StorageBackend):
             )
             if trace["evaluation_labels"] is not None and isinstance(trace["evaluation_labels"], str):
                 trace["evaluation_labels"] = json.loads(trace["evaluation_labels"])
+            traces.append(trace)
+        return traces
+
+    def rag_request_traces(self, since: float) -> list[RagRequestTraceRow]:
+        rows = self._run(
+            lambda conn: [
+                dict(row)
+                for row in conn.execute(
+                    f"""
+                    SELECT id AS trace_id,
+                           request_id,
+                           session_id,
+                           query_text,
+                           query_hash,
+                           input_token_count,
+                           output_token_count,
+                           components,
+                           timings,
+                           timeout,
+                           error,
+                           captured_at
+                    FROM {self._t("rag_request_traces")}
+                    WHERE captured_at >= %s
+                    ORDER BY captured_at, id
+                    """,
+                    (since,),
+                ).fetchall()
+            ]
+        )
+        traces: list[RagRequestTraceRow] = []
+        for row in rows:
+            trace = dict(row)
+            trace["components"] = (
+                json.loads(trace["components"])
+                if isinstance(trace["components"], str)
+                else list(trace["components"])
+            )
+            trace["timings"] = (
+                json.loads(trace["timings"])
+                if isinstance(trace["timings"], str)
+                else dict(trace["timings"])
+            )
+            if isinstance(trace["timeout"], str):
+                trace["timeout"] = trace["timeout"].lower() in {"t", "true", "1"}
+            else:
+                trace["timeout"] = bool(trace["timeout"])
             traces.append(trace)
         return traces
 

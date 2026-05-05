@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: — Generic Integration Wrapping
-status: milestone v1.7 archived
-stopped_at: Milestone v1.7 archived; ready for next milestone
-last_updated: "2026-04-22T13:00:00Z"
-last_activity: 2026-04-22 -- Milestone v1.7 archived
+milestone: v1.8
+milestone_name: Workload Observability and Replay Feasibility
+status: completed
+stopped_at: v1.8 milestone archived; ready for next milestone
+last_updated: "2026-05-05T00:29:21.213Z"
+last_activity: 2026-05-05
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 21
+  completed_plans: 21
   percent: 100
 ---
 
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-22)
+See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Milestone v1.7 is archived; next step is defining the next milestone
+**Current focus:** Define next milestone
 
 ## Current Position
 
-Phase: Complete
-Plan: —
+Phase: 32
+Plan: Complete
 Status: Milestone archived
-Last activity: 2026-04-22 -- Milestone v1.7 archived
+Last activity: 2026-05-05
 
 ## Pending Todos
 
@@ -69,6 +69,18 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - Milestone v1.7 started on 2026-04-22; generic integration wrapping is the next target
 - Phase 25 completed on 2026-04-22; shared wrapper engine is now the reusable base for future integrations
 - Phase 26 completed on 2026-04-22; Qdrant migration and extension-surface guidance closed milestone v1.7
+- Milestone v1.8 started on 2026-05-02; workload observability and replay feasibility are the next target areas
+- Phase 27 completed feasibility and Phase 28 delivered the trace capture foundation
+- Phase 29 is the next work item and starts with JSONL import/export on top of the trace foundation
+- Phase 29 context captured on 2026-05-04; JSONL import/export decisions are ready for planning
+- Phase 29 planned on 2026-05-04 with four plans across three waves
+- Phase 29 completed on 2026-05-04; Phase 30 is now the next work item
+- Phase 30 planned on 2026-05-04 with four sequential plans
+- Phase 31 planned on 2026-05-04 with four sequential plans
+- Phase 31 completed on 2026-05-04; Phase 32 replay feasibility is now ready to plan
+- Phase 32 planned on 2026-05-04 with four sequential plans
+- Phase 32 completed on 2026-05-05; v1.8 workload observability and callable replay proof are ready for milestone closeout
+- Milestone v1.8 archived on 2026-05-05; next step is fresh milestone definition
 
 ## Accumulated Context
 
@@ -76,9 +88,11 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - v1.5 scope: two analytics methods over existing stored data — MRR and User Acceptance Rate, still no schema changes
 - v1.6 scope: capture-only foundation for generation-layer evaluation data, no scoring yet
 - v1.7 scope: shared wrapping infrastructure for future DB integrations is complete, with Qdrant now migrated onto the shared engine
+- v1.8 scope: RAGPulse-inspired workload traces, serving metrics, sessions, JSONL export/import, and replay feasibility
 - Trace capture should preserve prompt/query text, retrieved context references, final answer text, and optional labels/judgments
 - Poor-fit generation metrics (Faithfulness, Context Precision, Contradictory Information Density, Answer Relevance / Context Utilization) remain out of scope until trace capture exists
 - Existing retrieval/engagement analytics and corpus-health reporting should remain unchanged while adding the new trace layer
+- Workload trace capture should support privacy-preserving hashes and references without requiring raw prompt, context, or answer retention
 
 ## Decisions
 
@@ -91,6 +105,8 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - [Milestone v1.7]: Generalize wrapper interception through a shared engine, but keep normalization recipes explicit per integration.
 - [Phase 25]: The generic wrapper layer is dependency-agnostic and proves reuse on non-Qdrant clients before first-party migrations sit on top of it.
 - [Phase 26]: Qdrant remains a first-class compatibility wrapper, but the advanced extension path is now the generic `wrap()` / `WrapMethod` API.
+- [Milestone v1.8]: Prioritize workload observability and replay feasibility over a second vector DB adapter because the RAGPulse comparison exposed a larger product gap in request/serving behavior.
+- [Phase 27]: Workload traces will start from an append-only MVP schema unless the feasibility record documents a blocker.
 
 ## Performance Metrics
 
@@ -114,6 +130,6 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 
 ## Session Continuity
 
-Last activity: 2026-04-22 — Archived milestone v1.7 and prepared for the next milestone
-Stopped at: Milestone v1.7 archived; ready for $gsd-new-milestone
-Resume file: .planning/ROADMAP.md
+Last activity: 2026-05-05 — v1.8 milestone archived
+Stopped at: v1.8 milestone archived; ready for next milestone
+Resume file: None

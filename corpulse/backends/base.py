@@ -8,6 +8,9 @@ from ..models import (
     QueryRow as QueryRow,
     RetrievalRow as RetrievalRow,
     GenerationTraceRow as GenerationTraceRow,
+    RagRequestComponent as RagRequestComponent,
+    RagRequestTimings as RagRequestTimings,
+    RagRequestTraceRow as RagRequestTraceRow,
     EngagementRow as EngagementRow,
     EmbeddingRow as EmbeddingRow,
 )
@@ -69,6 +72,23 @@ class StorageBackend(ABC):
         """Record an append-only generation trace."""
 
     @abstractmethod
+    def insert_rag_request_trace(
+        self,
+        request_id: str | None,
+        session_id: str | None,
+        query_text: str | None,
+        query_hash: str | None,
+        input_token_count: int | None,
+        output_token_count: int | None,
+        components: list[RagRequestComponent],
+        timings: RagRequestTimings,
+        timeout: bool,
+        error: str | None,
+        captured_at: float,
+    ) -> None:
+        """Record an append-only RAG request trace."""
+
+    @abstractmethod
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
         """Store the latest known source update time for a document."""
 
@@ -113,6 +133,10 @@ class StorageBackend(ABC):
     @abstractmethod
     def generation_traces(self, since: float) -> list[GenerationTraceRow]:
         """Return append-only generation traces since a timestamp."""
+
+    @abstractmethod
+    def rag_request_traces(self, since: float) -> list[RagRequestTraceRow]:
+        """Return append-only RAG request traces since a timestamp."""
 
     @abstractmethod
     def all_embeddings(self) -> list[EmbeddingRow]:

@@ -16,6 +16,9 @@ from corpulse.backends.base import (
     GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceRow,
     RetrievalRow,
     StorageBackend,
     StorageBackendError,
@@ -38,6 +41,20 @@ def test_storage_backend_contract_is_frozen():
             "evaluation_labels",
             "captured_at",
         ],
+        "insert_rag_request_trace": [
+            "self",
+            "request_id",
+            "session_id",
+            "query_text",
+            "query_hash",
+            "input_token_count",
+            "output_token_count",
+            "components",
+            "timings",
+            "timeout",
+            "error",
+            "captured_at",
+        ],
         "update_source_timestamp": ["self", "doc_id", "updated_at"],
         "delete_document": ["self", "doc_id"],
         "all_documents": ["self"],
@@ -47,6 +64,7 @@ def test_storage_backend_contract_is_frozen():
         "engagement_counts": ["self", "since"],
         "engagement_event_counts": ["self", "since"],
         "generation_traces": ["self", "since"],
+        "rag_request_traces": ["self", "since"],
         "all_embeddings": ["self"],
         "close": ["self"],
     }
@@ -92,6 +110,30 @@ def test_storage_backend_contract_is_frozen():
             "evaluation_labels",
             "captured_at",
         },
+        RagRequestComponent: {"type", "token_count", "refs", "content_hash", "metadata"},
+        RagRequestTimings: {
+            "ttft_ms",
+            "tpot_ms",
+            "retrieval_ms",
+            "rerank_ms",
+            "generation_ms",
+            "queue_ms",
+            "total_latency_ms",
+        },
+        RagRequestTraceRow: {
+            "trace_id",
+            "request_id",
+            "session_id",
+            "query_text",
+            "query_hash",
+            "input_token_count",
+            "output_token_count",
+            "components",
+            "timings",
+            "timeout",
+            "error",
+            "captured_at",
+        },
         EmbeddingRow: {"doc_id", "filename", "embedding_vec"},
     }
     for row_type, keys in expected_keys.items():
@@ -126,6 +168,55 @@ def test_backend_parity(backend):
         None,
         31.0,
     )
+    backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [
+            {
+                "type": "system_prompt",
+                "token_count": 12,
+                "refs": None,
+                "content_hash": "sp-1",
+                "metadata": {"scope": "system"},
+            },
+            {
+                "type": "vector_db",
+                "token_count": 42,
+                "refs": [{"doc_id": "doc-1"}],
+                "content_hash": "vec-1",
+                "metadata": {"top_k": 5},
+            },
+        ],
+        {
+            "ttft_ms": 210.0,
+            "tpot_ms": 18.0,
+            "retrieval_ms": 42.0,
+            "rerank_ms": 8.0,
+            "generation_ms": 124.0,
+            "queue_ms": 7.0,
+            "total_latency_ms": 409.0,
+        },
+        False,
+        None,
+        28.0,
+    )
+    backend.insert_rag_request_trace(
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        [],
+        {},
+        True,
+        "timeout",
+        27.0,
+    )
     backend.update_source_timestamp("doc-1", 40.0)
 
     documents = backend.all_documents()
@@ -135,6 +226,7 @@ def test_backend_parity(backend):
     engagements = backend.engagement_counts(0.0)
     engagement_events = backend.engagement_event_counts(0.0)
     traces = backend.generation_traces(0.0)
+    rag_traces = backend.rag_request_traces(0.0)
     embeddings = backend.all_embeddings()
 
     assert documents == [
@@ -192,6 +284,59 @@ def test_backend_parity(backend):
             "captured_at": 31.0,
         },
     ]
+    assert rag_traces == [
+        {
+            "trace_id": 2,
+            "request_id": None,
+            "session_id": None,
+            "query_text": None,
+            "query_hash": None,
+            "input_token_count": None,
+            "output_token_count": None,
+            "components": [],
+            "timings": {},
+            "timeout": True,
+            "error": "timeout",
+            "captured_at": 27.0,
+        },
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": [
+                {
+                    "type": "system_prompt",
+                    "token_count": 12,
+                    "refs": None,
+                    "content_hash": "sp-1",
+                    "metadata": {"scope": "system"},
+                },
+                {
+                    "type": "vector_db",
+                    "token_count": 42,
+                    "refs": [{"doc_id": "doc-1"}],
+                    "content_hash": "vec-1",
+                    "metadata": {"top_k": 5},
+                },
+            ],
+            "timings": {
+                "ttft_ms": 210.0,
+                "tpot_ms": 18.0,
+                "retrieval_ms": 42.0,
+                "rerank_ms": 8.0,
+                "generation_ms": 124.0,
+                "queue_ms": 7.0,
+                "total_latency_ms": 409.0,
+            },
+            "timeout": False,
+            "error": None,
+            "captured_at": 28.0,
+        },
+    ]
     assert embeddings == [
         {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
     ]
@@ -227,6 +372,59 @@ def test_backend_parity(backend):
             "final_answer_text": "answer-2",
             "evaluation_labels": None,
             "captured_at": 31.0,
+        },
+    ]
+    assert backend.rag_request_traces(0.0) == [
+        {
+            "trace_id": 2,
+            "request_id": None,
+            "session_id": None,
+            "query_text": None,
+            "query_hash": None,
+            "input_token_count": None,
+            "output_token_count": None,
+            "components": [],
+            "timings": {},
+            "timeout": True,
+            "error": "timeout",
+            "captured_at": 27.0,
+        },
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": [
+                {
+                    "type": "system_prompt",
+                    "token_count": 12,
+                    "refs": None,
+                    "content_hash": "sp-1",
+                    "metadata": {"scope": "system"},
+                },
+                {
+                    "type": "vector_db",
+                    "token_count": 42,
+                    "refs": [{"doc_id": "doc-1"}],
+                    "content_hash": "vec-1",
+                    "metadata": {"top_k": 5},
+                },
+            ],
+            "timings": {
+                "ttft_ms": 210.0,
+                "tpot_ms": 18.0,
+                "retrieval_ms": 42.0,
+                "rerank_ms": 8.0,
+                "generation_ms": 124.0,
+                "queue_ms": 7.0,
+                "total_latency_ms": 409.0,
+            },
+            "timeout": False,
+            "error": None,
+            "captured_at": 28.0,
         },
     ]
     assert backend.all_embeddings() == []

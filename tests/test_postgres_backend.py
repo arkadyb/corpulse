@@ -58,12 +58,30 @@ CREATE TABLE IF NOT EXISTS generation_traces (
     captured_at DOUBLE PRECISION NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rag_request_traces (
+    id BIGSERIAL PRIMARY KEY,
+    request_id TEXT DEFAULT NULL,
+    session_id TEXT DEFAULT NULL,
+    query_text TEXT DEFAULT NULL,
+    query_hash TEXT DEFAULT NULL,
+    input_token_count INTEGER DEFAULT NULL,
+    output_token_count INTEGER DEFAULT NULL,
+    components TEXT NOT NULL,
+    timings TEXT NOT NULL,
+    timeout BOOLEAN NOT NULL,
+    error TEXT DEFAULT NULL,
+    captured_at DOUBLE PRECISION NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_retrievals_doc ON retrievals(doc_id);
 CREATE INDEX IF NOT EXISTS idx_retrievals_time ON retrievals(retrieved_at);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_hash);
 CREATE INDEX IF NOT EXISTS idx_query_attempts_time ON query_attempts(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_engagements_doc ON engagements(doc_id);
 CREATE INDEX IF NOT EXISTS idx_generation_traces_time ON generation_traces(captured_at);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_time ON rag_request_traces(captured_at);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_session ON rag_request_traces(session_id);
+CREATE INDEX IF NOT EXISTS idx_rag_request_traces_query ON rag_request_traces(query_hash);
 """
 
 
@@ -525,6 +543,19 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.insert_generation_trace("prompt", [{"doc_id": "doc-1"}], "answer", ["grounded"], 4.0)
+    backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        3.5,
+    )
     backend.update_source_timestamp("doc-1", 4.0)
     backend.delete_document("doc-1")
     backend.all_documents()
@@ -532,6 +563,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     backend.query_counts(0.0)
     backend.engagement_event_counts(0.0)
     backend.generation_traces(0.0)
+    backend.rag_request_traces(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE SCHEMA IF NOT EXISTS tenant_alpha" in executed_sql
@@ -540,6 +572,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "INSERT INTO tenant_alpha.query_attempts" in executed_sql
     assert "INSERT INTO tenant_alpha.engagements" in executed_sql
     assert "INSERT INTO tenant_alpha.generation_traces" in executed_sql
+    assert "INSERT INTO tenant_alpha.rag_request_traces" in executed_sql
     assert "UPDATE tenant_alpha.documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_alpha.retrievals WHERE doc_id = %s" in executed_sql
     assert "SELECT * FROM tenant_alpha.documents" in executed_sql
@@ -549,6 +582,7 @@ def test_postgres_backend_uses_schema_qualified_names_for_queries(monkeypatch):
     assert "FROM tenant_alpha.engagements" in executed_sql
     assert "GROUP BY event_type" in executed_sql
     assert "FROM tenant_alpha.generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_alpha.rag_request_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
 
 
 def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
@@ -560,11 +594,25 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("doc-1", "opened", 3.0)
     backend.insert_generation_trace("prompt", [{"doc_id": "doc-1"}], "answer", ["grounded"], 4.0)
+    backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        3.5,
+    )
     backend.all_embeddings()
     backend.query_attempt_counts(0.0)
     backend.query_counts(0.0)
     backend.engagement_event_counts(0.0)
     backend.generation_traces(0.0)
+    backend.rag_request_traces(0.0)
 
     executed_sql = "\n".join(sql for conn in pool.connections for sql, _ in conn.calls)
     assert "CREATE TABLE IF NOT EXISTS tenant_abc_documents" in executed_sql
@@ -573,11 +621,13 @@ def test_postgres_backend_uses_prefixed_names_for_queries(monkeypatch):
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
+    assert "INSERT INTO tenant_abc_rag_request_traces" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "FROM tenant_abc_query_attempts" in executed_sql
     assert "FROM tenant_abc_retrievals" in executed_sql
     assert "FROM tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_abc_rag_request_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
     assert "GROUP BY event_type" in executed_sql
 
 
@@ -592,10 +642,41 @@ def test_postgres_backend_insert_generation_trace_serializes_json(monkeypatch):
         ["grounded"],
         31.0,
     )
+    backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        32.0,
+    )
 
     assert any(
         "INSERT INTO generation_traces" in sql
         and args == ("prompt", '[{"doc_id": "doc-1", "rank": 1}]', "answer", '["grounded"]', 31.0)
+        for conn in pool.connections
+        for sql, args in conn.calls
+    )
+    assert any(
+        "INSERT INTO rag_request_traces" in sql
+        and args == (
+            "req-1",
+            "session-1",
+            "What is happening?",
+            "hash-1",
+            123,
+            45,
+            '[{"type": "system_prompt", "token_count": 12, "refs": null, "content_hash": "sp-1", "metadata": {"scope": "system"}}]',
+            '{"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0}',
+            False,
+            None,
+            32.0,
+        )
         for conn in pool.connections
         for sql, args in conn.calls
     )
@@ -610,6 +691,19 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     backend.insert_query_attempt("hash", 1, 1.5)
     backend.insert_engagement("tenant-doc", "opened", 3.0)
     backend.insert_generation_trace("prompt", [{"doc_id": "tenant-doc"}], "answer", ["grounded"], 4.0)
+    backend.insert_rag_request_trace(
+        "req-1",
+        "session-1",
+        "What is happening?",
+        "hash-1",
+        123,
+        45,
+        [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+        {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+        False,
+        None,
+        3.5,
+    )
     backend.update_source_timestamp("tenant-doc", 4.0)
     backend.delete_document("tenant-doc")
 
@@ -718,6 +812,43 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
             "captured_at": 4.0,
         }
     ]
+    rag_traces_conn = FakeConnection()
+    rag_traces_conn.rows[
+        _normalize_sql(
+            """
+            SELECT id AS trace_id,
+                   request_id,
+                   session_id,
+                   query_text,
+                   query_hash,
+                   input_token_count,
+                   output_token_count,
+                   components,
+                   timings,
+                   timeout,
+                   error,
+                   captured_at
+            FROM tenant_abc_rag_request_traces
+            WHERE captured_at >= %s
+            ORDER BY captured_at, id
+            """
+        )
+    ] = [
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": '[{"type": "system_prompt", "token_count": 12, "refs": null, "content_hash": "sp-1", "metadata": {"scope": "system"}}]',
+            "timings": '{"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0}',
+            "timeout": False,
+            "error": None,
+            "captured_at": 3.5,
+        }
+    ]
     embeddings_conn = FakeConnection()
     embeddings_conn.rows[
         _normalize_sql(
@@ -734,6 +865,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     pool.queue_connection(querys_conn)
     pool.queue_connection(engagements_conn)
     pool.queue_connection(traces_conn)
+    pool.queue_connection(rag_traces_conn)
     pool.queue_connection(embeddings_conn)
 
     assert backend.all_documents() == [{"doc_id": "tenant-doc", "filename": "tenant.md"}]
@@ -774,6 +906,34 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
             "captured_at": 4.0,
         }
     ]
+    assert backend.rag_request_traces(0.0) == [
+        {
+            "trace_id": 1,
+            "request_id": "req-1",
+            "session_id": "session-1",
+            "query_text": "What is happening?",
+            "query_hash": "hash-1",
+            "input_token_count": 123,
+            "output_token_count": 45,
+            "components": [
+                {
+                    "type": "system_prompt",
+                    "token_count": 12,
+                    "refs": None,
+                    "content_hash": "sp-1",
+                    "metadata": {"scope": "system"},
+                }
+            ],
+            "timings": {
+                "ttft_ms": 210.0,
+                "tpot_ms": 18.0,
+                "retrieval_ms": 42.0,
+            },
+            "timeout": False,
+            "error": None,
+            "captured_at": 3.5,
+        }
+    ]
     assert backend.all_embeddings() == [
         {"doc_id": "tenant-doc", "filename": "tenant.md", "embedding_vec": b"vec"}
     ]
@@ -784,6 +944,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert "INSERT INTO tenant_abc_query_attempts" in executed_sql
     assert "INSERT INTO tenant_abc_engagements" in executed_sql
     assert "INSERT INTO tenant_abc_generation_traces" in executed_sql
+    assert "INSERT INTO tenant_abc_rag_request_traces" in executed_sql
     assert "UPDATE tenant_abc_documents SET source_updated_at = %s WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_abc_retrievals WHERE doc_id = %s" in executed_sql
     assert "DELETE FROM tenant_abc_engagements WHERE doc_id = %s" in executed_sql
@@ -792,6 +953,7 @@ def test_postgres_backend_prefix_only_mode_rewrites_all_query_paths(monkeypatch)
     assert "FROM tenant_abc_retrievals" in executed_sql
     assert "FROM tenant_abc_engagements" in executed_sql
     assert "FROM tenant_abc_generation_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
+    assert "FROM tenant_abc_rag_request_traces WHERE captured_at >= %s ORDER BY captured_at, id" in executed_sql
     assert "FROM tenant_abc_documents WHERE embedding_vec IS NOT NULL" in executed_sql
     assert "GROUP BY query_hash" in executed_sql
     assert "tenant_abc.documents" not in executed_sql
@@ -835,12 +997,25 @@ def test_live_postgres_backend_round_trip():
 
     with LivePostgresBackend(os.environ["CORPULSE_POSTGRES_TEST_CONNINFO"]) as backend:
         with backend._pool.connection() as conn:
-            conn.execute("TRUNCATE engagements, retrievals, query_attempts, documents RESTART IDENTITY")
+            conn.execute("TRUNCATE engagements, generation_traces, rag_request_traces, retrievals, query_attempts, documents RESTART IDENTITY")
 
         backend.upsert_document("doc-1", "doc-1.md", embedding=b"vec", embedded_at=12.5)
         backend.insert_retrieval("doc-1", "hash", 1, 0.9, 25.0)
         backend.insert_query_attempt("hash", 1, 24.0)
         backend.insert_engagement("doc-1", "opened", 30.0)
+        backend.insert_rag_request_trace(
+            "req-1",
+            "session-1",
+            "What is happening?",
+            "hash-1",
+            123,
+            45,
+            [{"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": {"scope": "system"}}],
+            {"ttft_ms": 210.0, "tpot_ms": 18.0, "retrieval_ms": 42.0},
+            False,
+            None,
+            31.0,
+        )
         backend.update_source_timestamp("doc-1", 40.0)
 
         assert backend.all_documents() == [
@@ -879,6 +1054,34 @@ def test_live_postgres_backend_round_trip():
             }
         ]
         assert backend.engagement_counts(0.0) == [{"doc_id": "doc-1", "cnt": 1}]
+        assert backend.rag_request_traces(0.0) == [
+            {
+                "trace_id": 1,
+                "request_id": "req-1",
+                "session_id": "session-1",
+                "query_text": "What is happening?",
+                "query_hash": "hash-1",
+                "input_token_count": 123,
+                "output_token_count": 45,
+                "components": [
+                    {
+                        "type": "system_prompt",
+                        "token_count": 12,
+                        "refs": None,
+                        "content_hash": "sp-1",
+                        "metadata": {"scope": "system"},
+                    }
+                ],
+                "timings": {
+                    "ttft_ms": 210.0,
+                    "tpot_ms": 18.0,
+                    "retrieval_ms": 42.0,
+                },
+                "timeout": False,
+                "error": None,
+                "captured_at": 31.0,
+            }
+        ]
         assert backend.all_embeddings() == [
             {"doc_id": "doc-1", "filename": "doc-1.md", "embedding_vec": b"vec"}
         ]

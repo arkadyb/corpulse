@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from .base import (
     StorageBackend,
 )
@@ -11,6 +13,9 @@ from ..models import (
     GenerationTraceRow,
     QueryAttemptRow,
     QueryRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceRow,
     RetrievalRow,
 )
 
@@ -22,6 +27,7 @@ class InMemoryBackend(StorageBackend):
         self._query_attempts: list[dict[str, int | float | str]] = []
         self._engagements: list[dict[str, str | float]] = []
         self._generation_traces: list[dict[str, object]] = []
+        self._rag_request_traces: list[dict[str, object]] = []
         self._closed = False
 
     def upsert_document(
@@ -107,6 +113,39 @@ class InMemoryBackend(StorageBackend):
                 "evaluation_labels": None if evaluation_labels is None else list(evaluation_labels),
                 "captured_at": captured_at,
             }
+        )
+
+    def insert_rag_request_trace(
+        self,
+        request_id: str | None,
+        session_id: str | None,
+        query_text: str | None,
+        query_hash: str | None,
+        input_token_count: int | None,
+        output_token_count: int | None,
+        components: list[RagRequestComponent],
+        timings: RagRequestTimings,
+        timeout: bool,
+        error: str | None,
+        captured_at: float,
+    ) -> None:
+        self._rag_request_traces.append(
+            deepcopy(
+                {
+                    "trace_id": len(self._rag_request_traces) + 1,
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "query_text": query_text,
+                    "query_hash": query_hash,
+                    "input_token_count": input_token_count,
+                    "output_token_count": output_token_count,
+                    "components": components,
+                    "timings": timings,
+                    "timeout": timeout,
+                    "error": error,
+                    "captured_at": captured_at,
+                }
+            )
         )
 
     def update_source_timestamp(self, doc_id: str, updated_at: float) -> None:
@@ -337,6 +376,17 @@ class InMemoryBackend(StorageBackend):
         traces = [
             trace.copy()
             for trace in self._generation_traces
+            if float(trace["captured_at"]) >= since
+        ]
+        return sorted(
+            traces,
+            key=lambda trace: (float(trace["captured_at"]), int(trace["trace_id"])),
+        )
+
+    def rag_request_traces(self, since: float) -> list[RagRequestTraceRow]:
+        traces = [
+            deepcopy(trace)
+            for trace in self._rag_request_traces
             if float(trace["captured_at"]) >= since
         ]
         return sorted(

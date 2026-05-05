@@ -5,11 +5,15 @@ Core public API — track, analyse, and report on your RAG corpus health.
 
 from __future__ import annotations
 
+from copy import deepcopy
 import hashlib
+import json
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, List, Set, Dict
+from pathlib import Path
+from math import ceil
+from typing import Any, Iterable, List, Set, Dict
 
 import numpy as np
 
@@ -20,8 +24,30 @@ from .models import (
     CorpusHealth, DocumentRow, RetrievalRow, EngagementRow, EngagementEventRow, QueryRow,
     QueryAttemptRow,
     GenerationTraceRow,
+    RagRequestComponent,
+    RagRequestTimings,
+    RagRequestTraceImportResult,
+    RagRequestTraceRow,
+    TokenDistribution,
+    WorkloadComponentSummary,
+    WorkloadReportPayload,
+    WorkloadTokenSummary,
+    WorkloadTrafficSummary,
+    ContextReuseItem,
+    LatencyDistribution,
+    ServingReportPayload,
+    ServingSlowContributor,
+    SessionReportPayload,
+    ReplayReportPayload,
     LowConfidenceQueryRow, ZeroResultQueryRow,
     EmbeddingRow
+)
+from .replay import ReplayHandler, replay_rag_request_traces
+from .workload_io import (
+    existing_rag_request_trace_fingerprints,
+    parse_rag_request_trace_jsonl_line,
+    rag_request_trace_fingerprint,
+    serialize_rag_request_trace_jsonl,
 )
 
 try:
@@ -425,6 +451,439 @@ def _build_query_rate(
     return round(len(filtered_rows) / len(query_rows), 2)
 
 
+def _nearest_rank_percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, ceil((percentile / 100.0) * len(ordered)))
+    return float(ordered[rank - 1])
+
+
+def _build_token_distribution(values: Iterable[int | float]) -> TokenDistribution:
+    ordered = [float(value) for value in values if value is not None]
+    count = len(ordered)
+    if count == 0:
+        return {
+            "count": 0,
+            "total": 0,
+            "avg": 0.0,
+            "p50": None,
+            "p95": None,
+            "max": None,
+        }
+
+    total = int(sum(ordered))
+    return {
+        "count": count,
+        "total": total,
+        "avg": round(total / count, 2),
+        "p50": _nearest_rank_percentile(ordered, 50.0),
+        "p95": _nearest_rank_percentile(ordered, 95.0),
+        "max": float(max(ordered)),
+    }
+
+
+def _build_latency_distribution(values: Iterable[int | float]) -> LatencyDistribution:
+    ordered = [float(value) for value in values if value is not None]
+    count = len(ordered)
+    if count == 0:
+        return {
+            "count": 0,
+            "avg_ms": 0.0,
+            "p50_ms": None,
+            "p95_ms": None,
+            "max_ms": None,
+        }
+
+    return {
+        "count": count,
+        "avg_ms": round(sum(ordered) / count, 2),
+        "p50_ms": _nearest_rank_percentile(ordered, 50.0),
+        "p95_ms": _nearest_rank_percentile(ordered, 95.0),
+        "max_ms": float(max(ordered)),
+    }
+
+
+_CANONICAL_COMPONENT_TYPES = (
+    "system_prompt",
+    "vector_db",
+    "chat_history",
+    "web_search",
+    "user_input",
+    "file_attachment",
+    "tool_result",
+    "other",
+)
+
+_COMPONENT_ALIASES = {
+    "vector_db_context": "vector_db",
+    "vector-db": "vector_db",
+    "vector db": "vector_db",
+    "file_attachments": "file_attachment",
+    "tool_results": "tool_result",
+    "system": "system_prompt",
+}
+
+_SERVING_STAGE_FIELDS = (
+    "retrieval_ms",
+    "rerank_ms",
+    "generation_ms",
+    "queue_ms",
+)
+
+_SESSION_REUSE_COMPONENT_TYPES = {
+    "vector_db",
+    "web_search",
+    "file_attachment",
+    "tool_result",
+    "other",
+}
+
+
+def _normalize_component_type(component_type: str | None) -> str:
+    if component_type is None:
+        return "other"
+    normalized = component_type.strip().lower().replace(" ", "_").replace("-", "_")
+    normalized = _COMPONENT_ALIASES.get(normalized, normalized)
+    return normalized if normalized in _CANONICAL_COMPONENT_TYPES else "other"
+
+
+def _build_workload_report(
+    traces: Iterable[RagRequestTraceRow],
+    window_days: int,
+    long_context_threshold: int = 8000,
+) -> WorkloadReportPayload:
+    trace_rows = list(traces)
+    request_count = len(trace_rows)
+    captured_at_values = sorted(float(trace["captured_at"]) for trace in trace_rows)
+    first_captured_at = captured_at_values[0] if captured_at_values else None
+    last_captured_at = captured_at_values[-1] if captured_at_values else None
+    if request_count == 0:
+        requests_per_hour = 0.0
+        peak_requests_per_minute = 0
+    else:
+        span_hours = 1.0
+        if first_captured_at is not None and last_captured_at is not None:
+            span_hours = max((last_captured_at - first_captured_at) / 3600.0, 1.0)
+        requests_per_hour = round(request_count / span_hours, 2)
+        minute_buckets: Dict[int, int] = {}
+        for captured_at in captured_at_values:
+            bucket = int(captured_at // 60)
+            minute_buckets[bucket] = minute_buckets.get(bucket, 0) + 1
+        peak_requests_per_minute = max(minute_buckets.values(), default=0)
+
+    input_token_values = [
+        int(trace["input_token_count"])
+        for trace in trace_rows
+        if trace["input_token_count"] is not None
+    ]
+    output_token_values = [
+        int(trace["output_token_count"])
+        for trace in trace_rows
+        if trace["output_token_count"] is not None
+    ]
+    long_context_count = sum(
+        1
+        for trace in trace_rows
+        if trace["input_token_count"] is not None
+        and int(trace["input_token_count"]) >= long_context_threshold
+    )
+    long_context_rate = round(long_context_count / request_count, 2) if request_count else 0.0
+
+    component_stats: Dict[str, Dict[str, float | int]] = {
+        component_type: {"request_count": 0, "token_count": 0}
+        for component_type in _CANONICAL_COMPONENT_TYPES
+    }
+    for trace in trace_rows:
+        seen_types: set[str] = set()
+        for component in trace["components"]:
+            component_type = _normalize_component_type(component.get("type"))
+            token_count = int(component["token_count"]) if component["token_count"] is not None else 0
+            component_stats[component_type]["token_count"] += token_count
+            if component_type not in seen_types:
+                component_stats[component_type]["request_count"] += 1
+                seen_types.add(component_type)
+
+    total_component_tokens = sum(int(stats["token_count"]) for stats in component_stats.values())
+    components: list[WorkloadComponentSummary] = []
+    for component_type in _CANONICAL_COMPONENT_TYPES:
+        stats = component_stats[component_type]
+        component_request_count = int(stats["request_count"])
+        component_token_count = int(stats["token_count"])
+        components.append({
+            "component_type": component_type,
+            "request_count": component_request_count,
+            "token_count": component_token_count,
+            "request_share": round(component_request_count / request_count, 4) if request_count else 0.0,
+            "token_share": round(component_token_count / total_component_tokens, 4) if total_component_tokens else 0.0,
+        })
+
+    return {
+        "traffic": {
+            "request_count": request_count,
+            "window_days": window_days,
+            "first_captured_at": first_captured_at,
+            "last_captured_at": last_captured_at,
+            "requests_per_hour": requests_per_hour,
+            "peak_requests_per_minute": peak_requests_per_minute,
+        },
+        "tokens": {
+            "input_tokens": _build_token_distribution(input_token_values),
+            "output_tokens": _build_token_distribution(output_token_values),
+            "long_context_threshold": long_context_threshold,
+            "long_context_count": long_context_count,
+            "long_context_rate": long_context_rate,
+        },
+        "components": components,
+    }
+
+
+def _build_serving_report(traces: Iterable[RagRequestTraceRow]) -> ServingReportPayload:
+    trace_rows = list(traces)
+    request_count = len(trace_rows)
+    timeout_count = sum(1 for trace in trace_rows if bool(trace["timeout"]))
+    error_count = sum(1 for trace in trace_rows if trace["error"] is not None)
+
+    ttft_values = [trace["timings"].get("ttft_ms") for trace in trace_rows if trace["timings"].get("ttft_ms") is not None]
+    tpot_values = [trace["timings"].get("tpot_ms") for trace in trace_rows if trace["timings"].get("tpot_ms") is not None]
+    total_latency_values = [
+        trace["timings"].get("total_latency_ms")
+        for trace in trace_rows
+        if trace["timings"].get("total_latency_ms") is not None
+    ]
+
+    stage_latencies: dict[str, LatencyDistribution] = {}
+    stage_values_by_name: dict[str, list[float]] = {stage: [] for stage in _SERVING_STAGE_FIELDS}
+    slow_totals: dict[str, dict[str, float | int]] = {
+        stage: {"count": 0, "total_ms": 0.0}
+        for stage in _SERVING_STAGE_FIELDS
+    }
+    for trace in trace_rows:
+        stage_candidates: list[tuple[str, float]] = []
+        timings = trace["timings"]
+        for stage in _SERVING_STAGE_FIELDS:
+            value = timings.get(stage)
+            if value is None:
+                continue
+            numeric = float(value)
+            stage_values_by_name[stage].append(numeric)
+            stage_candidates.append((stage, numeric))
+        if stage_candidates:
+            chosen_stage, chosen_value = sorted(stage_candidates, key=lambda item: (-item[1], item[0]))[0]
+            slow_totals[chosen_stage]["count"] += 1
+            slow_totals[chosen_stage]["total_ms"] += chosen_value
+
+    for stage in _SERVING_STAGE_FIELDS:
+        stage_latencies[stage] = _build_latency_distribution(stage_values_by_name[stage])
+
+    slow_request_contributors: list[ServingSlowContributor] = []
+    for stage in _SERVING_STAGE_FIELDS:
+        count = int(slow_totals[stage]["count"])
+        if count == 0:
+            continue
+        slow_request_contributors.append({
+            "stage": stage,
+            "count": count,
+            "avg_ms": round(float(slow_totals[stage]["total_ms"]) / count, 2),
+        })
+    slow_request_contributors.sort(
+        key=lambda row: (-row["count"], -row["avg_ms"], row["stage"])
+    )
+
+    return {
+        "request_count": request_count,
+        "timeout_count": timeout_count,
+        "timeout_rate": round(timeout_count / request_count, 2) if request_count else 0.0,
+        "error_count": error_count,
+        "error_rate": round(error_count / request_count, 2) if request_count else 0.0,
+        "ttft_ms": _build_latency_distribution(ttft_values),
+        "tpot_ms": _build_latency_distribution(tpot_values),
+        "total_latency_ms": _build_latency_distribution(total_latency_values),
+        "stage_latencies": stage_latencies,
+        "slow_request_contributors": slow_request_contributors,
+    }
+
+
+def _normalized_session_id(session_id: str | None) -> str | None:
+    if session_id is None:
+        return None
+    normalized = session_id.strip()
+    return normalized or None
+
+
+def _ordered_session_traces(
+    traces: list[RagRequestTraceRow],
+) -> list[RagRequestTraceRow]:
+    return sorted(traces, key=lambda trace: (float(trace["captured_at"]), int(trace["trace_id"])))
+
+
+def _first_last_growth(values: Iterable[int | None]) -> tuple[int | None, int | None, int | None]:
+    endpoints = [int(value) for value in values if value is not None]
+    if not endpoints:
+        return None, None, None
+
+    first = endpoints[0]
+    last = endpoints[-1]
+    return first, last, last - first
+
+
+def _chat_history_token_count(trace: RagRequestTraceRow) -> int | None:
+    total = 0
+    found = False
+    for component in trace.get("components", []):
+        if _normalize_component_type(component.get("type")) != "chat_history":
+            continue
+        token_count = component.get("token_count")
+        if token_count is None:
+            continue
+        total += int(token_count)
+        found = True
+    return total if found else None
+
+
+def _build_session_detail(
+    session_id: str,
+    traces: list[RagRequestTraceRow],
+) -> dict[str, Any]:
+    ordered_traces = _ordered_session_traces(traces)
+    first_trace = ordered_traces[0]
+    last_trace = ordered_traces[-1]
+    first_captured_at = float(first_trace["captured_at"])
+    last_captured_at = float(last_trace["captured_at"])
+    duration_seconds = round(last_captured_at - first_captured_at, 2)
+
+    input_tokens_first, input_tokens_last, input_token_growth = _first_last_growth(
+        trace.get("input_token_count") for trace in ordered_traces
+    )
+    chat_tokens_first, chat_tokens_last, chat_token_growth = _first_last_growth(
+        _chat_history_token_count(trace) for trace in ordered_traces
+    )
+
+    return {
+        "session_id": session_id,
+        "request_count": len(ordered_traces),
+        "first_captured_at": first_captured_at,
+        "last_captured_at": last_captured_at,
+        "duration_seconds": duration_seconds,
+        "input_tokens_first": input_tokens_first,
+        "input_tokens_last": input_tokens_last,
+        "input_token_growth": input_token_growth,
+        "chat_history_tokens_first": chat_tokens_first,
+        "chat_history_tokens_last": chat_tokens_last,
+        "chat_history_token_growth": chat_token_growth,
+    }
+
+
+def _session_reuse_keys(component: RagRequestComponent) -> list[str]:
+    component_type = _normalize_component_type(component.get("type"))
+    if component_type not in _SESSION_REUSE_COMPONENT_TYPES:
+        return []
+
+    refs = component.get("refs")
+    if isinstance(refs, list) and refs:
+        return [
+            json.dumps(ref, sort_keys=True, separators=(",", ":"))
+            for ref in refs
+        ]
+
+    content_hash = component.get("content_hash")
+    if content_hash is not None:
+        return [str(content_hash)]
+
+    return []
+
+
+def _build_context_reuse_rows(
+    session_groups: dict[str, list[RagRequestTraceRow]],
+) -> list[ContextReuseItem]:
+    context_reuse: list[ContextReuseItem] = []
+    for session_id, traces in session_groups.items():
+        ordered_traces = _ordered_session_traces(traces)
+        session_request_count = len(ordered_traces)
+        reuse_stats: dict[tuple[str, str], dict[str, float | int]] = {}
+
+        for trace in ordered_traces:
+            request_keys: set[tuple[str, str]] = set()
+            for component in trace.get("components", []):
+                component_type = _normalize_component_type(component.get("type"))
+                for reuse_key in _session_reuse_keys(component):
+                    request_keys.add((component_type, reuse_key))
+
+            for reuse_id in request_keys:
+                if reuse_id not in reuse_stats:
+                    reuse_stats[reuse_id] = {
+                        "first_seen_at": float(trace["captured_at"]),
+                        "request_count": 0,
+                    }
+                reuse_stats[reuse_id]["request_count"] = int(reuse_stats[reuse_id]["request_count"]) + 1
+
+        for (component_type, reuse_key), stats in reuse_stats.items():
+            request_count = int(stats["request_count"])
+            if request_count < 2:
+                continue
+            context_reuse.append({
+                "session_id": session_id,
+                "component_type": component_type,
+                "reuse_key": reuse_key,
+                "first_seen_at": float(stats["first_seen_at"]),
+                "request_count": request_count,
+                "reuse_count": request_count - 1,
+                "request_share": round(request_count / session_request_count, 4),
+            })
+
+    return sorted(
+        context_reuse,
+        key=lambda row: (row["session_id"], row["component_type"], row["reuse_key"]),
+    )
+
+
+def _build_session_report(traces: Iterable[RagRequestTraceRow]) -> SessionReportPayload:
+    trace_rows = list(traces)
+    session_groups: dict[str, list[RagRequestTraceRow]] = {}
+    unsessioned_request_count = 0
+
+    for trace in trace_rows:
+        session_id = _normalized_session_id(trace.get("session_id"))
+        if session_id is None:
+            unsessioned_request_count += 1
+            continue
+        session_groups.setdefault(session_id, []).append(trace)
+
+    for session_id, session_traces in list(session_groups.items()):
+        session_groups[session_id] = _ordered_session_traces(session_traces)
+
+    sessions = [
+        _build_session_detail(session_id, session_traces)
+        for session_id, session_traces in sorted(
+            session_groups.items(),
+            key=lambda item: (float(item[1][0]["captured_at"]), item[0]),
+        )
+    ]
+
+    session_count = len(sessions)
+    turn_counts = [session["request_count"] for session in sessions]
+    durations = [session["duration_seconds"] for session in sessions]
+    single_turn_session_count = sum(1 for count in turn_counts if count == 1)
+    multi_turn_session_count = sum(1 for count in turn_counts if count > 1)
+
+    return {
+        "summary": {
+            "request_count": len(trace_rows),
+            "session_count": session_count,
+            "unsessioned_request_count": unsessioned_request_count,
+            "single_turn_session_count": single_turn_session_count,
+            "multi_turn_session_count": multi_turn_session_count,
+            "avg_turns_per_session": round(sum(turn_counts) / session_count, 2) if session_count else 0.0,
+            "max_turns_per_session": max(turn_counts, default=0),
+            "follow_up_rate": round(multi_turn_session_count / session_count, 2) if session_count else 0.0,
+            "avg_session_duration_seconds": round(sum(durations) / session_count, 2) if session_count else 0.0,
+            "max_session_duration_seconds": max(durations, default=0.0),
+        },
+        "sessions": sessions,
+        "context_reuse": _build_context_reuse_rows(session_groups),
+    }
+
+
 def _build_corpus_health(
     all_docs: List[DocumentRow],
     ghosts: List[GhostItem],
@@ -631,6 +1090,48 @@ class Corpulse:
             captured_at=_now(),
         )
 
+    def log_rag_request(
+        self,
+        session_id: str | None = None,
+        query: str | None = None,
+        request_id: str | None = None,
+        components: list[RagRequestComponent] | None = None,
+        input_token_count: int | None = None,
+        output_token_count: int | None = None,
+        timings: RagRequestTimings | None = None,
+        timeout: bool = False,
+        error: str | None = None,
+    ) -> None:
+        """
+        Record an append-only RAG request trace for observability and replay.
+
+        Args:
+            session_id: Optional session or conversation identifier.
+            query: Optional raw query text. When provided, corpulse stores
+                a stable hash alongside the trace.
+            request_id: Optional caller-provided request identifier.
+            components: Structured request components such as system prompt,
+                vector DB context, chat history, web search, or user input.
+            input_token_count: Optional total input token count.
+            output_token_count: Optional total output token count.
+            timings: Optional stage timing payload in milliseconds.
+            timeout: True when the request timed out.
+            error: Optional error string or code.
+        """
+        self.db.insert_rag_request_trace(
+            request_id=request_id,
+            session_id=session_id,
+            query_text=query,
+            query_hash=_hash_query(query) if query is not None else None,
+            input_token_count=input_token_count,
+            output_token_count=output_token_count,
+            components=deepcopy(components) if components is not None else [],
+            timings=deepcopy(timings) if timings is not None else {},
+            timeout=timeout,
+            error=error,
+            captured_at=_now(),
+        )
+
     def log_source_update(
         self,
         doc_id: str,
@@ -805,6 +1306,133 @@ class Corpulse:
         """
         since = _days_ago(window_days or self.ghost_threshold_days)
         return self.db.generation_traces(since=since)
+
+    def get_rag_request_traces(self, window_days: int | None = None) -> list[RagRequestTraceRow]:
+        """
+        Return append-only RAG request traces from the lookback window.
+
+        Args:
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+        """
+        since = _days_ago(window_days or self.ghost_threshold_days)
+        return self.db.rag_request_traces(since=since)
+
+    def export_rag_request_traces_jsonl(
+        self,
+        destination,
+        *,
+        window_days: int | None = None,
+        include_raw_text: bool = False,
+        include_component_metadata: bool = False,
+    ) -> int:
+        """
+        Export append-only RAG request traces as JSONL.
+
+        Args:
+            destination: Path or text stream to receive one JSON object per line.
+            window_days: Lookback window in days. Defaults to
+                ``ghost_threshold_days`` if ``None``.
+            include_raw_text: True to include raw query text in exported rows.
+            include_component_metadata: True to include component metadata.
+
+        Returns:
+            Number of traces written.
+        """
+        traces = self.get_rag_request_traces(window_days=window_days)
+        needs_close = False
+        if hasattr(destination, "write"):
+            writer = destination
+        else:
+            writer = Path(destination).open("w", encoding="utf-8")
+            needs_close = True
+        try:
+            for trace in traces:
+                writer.write(
+                    serialize_rag_request_trace_jsonl(
+                        trace,
+                        include_raw_text=include_raw_text,
+                        include_component_metadata=include_component_metadata,
+                    )
+                    + "\n"
+                )
+        finally:
+            if needs_close:
+                writer.close()
+        return len(traces)
+
+    def import_rag_request_traces_jsonl(
+        self,
+        source,
+        *,
+        strict: bool = True,
+    ) -> RagRequestTraceImportResult:
+        """
+        Import RAG request traces from JSONL into the active backend.
+
+        Args:
+            source: Path or text stream providing one JSON object per line.
+            strict: True to fail fast on invalid records. False to continue and
+                accumulate errors in the returned result.
+
+        Returns:
+            Structured import counts and error messages.
+        """
+        needs_close = False
+        if hasattr(source, "read"):
+            reader = source
+        else:
+            reader = Path(source).open("r", encoding="utf-8")
+            needs_close = True
+        total = imported = skipped_duplicates = invalid = 0
+        errors: list[str] = []
+        existing = existing_rag_request_trace_fingerprints(self.get_rag_request_traces(window_days=None))
+        try:
+            for line_number, line in enumerate(reader, start=1):
+                if not line.strip():
+                    continue
+                total += 1
+                try:
+                    trace = parse_rag_request_trace_jsonl_line(
+                        line,
+                        line_number=line_number,
+                        strict=strict,
+                    )
+                except ValueError as exc:
+                    invalid += 1
+                    message = str(exc)
+                    errors.append(message)
+                    if strict:
+                        raise
+                    continue
+                if rag_request_trace_fingerprint(trace) in existing:
+                    skipped_duplicates += 1
+                    continue
+                self.db.insert_rag_request_trace(
+                    request_id=trace["request_id"],
+                    session_id=trace["session_id"],
+                    query_text=trace["query_text"],
+                    query_hash=trace["query_hash"],
+                    input_token_count=trace["input_token_count"],
+                    output_token_count=trace["output_token_count"],
+                    components=deepcopy(trace["components"]),
+                    timings=deepcopy(trace["timings"]),
+                    timeout=trace["timeout"],
+                    error=trace["error"],
+                    captured_at=trace["captured_at"],
+                )
+                existing.add(rag_request_trace_fingerprint(trace))
+                imported += 1
+        finally:
+            if needs_close:
+                reader.close()
+        return {
+            "total": total,
+            "imported": imported,
+            "skipped_duplicates": skipped_duplicates,
+            "invalid": invalid,
+            "errors": errors,
+        }
 
     def _query_rows(self, window_days: int | None = None) -> List[QueryRow]:
         since = _days_ago(window_days or self.ghost_threshold_days)
@@ -1050,3 +1678,98 @@ class Corpulse:
               f"⚠ duplicates: {summary['duplicates']}  "
               f"🕓 stale: {summary['stale']}")
         print(f"  Run corpulse.cleanup_report() for a prioritised action list.\n")
+
+    def workload_report(
+        self,
+        window_days: int | None = None,
+        long_context_threshold: int = 8000,
+    ) -> WorkloadReportPayload:
+        """Return workload analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+            long_context_threshold: Input-token threshold used to flag
+                long-context requests. Defaults to 8000.
+
+        Returns:
+            WorkloadReportPayload with traffic, token, and component summaries.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = self.get_rag_request_traces(window_days=report_window_days)
+        return _build_workload_report(
+            traces,
+            report_window_days,
+            long_context_threshold=long_context_threshold,
+        )
+
+    def serving_report(
+        self,
+        window_days: int | None = None,
+    ) -> ServingReportPayload:
+        """Return serving latency analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            ServingReportPayload with latency distributions, error rates,
+            and slow-request contributor summaries.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = self.get_rag_request_traces(window_days=report_window_days)
+        return _build_serving_report(traces)
+
+    def session_report(
+        self,
+        window_days: int | None = None,
+    ) -> SessionReportPayload:
+        """Return session analytics for captured RAG request traces.
+
+        Args:
+            window_days: Lookback window in days for trace aggregation.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+
+        Returns:
+            SessionReportPayload with session summary, per-session details,
+            and repeated-context reuse rows.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = self.get_rag_request_traces(window_days=report_window_days)
+        return _build_session_report(traces)
+
+    def replay_rag_request_traces(
+        self,
+        handler: ReplayHandler,
+        window_days: int | None = None,
+        time_scale: float | None = None,
+        max_delay_seconds: float | None = None,
+        stop_on_error: bool = False,
+    ) -> ReplayReportPayload:
+        """Replay captured RAG request traces through a caller-supplied handler.
+
+        Args:
+            handler: Callable invoked once per captured trace with a
+                ReplayRequest envelope. The return value is ignored and not
+                stored.
+            window_days: Lookback window in days for trace selection.
+                Defaults to ``ghost_threshold_days`` if ``None``.
+            time_scale: Optional timing scale. ``None`` means no sleeping;
+                ``1.0`` replays captured deltas in real time.
+            max_delay_seconds: Optional cap applied to each scheduled delay.
+            stop_on_error: True to stop after the first handler exception and
+                count remaining traces as skipped.
+
+        Returns:
+            ReplayReportPayload with summary counts and per-trace results.
+        """
+        report_window_days = window_days or self.ghost_threshold_days
+        traces = self.get_rag_request_traces(window_days=report_window_days)
+        return replay_rag_request_traces(
+            traces,
+            handler,
+            time_scale=time_scale,
+            max_delay_seconds=max_delay_seconds,
+            stop_on_error=stop_on_error,
+        )

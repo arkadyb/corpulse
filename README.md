@@ -188,6 +188,121 @@ asyncio.run(main())
 
 `AsyncCorpulse.report()` and `AsyncCorpulse.cleanup_report()` return dictionaries with structured payloads, so you can log them, send them over HTTP, or render them in your own UI without parsing stdout.
 
+## Workload Trace Capture
+
+corpulse can capture append-only RAG request traces for observability and later replay work. Raw query and component content are optional; you can store hashes and references instead.
+
+```python
+from corpulse import Corpulse, AsyncCorpulse
+
+corp = Corpulse()
+corp.log_rag_request(
+    session_id="session-123",
+    query="What is the answer?",
+    request_id="req-123",
+    components=[
+        {"type": "system_prompt", "token_count": 12, "refs": None, "content_hash": "sp-1", "metadata": None},
+        {"type": "vector_db", "token_count": 42, "refs": [{"doc_id": "abc123"}], "content_hash": "vec-1", "metadata": {"top_k": 5}},
+        {"type": "chat_history", "token_count": 18, "refs": [{"turn": 3}], "content_hash": None, "metadata": {"window": 4}},
+        {"type": "user_input", "token_count": 9, "refs": None, "content_hash": "ui-1", "metadata": None},
+    ],
+    timings={"ttft_ms": 210, "tpot_ms": 18, "retrieval_ms": 42},
+)
+
+async def log_async(async_corp: AsyncCorpulse) -> None:
+    await async_corp.alog_rag_request(
+        session_id="session-123",
+        query=None,
+        request_id="req-124",
+        components=[{"type": "other", "token_count": None, "refs": None, "content_hash": "fallback", "metadata": {"mode": "hash-only"}}],
+        timings={"queue_ms": 7, "total_latency_ms": 409},
+        timeout=False,
+    )
+```
+
+### Workload Trace JSONL Import/Export
+
+The JSONL schema version is `corpulse.rag_request_trace.v1`. Export is privacy-first by default: raw query text and component metadata are omitted unless you opt in.
+
+```python
+from corpulse import Corpulse, AsyncCorpulse
+
+corp = Corpulse()
+corp.export_rag_request_traces_jsonl("traces.jsonl")
+corp.import_rag_request_traces_jsonl("traces.jsonl")
+
+async def round_trip(async_corp: AsyncCorpulse) -> None:
+    await async_corp.aexport_rag_request_traces_jsonl("traces.jsonl")
+    await async_corp.aimport_rag_request_traces_jsonl("traces.jsonl")
+```
+
+Default export keeps the trace portable without raw content:
+
+```json
+{"captured_at":1710000000.0,"components":[{"content_hash":"vec-1","metadata":null,"refs":[{"doc_id":"abc123"}],"token_count":42,"type":"vector_db"}],"error":null,"input_token_count":42,"output_token_count":9,"query_hash":"abc123","query_text":null,"request_id":"req-123","schema_version":"corpulse.rag_request_trace.v1","session_id":"session-123","timeout":false,"timings":{"retrieval_ms":42.0,"ttft_ms":210.0}}
+```
+
+Use `include_raw_text=True` and `include_component_metadata=True` only when you explicitly want to export the raw trace payload.
+
+Import is append-oriented and skips duplicate trace fingerprints by default, so re-importing the same JSONL file does not create duplicate analytics rows.
+
+### Callable Replay
+
+Replay uses captured or JSONL-imported workload traces and invokes your supplied callable once per trace. corpulse sorts traces by capture time, builds a replay request envelope, records success or failure, and does not store the callable return value.
+
+```python
+from corpulse import Corpulse
+
+corp = Corpulse()
+
+def replay_handler(request):
+    print(request["request_id"], request["query_hash"])
+
+replay = corp.replay_rag_request_traces(
+    replay_handler,
+    window_days=30,
+    time_scale=None,
+)
+print(replay["summary"])
+```
+
+```python
+async def async_replay_handler(request):
+    print(request["request_id"], request["query_hash"])
+
+replay = await async_corp.areplay_rag_request_traces(async_replay_handler)
+```
+
+`time_scale=None` means no sleeping. `time_scale=1.0` replays captured deltas in real time, and larger values replay faster. You can cap each scheduled delay with `max_delay_seconds`.
+
+Core corpulse does not ship an OpenAI SDK, HTTP client, or benchmark exporter for replay. Users needing OpenAI-compatible endpoint replay should implement the supplied callable with their own raw prompt/message reconstruction, endpoint client, and result retention policy.
+
+## Workload and Serving Reports
+
+Use `workload_report()` to summarize request volume, throughput, burst windows, token pressure, and component composition. Use `serving_report()` to inspect TTFT, TPOT, total latency, stage latencies, percentiles, timeout rate, error rate, and slow-request contributors. Use `session_report()` to inspect conversation-level behavior across captured or JSONL-imported traces.
+
+```python
+from corpulse import Corpulse
+
+corp = Corpulse()
+
+workload = corp.workload_report(window_days=30)
+print(workload["traffic"])
+print(workload["tokens"])
+print(workload["components"])
+
+serving = corp.serving_report(window_days=30)
+print(serving["ttft_ms"])
+print(serving["slow_request_contributors"])
+
+session = corp.session_report(window_days=30)
+print(session["summary"])
+print(session["sessions"])
+print(session["context_reuse"])
+```
+
+These reports read the same captured or JSONL-imported traces exposed by `get_rag_request_traces()`. Session `summary` covers request count, turns per session, duration, follow-up rate, and history growth; `sessions` contains per-session timing and token growth details. `context_reuse` surfaces repeated refs or content hashes within the same session, without semantic matching, cache recommendations, LLM-as-judge, or online inference dependencies.
+
 ## Generation trace capture
 
 corpulse also supports append-only trace capture for future generation metrics. Use it to store the prompt or query text, the retrieved context references you fed into generation, the final answer text, and optional evaluation labels.

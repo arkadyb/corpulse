@@ -8,6 +8,17 @@ A Python library that tracks and analyzes RAG corpus health for RAG teams. It de
 
 RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
 
+## Completed Milestone: v1.8 Workload Observability and Replay Feasibility
+
+**Goal:** Research and, where feasible, implement a first-class workload observability layer that extends corpulse from corpus health into RAG request traces, serving diagnostics, session analytics, and replay-ready exports.
+
+**Target features:**
+- Feasibility research for RAG workload trace schema, storage implications, and replay boundaries
+- Structured `log_rag_request()` / `alog_rag_request()` APIs with sessions, prompt components, token counts, timings, errors, and content hashes
+- JSONL import/export for privacy-preserving workload traces
+- Workload, latency, and session reports that summarize traffic shape and serving behavior
+- Dependency-free callable replay proof on top of captured/imported traces; endpoint adapters and benchmark export remain future work
+
 ## Requirements
 
 ### Validated
@@ -50,12 +61,18 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Generic sync/async wrapper engine for retrieval client integrations — v1.7
 - ✓ Qdrant wrappers migrated onto the shared engine with no API regression — v1.7
 - ✓ Public extension surface and docs for thin future integration adapters — v1.7
+- ✓ Workload trace feasibility and append-only schema direction — Phase 27
+- ✓ First-class sync/async RAG request trace capture — Phase 28
+- ✓ Privacy-preserving workload trace JSONL import/export — Phase 29
+- ✓ Workload and serving reports over captured/imported traces — Phase 30
+- ✓ Session analytics and repeated-context reuse signals — Phase 31
+- ✓ Replay feasibility and dependency-free callable replay proof — Phase 32
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- None yet — define the next milestone
+- [ ] Define the next milestone with fresh requirements and roadmap.
 
 ### Out of Scope
 
@@ -77,11 +94,15 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 corpulse completed milestone `v1.7`, adding a shared generic wrapping engine and migrating the Qdrant compatibility wrappers onto that architecture. The library now supports a documented advanced adapter path for future integrations while preserving lazy optional dependency behavior and Qdrant compatibility.
 
+The shipped `v1.8` milestone was seeded by `.planning/research/RAGPULSE-COMPARISON-FEATURES.md`, which found that RAGPulse is most useful as a workload trace and replay reference rather than as a corpus-health competitor. corpulse kept its corpus-health core while adding an optional workload/serving layer for request composition, traffic shape, latency, sessions, and replayable exports.
+
+Phase 27 completed the feasibility decision record and locked the MVP direction on an append-only request-trace schema. Phases 28-31 delivered trace capture, JSONL import/export, workload and serving reports, and session analytics with repeated-context reuse signals. Phase 32 validated that callable replay is feasible and delivered dependency-free sync/async replay helpers. v1.8 shipped on 2026-05-05. It did not add a built-in OpenAI endpoint client; richer benchmark export and endpoint adapters remain future work.
+
 ## Next Milestone Goals
 
-- Ship a second first-party integration on top of the shared wrapper engine, most likely Chroma or Pinecone
-- Keep import-safety and compatibility guarantees intact while proving the adapter pattern on another client shape
-- Reassess whether a registry or plugin mechanism is warranted only after a second adapter reveals repeatable needs
+- Start the next milestone with fresh requirements instead of extending v1.8 in place.
+- Keep future replay optional and dependency-light; avoid turning corpulse into a full evaluation framework or dashboard.
+- Consider future endpoint adapters and benchmark export only after the callable replay proof has real adopter feedback.
 
 <details>
 <summary>Archived v1.7 milestone framing</summary>
@@ -138,6 +159,7 @@ Close the remaining gap between `AsyncCorpulse` and sync `Corpulse` so the async
 - Long-term vision: multiple integration layers (wrappers, framework plugins, standalone audit)
 - Library will be consumed by a separate service repo that exposes REST APIs
 - Spike 001 established the key boundary for future wrapper work: interception can be generic, but response normalization still needs explicit per-client recipes
+- RAGPulse comparison on 2026-05-02 suggests workload observability and replay are the highest-leverage expansion areas: sessionized request traces, prompt component breakdown, serving latency metrics, traffic shape analytics, benchmark export, and cacheability/reuse signals
 
 <details>
 <summary>Archived v1.1 milestone framing</summary>
@@ -190,6 +212,8 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Typed async payload work must preserve current method semantics | README and tests already define dict payloads for `report()` and `cleanup_report()`; model layers should mirror rather than replace that contract | Shipped in Phase 19 |
 | Generic wrapping should replace proxy boilerplate, not backend-specific normalization | The spike proved interception is reusable, but result-shape extraction still varies across clients and must stay explicit | Shipped in v1.7 |
 | Qdrant remains first-class while the generic API serves advanced adapter authors | Keeps the common path simple for existing users while making future integrations cheaper to build | Shipped in v1.7 |
+| Workload observability is the v1.8 priority over a second vector DB adapter | RAGPulse comparison showed the bigger product gap is production request behavior, not another retrieval-client wrapper | Shipped through Phase 31 |
+| Callable replay over built-in endpoint replay | Current traces do not guarantee canonical messages, raw component content, tool payloads, streamed chunks, or response bodies; user callables can bridge private endpoint-specific payloads without new core dependencies | Shipped in Phase 32 |
 
 ## Evolution
 
@@ -209,4 +233,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after v1.7 milestone*
+*Last updated: 2026-05-05 after Phase 32 execution*
