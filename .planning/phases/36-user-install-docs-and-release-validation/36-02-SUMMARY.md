@@ -76,3 +76,7 @@ None within the requested scope. The shared `.planning/STATE.md` and `.planning/
 - The release checklist now states the exact validation commands required for VAL-01 and VAL-02.
 - The repo is ready for the broader release-validation step that exercises build and install artifacts if the orchestrator schedules it.
 
+## Self-Check: PASSED
+
+- `.planning/phases/36-user-install-docs-and-release-validation/36-02-SUMMARY.md` exists.
+- Commits `9fd7c23`, `51bddcf`, and `1cac15e` exist in git history.
