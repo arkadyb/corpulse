@@ -19,6 +19,12 @@ def test_version_is_string():
     assert corpulse.__version__ == "0.1.0"
 
 
+def test_version_remains_single_sourced():
+    """PKG-01: Runtime version remains available while Hatch reads it dynamically."""
+    import corpulse
+    assert corpulse.__version__ == "0.1.0"
+
+
 def test_import_without_qdrant(monkeypatch):
     """PKG-04: import corpulse must succeed without qdrant-client installed."""
     # Poison qdrant_client in sys.modules to simulate it being absent
