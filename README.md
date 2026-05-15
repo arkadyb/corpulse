@@ -35,6 +35,8 @@ pip install "git+https://github.com/arkadyb/corpulse.git"
 
 Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
 
+Maintainers should use [.github/RELEASE_CHECKLIST.md](.github/RELEASE_CHECKLIST.md) for the first-release flow.
+
 ---
 
 ## Quickstart: Manual API

@@ -157,6 +157,7 @@ def test_readme_uses_pypi_install_commands():
     assert "pip install corpulse" in readme_content
     assert 'pip install "corpulse[qdrant]"' in readme_content
     assert 'pip install "git+https://github.com/arkadyb/corpulse.git"' in readme_content
+    assert ".github/RELEASE_CHECKLIST.md" in readme_content
     assert "not yet on PyPI" not in readme_content
     assert "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git" not in readme_content
     assert 'readme = "README.md"' in pyproject_content
