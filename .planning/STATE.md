@@ -4,13 +4,13 @@ milestone: v1.9
 milestone_name: PyPI Distribution and Release Readiness
 status: executing
 last_updated: "2026-05-15T07:45:00.000Z"
-last_activity: 2026-05-15 -- Phase 34 plan 34-01 complete
+last_activity: 2026-05-15 -- Phase 34 plan 34-02 complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-05-15)
 ## Current Position
 
 Phase: 34
-Plan: 34-01
-Status: Plan 34-01 complete
-Last activity: 2026-05-15 -- Phase 34 plan 34-01 complete
+Plan: 34-02
+Status: Plan 34-02 complete
+Last activity: 2026-05-15 -- Phase 34 plan 34-02 complete
 
 ## Pending Todos
 
@@ -89,6 +89,7 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - Phase 33 completed on 2026-05-15; Phase 34 is next
 - Phase 34 planned on 2026-05-15 with three sequential plans across base install isolation, optional extras install matrix, and actionable missing-extra guidance
 - Phase 34 plan 34-01 completed on 2026-05-15; base wheel install isolation is now verified
+- Phase 34 plan 34-02 completed on 2026-05-15; optional extras install matrix is now verified
 
 ## Accumulated Context
 
