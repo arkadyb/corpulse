@@ -62,3 +62,37 @@ def test_distribution_install_tests_are_gated():
     content = (_repo_root() / "tests" / "test_distribution_installs.py").read_text()
     assert "CORPULSE_RUN_INSTALL_TESTS=1" in content
     assert "pytest.mark.skipif" in content
+
+
+def test_base_wheel_install_imports_without_optional_dependencies(tmp_path):
+    wheel = _latest_wheel()
+    venv_dir = _create_venv(tmp_path)
+    py = _python(venv_dir)
+
+    _install_wheel(py, wheel)
+
+    snippet = textwrap.dedent(
+        """
+        import importlib.util
+
+        import corpulse
+        from corpulse import Corpulse
+
+        assert corpulse.__version__ == "0.1.0"
+        assert callable(Corpulse)
+
+        for name in [
+            "qdrant_client",
+            "psycopg",
+            "asyncpg",
+            "fastapi",
+            "pandas",
+            "tabulate",
+        ]:
+            assert importlib.util.find_spec(name) is None, (
+                f"{name} should not be installed by the base extra-free wheel"
+            )
+        """
+    )
+
+    _run(py, ["-c", snippet])

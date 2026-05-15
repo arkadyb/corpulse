@@ -108,6 +108,14 @@ def test_pypi_metadata_declared():
     assert 'Issues = "https://github.com/arkadyb/corpulse/issues"' in content
 
 
+def test_distribution_install_tests_are_gated():
+    """Phase 34 install tests are opt-in through CORPULSE_RUN_INSTALL_TESTS."""
+    install_tests = pathlib.Path(__file__).resolve().parent / "test_distribution_installs.py"
+    content = install_tests.read_text()
+    assert "CORPULSE_RUN_INSTALL_TESTS=1" in content
+    assert "pytest.mark.skipif" in content
+
+
 def test_readme_uses_pypi_install_commands():
     """DOC-01: README points users at PyPI-first install commands."""
     repo_root = pathlib.Path(__file__).resolve().parent.parent
