@@ -52,6 +52,14 @@ path = "corpulse/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["corpulse"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/corpulse",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "-q", "--import-mode=importlib"]
