@@ -116,6 +116,16 @@ def test_distribution_install_tests_are_gated():
     assert "pytest.mark.skipif" in content
 
 
+def test_optional_extras_declared_for_install_matrix():
+    """EXTRA-01/04: pyproject declares every optional extra in the install matrix."""
+    pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
+    content = pyproject.read_text()
+    assert 'qdrant = ["qdrant-client>=1.7"]' in content
+    assert 'postgres = ["psycopg[pool]>=3.2"]' in content
+    assert 'postgres-async = ["asyncpg>=0.29"]' in content
+    assert 'fastapi = ["fastapi>=0.110.0", "pydantic>=2.0.0"]' in content
+
+
 def test_readme_uses_pypi_install_commands():
     """DOC-01: README points users at PyPI-first install commands."""
     repo_root = pathlib.Path(__file__).resolve().parent.parent

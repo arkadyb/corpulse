@@ -96,3 +96,53 @@ def test_base_wheel_install_imports_without_optional_dependencies(tmp_path):
     )
 
     _run(py, ["-c", snippet])
+
+
+@pytest.mark.parametrize(
+    ("extra", "module_names"),
+    [
+        ("qdrant", ["qdrant_client"]),
+        ("postgres", ["psycopg"]),
+        ("postgres-async", ["asyncpg"]),
+        ("fastapi", ["fastapi", "pydantic"]),
+    ],
+)
+def test_optional_extra_installs_from_wheel(tmp_path, extra, module_names):
+    wheel = _latest_wheel()
+    venv_dir = _create_venv(tmp_path)
+    py = _python(venv_dir)
+
+    _install_wheel(py, wheel, extra=extra)
+
+    module_list = ", ".join(repr(name) for name in module_names)
+    snippet = textwrap.dedent(
+        f"""
+        import importlib
+
+        for name in [{module_list}]:
+            importlib.import_module(name)
+        """
+    )
+
+    _run(py, ["-c", snippet])
+
+
+def test_qdrant_extra_exposes_wrapper_surface_from_wheel(tmp_path):
+    wheel = _latest_wheel()
+    venv_dir = _create_venv(tmp_path)
+    py = _python(venv_dir)
+
+    _install_wheel(py, wheel, extra="qdrant")
+
+    snippet = textwrap.dedent(
+        """
+        import qdrant_client
+        from corpulse import AsyncQdrantCorpulseClient, QdrantCorpulseClient
+
+        assert QdrantCorpulseClient.__name__ == "QdrantCorpulseClient"
+        assert AsyncQdrantCorpulseClient.__name__ == "AsyncQdrantCorpulseClient"
+        assert qdrant_client.__name__ == "qdrant_client"
+        """
+    )
+
+    _run(py, ["-c", snippet])
