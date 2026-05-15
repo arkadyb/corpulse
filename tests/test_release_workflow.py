@@ -108,7 +108,8 @@ def test_release_checklist_covers_first_release_flow():
     assert "TestPyPI publish" in content
     assert "TestPyPI validation" in content
     assert "Production PyPI publish" in content
-    assert "Post-publish smoke checks" in content
+    assert "Post-publish PyPI validation for VAL-01" in content
+    assert "Post-publish PyPI validation for VAL-02" in content
     assert "workflow_dispatch" in content
     assert "python -m build" in content
     assert "git tag v" in content
@@ -137,3 +138,29 @@ def test_release_checklist_uses_trusted_publishing_not_tokens():
         "publish with a PyPI token",
     ]:
         assert marker not in content
+
+
+def test_release_checklist_documents_published_base_smoke_check():
+    content = _release_checklist_text()
+
+    assert "Post-publish PyPI validation for VAL-01" in content
+    assert "python -m venv /tmp/corpulse-pypi-smoke" in content
+    assert "/tmp/corpulse-pypi-smoke/bin/python -m pip install --upgrade pip" in content
+    assert "/tmp/corpulse-pypi-smoke/bin/python -m pip install corpulse" in content
+    assert "import corpulse" in content
+    assert "from corpulse import Corpulse" in content
+    assert "assert callable(Corpulse)" in content
+
+
+def test_release_checklist_documents_published_qdrant_smoke_check():
+    content = _release_checklist_text()
+
+    assert "Post-publish PyPI validation for VAL-02" in content
+    assert "python -m venv /tmp/corpulse-qdrant-smoke" in content
+    assert "/tmp/corpulse-qdrant-smoke/bin/python -m pip install --upgrade pip" in content
+    assert '/tmp/corpulse-qdrant-smoke/bin/python -m pip install "corpulse[qdrant]"' in content
+    assert "import qdrant_client" in content
+    assert "from corpulse import AsyncQdrantCorpulseClient, QdrantCorpulseClient" in content
+    assert 'assert QdrantCorpulseClient.__name__ == "QdrantCorpulseClient"' in content
+    assert 'assert AsyncQdrantCorpulseClient.__name__ == "AsyncQdrantCorpulseClient"' in content
+    assert 'assert qdrant_client.__name__ == "qdrant_client"' in content
