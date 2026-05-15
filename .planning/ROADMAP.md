@@ -17,7 +17,7 @@
 
 - Latest shipped milestone: `v1.8 — Workload Observability and Replay Feasibility`
 - Active milestone: `v1.9 — PyPI Distribution and Release Readiness`
-- Next workflow step: `$gsd-execute-phase 33`
+- Next workflow step: `$gsd-execute-phase 34`
 
 ## Phases
 
@@ -74,7 +74,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | --- | --- | --- | --- | --- |
-| 33. Package Metadata and Build Readiness | v1.9 | 2/3 | In Progress | 2026-05-15 |
+| 33. Package Metadata and Build Readiness | v1.9 | 3/3 | Complete | 2026-05-15 |
 | 34. Optional Extras Install Verification | v1.9 | 0/0 | Not Started | — |
 | 35. Trusted Publishing Release Automation | v1.9 | 0/0 | Not Started | — |
 | 36. User Install Docs and Release Validation | v1.9 | 0/0 | Not Started | — |
