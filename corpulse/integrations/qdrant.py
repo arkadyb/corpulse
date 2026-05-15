@@ -10,6 +10,7 @@ Lazy import: qdrant_client is NOT imported at module level so that
 """
 from __future__ import annotations
 
+import inspect
 import re
 import uuid
 from collections.abc import Sequence

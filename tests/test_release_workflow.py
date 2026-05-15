@@ -31,6 +31,7 @@ def test_release_workflow_builds_and_uploads_artifacts():
     assert "workflow_dispatch:" in content
     assert "tags:" in content
     assert '"v*"' in content
+    assert 'python -m pip install ".[dev,qdrant,fastapi]" build' in content
     assert "python -m pytest" in content
     assert "python -m build" in content
     assert "actions/upload-artifact@v4" in content
