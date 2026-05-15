@@ -43,7 +43,7 @@ def test_postgres_extra_declared():
     """INT-02: Optional [postgres] extra declares psycopg."""
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
     content = pyproject.read_text()
-    assert 'postgres = ["psycopg[pool]>=3.2"]' in content, "Missing psycopg pool postgres extra"
+    assert 'postgres = ["psycopg[binary,pool]>=3.2"]' in content, "Missing binary-safe postgres extra"
 
 
 def test_postgres_async_extra_declared():
@@ -121,7 +121,7 @@ def test_optional_extras_declared_for_install_matrix():
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
     content = pyproject.read_text()
     assert 'qdrant = ["qdrant-client>=1.7"]' in content
-    assert 'postgres = ["psycopg[pool]>=3.2"]' in content
+    assert 'postgres = ["psycopg[binary,pool]>=3.2"]' in content
     assert 'postgres-async = ["asyncpg>=0.29"]' in content
     assert 'fastapi = ["fastapi>=0.110.0", "pydantic>=2.0.0"]' in content
 
