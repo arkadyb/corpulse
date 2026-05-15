@@ -1,5 +1,9 @@
 """Smoke tests for package structure and metadata (PKG-02, PKG-03, PKG-05)."""
+import tarfile
 import pathlib
+import zipfile
+
+import pytest
 
 
 def test_package_structure():
@@ -58,6 +62,18 @@ def test_hatchling_packages_explicit():
     assert 'packages = ["corpulse"]' in content, "Missing explicit hatchling packages declaration"
 
 
+def test_sdist_include_configuration():
+    """PKG-03: sdist includes the package, README, license, and pyproject."""
+    pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
+    content = pyproject.read_text()
+    assert "[tool.hatch.build.targets.sdist]" in content, "Missing sdist target configuration"
+    assert 'include = [' in content, "Missing sdist include list"
+    assert '"/corpulse"' in content, "Missing corpulse sdist include"
+    assert '"/README.md"' in content, "Missing README sdist include"
+    assert '"/LICENSE"' in content, "Missing LICENSE sdist include"
+    assert '"/pyproject.toml"' in content, "Missing pyproject sdist include"
+
+
 def test_dynamic_version_configured():
     """PKG-01: Version is sourced dynamically from corpulse/__init__.py."""
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
@@ -90,3 +106,35 @@ def test_pypi_metadata_declared():
     assert 'Repository = "https://github.com/arkadyb/corpulse"' in content
     assert 'Source = "https://github.com/arkadyb/corpulse"' in content
     assert 'Issues = "https://github.com/arkadyb/corpulse/issues"' in content
+
+
+def test_built_artifacts_include_expected_files():
+    """PKG-03: built artifacts contain the expected release files."""
+    dist_dir = pathlib.Path(__file__).resolve().parent.parent / "dist"
+    sdists = list(dist_dir.glob("*.tar.gz"))
+    wheels = list(dist_dir.glob("*.whl"))
+
+    if not sdists and not wheels:
+        pytest.skip("No built artifacts found")
+
+    if sdists:
+        newest_sdist = max(sdists, key=lambda path: path.stat().st_mtime)
+        with tarfile.open(newest_sdist, "r:gz") as archive:
+            names = archive.getnames()
+        assert any(name.endswith("pyproject.toml") for name in names), "sdist missing pyproject.toml"
+        assert any(name.endswith("README.md") for name in names), "sdist missing README.md"
+        assert any(name.endswith("LICENSE") for name in names), "sdist missing LICENSE"
+        assert any(name.endswith("corpulse/__init__.py") for name in names), (
+            "sdist missing corpulse/__init__.py"
+        )
+
+    if wheels:
+        newest_wheel = max(wheels, key=lambda path: path.stat().st_mtime)
+        with zipfile.ZipFile(newest_wheel) as archive:
+            names = archive.namelist()
+        assert any(name.endswith("corpulse/__init__.py") for name in names), (
+            "wheel missing corpulse/__init__.py"
+        )
+        assert any(name.endswith(".dist-info/METADATA") for name in names), (
+            "wheel missing dist-info/METADATA"
+        )
