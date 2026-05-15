@@ -40,9 +40,40 @@ python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-ur
 - Confirm the workflow publishes to the `pypi` environment from tags that match `v*`.
 - Confirm the production job uses Trusted Publishing and not long-lived credentials.
 
-## Post-publish smoke checks
+## Post-publish PyPI validation for VAL-01
 
-- In a clean environment, run `python -m pip install corpulse`.
-- In a clean environment, run `python -m pip install "corpulse[qdrant]"`.
+- In a clean virtual environment, run:
+
+```bash
+python -m venv /tmp/corpulse-pypi-smoke
+/tmp/corpulse-pypi-smoke/bin/python -m pip install --upgrade pip
+/tmp/corpulse-pypi-smoke/bin/python -m pip install corpulse
+/tmp/corpulse-pypi-smoke/bin/python - <<'PY'
+import corpulse
+from corpulse import Corpulse
+
+assert callable(Corpulse)
+PY
+```
+
 - Verify the base import surface works after the public PyPI publish.
+
+## Post-publish PyPI validation for VAL-02
+
+- In a clean virtual environment, run:
+
+```bash
+python -m venv /tmp/corpulse-qdrant-smoke
+/tmp/corpulse-qdrant-smoke/bin/python -m pip install --upgrade pip
+/tmp/corpulse-qdrant-smoke/bin/python -m pip install "corpulse[qdrant]"
+/tmp/corpulse-qdrant-smoke/bin/python - <<'PY'
+import qdrant_client
+from corpulse import AsyncQdrantCorpulseClient, QdrantCorpulseClient
+
+assert QdrantCorpulseClient.__name__ == "QdrantCorpulseClient"
+assert AsyncQdrantCorpulseClient.__name__ == "AsyncQdrantCorpulseClient"
+assert qdrant_client.__name__ == "qdrant_client"
+PY
+```
+
 - Verify the Qdrant wrapper import surface works after the public PyPI publish.
