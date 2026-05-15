@@ -161,7 +161,7 @@ def _load_psycopg_pool() -> tuple[Any, Any, type[BaseException]]:
     except ImportError as exc:
         raise ImportError(
             "psycopg_pool is required to use PostgresBackend. "
-            "Install corpulse[postgres]."
+            "Install it with: pip install corpulse[postgres]"
         ) from exc
 
     return ConnectionPool, dict_row, psycopg.Error

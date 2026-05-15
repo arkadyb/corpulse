@@ -143,11 +143,11 @@ async def test_dsn_normalization_async(monkeypatch, input_dsn, expected):
 
 async def test_async_postgres_backend_requires_asyncpg(monkeypatch):
     def raising_loader():
-        raise ImportError("Install corpulse[postgres-async].")
+        raise ImportError("Install it with: pip install corpulse[postgres-async]")
 
     monkeypatch.setattr("corpulse.backends.postgres_async._load_asyncpg", raising_loader)
 
-    with pytest.raises(ImportError, match=r"corpulse\[postgres-async\]"):
+    with pytest.raises(ImportError, match=r"pip install corpulse\[postgres-async\]"):
         await AsyncPostgresBackend.create("postgresql://test")
 
 

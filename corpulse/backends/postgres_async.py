@@ -29,7 +29,7 @@ def _load_asyncpg() -> tuple[Any, type[BaseException]]:
     except ImportError as exc:
         raise ImportError(
             "asyncpg is required to use AsyncPostgresBackend. "
-            "Install corpulse[postgres-async]."
+            "Install it with: pip install corpulse[postgres-async]"
         ) from exc
     return asyncpg, asyncpg.PostgresError
 

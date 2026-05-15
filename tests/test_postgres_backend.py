@@ -204,11 +204,11 @@ def test_dsn_normalization_sync(monkeypatch, input_dsn, expected):
 
 def test_postgres_backend_requires_psycopg(monkeypatch):
     def raising_loader():
-        raise ImportError("Install corpulse[postgres].")
+        raise ImportError("Install it with: pip install corpulse[postgres]")
 
     monkeypatch.setattr("corpulse.backends.postgres._load_psycopg_pool", raising_loader)
 
-    with pytest.raises(ImportError, match=r"corpulse\[postgres\]"):
+    with pytest.raises(ImportError, match=r"pip install corpulse\[postgres\]"):
         PostgresBackend("postgresql://example")
 
 
