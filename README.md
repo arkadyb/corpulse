@@ -23,11 +23,14 @@ Think of it as a fitness tracker for your document corpus, not a grade on your a
 ## Installation
 
 ```bash
-# Core library (GitHub install — not yet on PyPI)
-pip install "git+https://github.com/arkadyb/corpulse"
+# Core library
+pip install corpulse
 
 # With Qdrant wrapper support
-pip install "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git"
+pip install "corpulse[qdrant]"
+
+# From source
+pip install "git+https://github.com/arkadyb/corpulse.git"
 ```
 
 Requires Python 3.10+. The `[qdrant]` extra installs `qdrant-client>=1.7`.
