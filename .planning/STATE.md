@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: PyPI Distribution and Release Readiness
-status: executing
-last_updated: "2026-05-15T07:42:35Z"
-last_activity: 2026-05-15 -- Phase 34 execution complete
+status: milestone_complete
+stopped_at: v1.9 milestone completed and archived
+last_updated: "2026-05-15T08:31:32.043Z"
+last_activity: 2026-05-15 -- v1.9 milestone completed and archived
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
-**Current focus:** Phase 35: Trusted Publishing Release Automation
+**Current focus:** v1.9 complete — ready for next milestone definition
 
 ## Current Position
 
-Phase: 34
-Plan: Complete
-Status: Phase complete
-Last activity: 2026-05-15 -- Phase 34 execution complete
+Phase: v1.9 — COMPLETE
+Plan: none
+Status: Milestone archived; ready for `$gsd-new-milestone`
+Last activity: 2026-05-15 -- v1.9 milestone completed and archived
 
 ## Pending Todos
 
@@ -92,6 +93,7 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - Phase 34 plan 34-02 completed on 2026-05-15; optional extras install matrix is now verified
 - Phase 34 plan 34-03 completed on 2026-05-15; optional integration guidance is now actionable
 - Phase 34 completed on 2026-05-15; Phase 35 is next
+- Phase 35 planned on 2026-05-15 with three sequential plans across artifact build, TestPyPI Trusted Publishing, and tag-gated PyPI publishing
 
 ## Accumulated Context
 
@@ -144,6 +146,6 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 
 ## Session Continuity
 
-Last activity: 2026-05-05 — v1.8 milestone archived
-Stopped at: v1.8 milestone archived; ready for next milestone
+Last session: 2026-05-15
+Stopped at: Session resumed, proceeding to phase 36 planning
 Resume file: None

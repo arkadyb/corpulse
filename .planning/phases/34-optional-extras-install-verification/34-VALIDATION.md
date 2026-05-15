@@ -1,10 +1,11 @@
 ---
 phase: 34
 slug: optional-extras-install-verification
-status: draft
+status: verified
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-05-15
+updated: 2026-05-15
 ---
 
 # Phase 34 - Validation Strategy
@@ -32,18 +33,18 @@ created: 2026-05-15
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 34-01-T1 | 01 | 1 | PKG-04, EXTRA-02 | T34-01 | Base install does not include optional packages | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | no | pending |
-| 34-01-T2 | 01 | 1 | PKG-04, EXTRA-02 | T34-01 | Built wheel imports cleanly in a fresh venv | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | no | pending |
-| 34-02-T1 | 02 | 2 | EXTRA-01, EXTRA-04 | T34-02 | Optional extras install only when requested | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | no | pending |
-| 34-02-T2 | 02 | 2 | EXTRA-01, EXTRA-04 | T34-02 | Qdrant wrapper surface imports from extra install | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | no | pending |
-| 34-03-T1 | 03 | 3 | EXTRA-03 | T34-03 | Missing extras return actionable install commands | unit | `python -m pytest tests/test_postgres_backend.py tests/test_async_postgres_backend.py tests/test_fastapi.py tests/test_report_helpers.py` | yes | pending |
-| 34-03-T2 | 03 | 3 | EXTRA-03 | T34-03 | User docs mention install constraints clearly | static | `python -m pytest tests/test_package.py` | yes | pending |
+| 34-01-T1 | 01 | 1 | PKG-04, EXTRA-02 | T34-01 | Base install does not include optional packages | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | yes | green |
+| 34-01-T2 | 01 | 1 | PKG-04, EXTRA-02 | T34-01 | Built wheel imports cleanly in a fresh venv | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | yes | green |
+| 34-02-T1 | 02 | 2 | EXTRA-01, EXTRA-04 | T34-02 | Optional extras install only when requested | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | yes | green |
+| 34-02-T2 | 02 | 2 | EXTRA-01, EXTRA-04 | T34-02 | Qdrant wrapper surface imports from extra install | integration | `CORPULSE_RUN_INSTALL_TESTS=1 python -m pytest tests/test_distribution_installs.py` | yes | green |
+| 34-03-T1 | 03 | 3 | EXTRA-03 | T34-03 | Missing extras return actionable install commands | unit | `python -m pytest tests/test_postgres_backend.py tests/test_async_postgres_backend.py tests/test_fastapi.py tests/test_report_helpers.py` | yes | green |
+| 34-03-T2 | 03 | 3 | EXTRA-03 | T34-03 | User docs mention install constraints clearly | static | `python -m pytest tests/test_package.py` | yes | green |
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_distribution_installs.py` - isolated venv install test module.
-- [ ] `dist/*.whl` - built artifact from Phase 33 or current `python -m build`.
-- [ ] `build` and `twine` tooling available through active environment or `/tmp/corpulse-gsd-tools`.
+- [x] `tests/test_distribution_installs.py` - isolated venv install test module.
+- [x] `dist/*.whl` - built artifact from Phase 33 or current `python -m build`.
+- [x] `build` and `twine` tooling available through active environment or `/tmp/corpulse-gsd-tools`.
 
 ## Manual-Only Verifications
 

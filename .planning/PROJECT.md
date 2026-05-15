@@ -8,16 +8,22 @@ A Python library that tracks and analyzes RAG corpus health for RAG teams. It de
 
 RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
 
-## Completed Milestone: v1.8 Workload Observability and Replay Feasibility
+## Completed Milestone: v1.9 PyPI Distribution and Release Readiness
 
-**Goal:** Research and, where feasible, implement a first-class workload observability layer that extends corpulse from corpus health into RAG request traces, serving diagnostics, session analytics, and replay-ready exports.
+**Goal:** Make corpulse installable from PyPI with verified optional extras and a repeatable release path.
 
 **Target features:**
-- Feasibility research for RAG workload trace schema, storage implications, and replay boundaries
-- Structured `log_rag_request()` / `alog_rag_request()` APIs with sessions, prompt components, token counts, timings, errors, and content hashes
-- JSONL import/export for privacy-preserving workload traces
-- Workload, latency, and session reports that summarize traffic shape and serving behavior
-- Dependency-free callable replay proof on top of captured/imported traces; endpoint adapters and benchmark export remain future work
+- PyPI-ready package metadata, README rendering, package contents, license inclusion, and version consistency
+- Verified install surfaces for `pip install corpulse`, `pip install corpulse[qdrant]`, and existing optional extras
+- GitHub Actions release automation using PyPI Trusted Publishing for TestPyPI and PyPI
+- Documentation updated from GitHub install syntax to PyPI install syntax
+- Release checklist covering build artifacts, clean-environment installs, imports, extras, and Qdrant wrapper availability
+
+## Current Milestone
+
+None. Start the next milestone with `$gsd-new-milestone`.
+
+The next milestone should start from fresh requirements. Candidate directions include release-note maturity, signed artifacts, PyPI adoption reporting, or the next integration adapter.
 
 ## Requirements
 
@@ -67,12 +73,16 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - ✓ Workload and serving reports over captured/imported traces — Phase 30
 - ✓ Session analytics and repeated-context reuse signals — Phase 31
 - ✓ Replay feasibility and dependency-free callable replay proof — Phase 32
+- ✓ PyPI-ready package metadata, README rendering, package contents, license inclusion, and version consistency — v1.9
+- ✓ Verified install surfaces for `pip install corpulse`, `pip install corpulse[qdrant]`, and existing optional extras — v1.9
+- ✓ GitHub Actions release automation using PyPI Trusted Publishing for TestPyPI and PyPI — v1.9
+- ✓ PyPI-first installation documentation and release checklist with post-publish smoke checks — v1.9
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Define the next milestone with fresh requirements and roadmap.
+(None. Define fresh requirements with `$gsd-new-milestone`.)
 
 ### Out of Scope
 
@@ -83,7 +93,6 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 - LangChain/LlamaIndex plugin — future milestone after wrapper pattern is proven
 - Standalone audit mode (crawl vector DB without runtime) — future milestone
 - CLI tool — future milestone
-- PyPI publishing — distributing via GitHub only for now
 - Web dashboard / UI — keep it library-first
 - **Faithfulness / Hallucination Rate** — requires LLM-as-judge to verify generated answer against retrieved context; not measurable from retrieval logs alone; use Ragas or TruLens for generation-layer evaluation
 - **Context Precision** — requires ground-truth relevance labels per query; corpulse has no label store and no annotation workflow; belongs in offline eval frameworks
@@ -92,17 +101,23 @@ RAG teams can point corpulse at their vector DB and immediately understand what'
 
 ## Current State
 
+corpulse completed milestone `v1.9`, moving distribution readiness from GitHub-only installs to a PyPI-first release posture. The package metadata, source distribution, wheel contents, optional extras, release workflow, Trusted Publishing documentation, and install docs are now covered by static tests, build checks, and milestone verification artifacts.
+
+The release workflow builds once, uploads the tested `dist/*` artifacts, publishes to TestPyPI on manual dispatch, and publishes to PyPI only from `v*` tags through OIDC Trusted Publishing. The production `pypi` GitHub environment approval gate and the live TestPyPI/PyPI smoke checks remain explicit manual release-time actions documented in `.github/RELEASE_CHECKLIST.md`.
+
 corpulse completed milestone `v1.7`, adding a shared generic wrapping engine and migrating the Qdrant compatibility wrappers onto that architecture. The library now supports a documented advanced adapter path for future integrations while preserving lazy optional dependency behavior and Qdrant compatibility.
 
 The shipped `v1.8` milestone was seeded by `.planning/research/RAGPULSE-COMPARISON-FEATURES.md`, which found that RAGPulse is most useful as a workload trace and replay reference rather than as a corpus-health competitor. corpulse kept its corpus-health core while adding an optional workload/serving layer for request composition, traffic shape, latency, sessions, and replayable exports.
 
 Phase 27 completed the feasibility decision record and locked the MVP direction on an append-only request-trace schema. Phases 28-31 delivered trace capture, JSONL import/export, workload and serving reports, and session analytics with repeated-context reuse signals. Phase 32 validated that callable replay is feasible and delivered dependency-free sync/async replay helpers. v1.8 shipped on 2026-05-05. It did not add a built-in OpenAI endpoint client; richer benchmark export and endpoint adapters remain future work.
 
+The v1.9 milestone moved distribution from GitHub-only to PyPI-ready. `pyproject.toml` uses Hatchling dynamic versioning, optional extras are verified from built artifacts, README is PyPI-first, and `.github/workflows/release.yml` implements the Trusted Publishing release path.
+
 ## Next Milestone Goals
 
-- Start the next milestone with fresh requirements instead of extending v1.8 in place.
-- Keep future replay optional and dependency-light; avoid turning corpulse into a full evaluation framework or dashboard.
-- Consider future endpoint adapters and benchmark export only after the callable replay proof has real adopter feedback.
+- Define fresh requirements before starting implementation.
+- Consider release maturity: release notes, signed artifacts, and PyPI adoption reporting.
+- Consider the next integration adapter now that generic wrapping and distribution readiness are in place.
 
 <details>
 <summary>Archived v1.7 milestone framing</summary>
@@ -184,7 +199,7 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 
 - **Tech stack**: Python, SQLite for local persistence, PostgreSQL as the production backend target
 - **Dependencies**: numpy and scikit-learn are hard dependencies; pandas and tabulate remain optional; psycopg and asyncpg are optional extras
-- **Distribution**: GitHub-only for v1.x; no PyPI publishing yet
+- **Distribution**: v1.9 targets PyPI publication with GitHub source install kept as a fallback path
 - **Vector DB**: Qdrant remains the first wrapper target
 - **Compatibility**: Python 3.10+
 - **Backwards compat**: `Corpulse()` with no args must still work exactly as before
@@ -197,12 +212,14 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Qdrant as first wrapper | Growing production adoption in RAG pipelines; good Python client | Shipped |
-| GitHub-only distribution | Keep overhead low for v1; PyPI later when stable | Pending |
+| GitHub-only distribution | Keep overhead low before the first public package release | Superseded by v1.9 |
 | Wrapper-first over audit-first | Query-dependent features are the most actionable; wrapper enables them automatically | Shipped |
 | Keep manual API alongside wrapper | Existing API still useful for custom integrations; wrapper is additive | Shipped |
 | Pluggable backend interface | Service repo needs Postgres; library should support multiple backends | Shipped in v1.1 |
 | Explicit backend config over connection strings | More flexible and clearer than implicit string configuration | Shipped in v1.1 |
 | Narrow async facade for v1.1 | Async service integration was needed now; full async analytics parity was not yet justified | Shipped in v1.1 |
+| PyPI Trusted Publishing over API tokens | Avoid long-lived publishing credentials and keep release automation auditable | Shipped in v1.9 |
+| PyPI-first install docs with GitHub source fallback | PyPI is the user path; source install remains useful for unreleased fixes | Shipped in v1.9 |
 | Evidence-gated requirement closure | Milestone claims should match recorded verification, not just landed code | Shipped in v1.1 |
 | Structured-payload async reports | Avoids coupling `AsyncCorpulse` to stdout and keeps output consumable by services/tests; sync `report`/`cleanup_report` become a thin formatter over the same payload | Shipped in Phase 12 |
 | Pandas stays optional on async path | Keeps install footprint small for async service users who don't need DataFrames; mirrors sync behavior | Shipped in Phase 12 |
@@ -214,6 +231,7 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Qdrant remains first-class while the generic API serves advanced adapter authors | Keeps the common path simple for existing users while making future integrations cheaper to build | Shipped in v1.7 |
 | Workload observability is the v1.8 priority over a second vector DB adapter | RAGPulse comparison showed the bigger product gap is production request behavior, not another retrieval-client wrapper | Shipped through Phase 31 |
 | Callable replay over built-in endpoint replay | Current traces do not guarantee canonical messages, raw component content, tool payloads, streamed chunks, or response bodies; user callables can bridge private endpoint-specific payloads without new core dependencies | Shipped in Phase 32 |
+| PyPI Trusted Publishing over long-lived release tokens | OIDC avoids storing a long-lived PyPI API token in GitHub secrets and gives PyPI a verifiable source repository link | Pending in v1.9 |
 
 ## Evolution
 
@@ -233,4 +251,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-05 after Phase 32 execution*
+*Last updated: 2026-05-15 after starting milestone v1.9*
