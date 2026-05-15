@@ -126,6 +126,25 @@ def test_optional_extras_declared_for_install_matrix():
     assert 'fastapi = ["fastapi>=0.110.0", "pydantic>=2.0.0"]' in content
 
 
+def test_optional_dependency_guidance_is_actionable():
+    """EXTRA-03: optional dependency failures tell users exactly what to install."""
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    files = [
+        repo_root / "corpulse" / "integrations" / "qdrant.py",
+        repo_root / "corpulse" / "backends" / "postgres.py",
+        repo_root / "corpulse" / "backends" / "postgres_async.py",
+        repo_root / "corpulse" / "fastapi.py",
+        repo_root / "corpulse" / "core.py",
+        repo_root / "corpulse" / "async_core.py",
+    ]
+    content = "\n".join(path.read_text() for path in files)
+    assert "pip install corpulse[qdrant]" in content
+    assert "pip install corpulse[postgres]" in content
+    assert "pip install corpulse[postgres-async]" in content
+    assert "pip install corpulse[fastapi]" in content
+    assert "pip install pandas to use to_dataframe()" in content
+
+
 def test_readme_uses_pypi_install_commands():
     """DOC-01: README points users at PyPI-first install commands."""
     repo_root = pathlib.Path(__file__).resolve().parent.parent
