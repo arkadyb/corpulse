@@ -108,6 +108,23 @@ def test_pypi_metadata_declared():
     assert 'Issues = "https://github.com/arkadyb/corpulse/issues"' in content
 
 
+def test_readme_uses_pypi_install_commands():
+    """DOC-01: README points users at PyPI-first install commands."""
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    readme = repo_root / "README.md"
+    pyproject = repo_root / "pyproject.toml"
+
+    readme_content = readme.read_text()
+    pyproject_content = pyproject.read_text()
+
+    assert "pip install corpulse" in readme_content
+    assert 'pip install "corpulse[qdrant]"' in readme_content
+    assert 'pip install "git+https://github.com/arkadyb/corpulse.git"' in readme_content
+    assert "not yet on PyPI" not in readme_content
+    assert "corpulse[qdrant] @ git+https://github.com/arkadyb/corpulse.git" not in readme_content
+    assert 'readme = "README.md"' in pyproject_content
+
+
 def test_built_artifacts_include_expected_files():
     """PKG-03: built artifacts contain the expected release files."""
     dist_dir = pathlib.Path(__file__).resolve().parent.parent / "dist"
