@@ -11,40 +11,97 @@
 - ✅ **v1.6 — Generation Trace Capture** — completed 2026-04-20, archive: `.planning/milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 — Generic Integration Wrapping** — Phases 25-26 (completed 2026-04-22, archive: `.planning/milestones/v1.7-ROADMAP.md`)
 - ✅ **v1.8 — Workload Observability and Replay Feasibility** — Phases 27-32 (shipped 2026-05-05, archive: `.planning/milestones/v1.8-ROADMAP.md`)
+- ◆ **v1.9 — PyPI Distribution and Release Readiness** — Phases 33-36 (active)
 
 ## Current Status
 
 - Latest shipped milestone: `v1.8 — Workload Observability and Replay Feasibility`
-- Active milestone: none
-- Next workflow step: `$gsd-new-milestone`
+- Active milestone: `v1.9 — PyPI Distribution and Release Readiness`
+- Next workflow step: `$gsd-execute-phase 33`
 
 ## Phases
 
-<details>
-<summary>✅ v1.8 Workload Observability and Replay Feasibility (Phases 27-32) — SHIPPED 2026-05-05</summary>
+### Phase 33: Package Metadata and Build Readiness
 
-- [x] Phase 27: Workload Trace Feasibility and Schema Contract (1/1 plans) — completed 2026-05-02
-- [x] Phase 28: Workload Trace Capture Foundation (4/4 plans) — completed 2026-05-04
-- [x] Phase 29: Workload Trace JSONL Import Export (4/4 plans) — completed 2026-05-04
-- [x] Phase 30: Workload and Serving Reports (4/4 plans) — completed 2026-05-04
-- [x] Phase 31: Session Analytics and Reuse Signals (4/4 plans) — completed 2026-05-04
-- [x] Phase 32: Replay Feasibility and Minimal Proof (4/4 plans) — completed 2026-05-05
+**Goal:** Make the package metadata, README, versioning, and build artifacts ready for PyPI.
 
-</details>
+**Requirements:** PKG-01, PKG-02, PKG-03
+
+**Success Criteria:**
+1. `pyproject.toml` contains PyPI-ready metadata, URLs, classifiers, and license-file configuration.
+2. Runtime version and package metadata version have a single-source or verified consistency path.
+3. `python -m build` produces an sdist and wheel containing the intended package files, README, and license.
+4. Package metadata and README render cleanly for PyPI.
+
+### Phase 34: Optional Extras Install Verification
+
+**Goal:** Prove base and optional-extra installs behave correctly from built artifacts without bloating the core install.
+
+**Requirements:** PKG-04, EXTRA-01, EXTRA-02, EXTRA-03, EXTRA-04
+
+**Success Criteria:**
+1. A clean environment can install the base artifact and import `corpulse` without optional dependencies.
+2. A clean environment can install `corpulse[qdrant]` from the built artifact and import/instantiate the Qdrant wrapper surface.
+3. Existing optional extras install cleanly or have documented constraints.
+4. Optional integration failures produce actionable `pip install corpulse[...]` guidance.
+
+### Phase 35: Trusted Publishing Release Automation
+
+**Goal:** Add GitHub Actions release automation that builds once and publishes through PyPI Trusted Publishing.
+
+**Requirements:** REL-01, REL-02, REL-03, REL-04
+
+**Success Criteria:**
+1. CI builds and stores source and wheel artifacts after tests pass.
+2. TestPyPI publishing uses `pypa/gh-action-pypi-publish@release/v1` with OIDC Trusted Publishing.
+3. PyPI publishing is tag-gated and uses OIDC Trusted Publishing, not a long-lived PyPI token.
+4. The PyPI publish job uses a protected environment or equivalent explicit release gate.
+
+### Phase 36: User Install Docs and Release Validation
+
+**Goal:** Make PyPI install instructions the user-facing path and validate the first release end to end.
+
+**Requirements:** DOC-01, DOC-02, DOC-03, VAL-01, VAL-02
+
+**Success Criteria:**
+1. README/docs show `pip install corpulse` as the primary installation command.
+2. README/docs show `pip install corpulse[qdrant]` as the primary Qdrant integration command.
+3. Release checklist documents version bump, build, TestPyPI validation, PyPI publish, and post-publish smoke checks.
+4. Published PyPI package installs in a clean environment.
+5. Published `corpulse[qdrant]` extra installs in a clean environment and exposes the Qdrant wrapper surface.
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | --- | --- | --- | --- | --- |
-| 27. Workload Trace Feasibility and Schema Contract | v1.8 | 1/1 | Complete | 2026-05-02 |
-| 28. Workload Trace Capture Foundation | v1.8 | 4/4 | Complete | 2026-05-04 |
-| 29. Workload Trace JSONL Import Export | v1.8 | 4/4 | Complete | 2026-05-04 |
-| 30. Workload and Serving Reports | v1.8 | 4/4 | Complete | 2026-05-04 |
-| 31. Session Analytics and Reuse Signals | v1.8 | 4/4 | Complete | 2026-05-04 |
-| 32. Replay Feasibility and Minimal Proof | v1.8 | 4/4 | Complete | 2026-05-05 |
+| 33. Package Metadata and Build Readiness | v1.9 | 1/3 | In Progress | 2026-05-15 |
+| 34. Optional Extras Install Verification | v1.9 | 0/0 | Not Started | — |
+| 35. Trusted Publishing Release Automation | v1.9 | 0/0 | Not Started | — |
+| 36. User Install Docs and Release Validation | v1.9 | 0/0 | Not Started | — |
 
 ## Coverage
 
-v1.8 archived 18/18 requirements as complete in `.planning/milestones/v1.8-REQUIREMENTS.md`.
+v1.9 maps 17/17 requirements to phases in `.planning/REQUIREMENTS.md`.
+
+| Requirement | Phase |
+|-------------|-------|
+| PKG-01 | Phase 33 |
+| PKG-02 | Phase 33 |
+| PKG-03 | Phase 33 |
+| PKG-04 | Phase 34 |
+| EXTRA-01 | Phase 34 |
+| EXTRA-02 | Phase 34 |
+| EXTRA-03 | Phase 34 |
+| EXTRA-04 | Phase 34 |
+| REL-01 | Phase 35 |
+| REL-02 | Phase 35 |
+| REL-03 | Phase 35 |
+| REL-04 | Phase 35 |
+| DOC-01 | Phase 36 |
+| DOC-02 | Phase 36 |
+| DOC-03 | Phase 36 |
+| VAL-01 | Phase 36 |
+| VAL-02 | Phase 36 |
 
 ---
+*Last updated: 2026-05-15 after milestone v1.9 roadmap creation*

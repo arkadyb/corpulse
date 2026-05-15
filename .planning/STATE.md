@@ -1,34 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Workload Observability and Replay Feasibility
-status: completed
-stopped_at: v1.8 milestone archived; ready for next milestone
-last_updated: "2026-05-05T00:29:21.213Z"
-last_activity: 2026-05-05
+milestone: v1.9
+milestone_name: PyPI Distribution and Release Readiness
+status: executing
+last_updated: "2026-05-15T07:20:16.830Z"
+last_activity: 2026-05-15 -- Phase 33 planning complete
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-05)
+See: .planning/PROJECT.md (updated 2026-05-15)
 
-**Core value:** RAG teams can point corpulse at their vector DB and immediately understand corpus health without manual instrumentation
-**Current focus:** Define next milestone
+**Core value:** RAG teams can point corpulse at their vector DB and immediately understand what's wrong with their corpus without manual audits.
+**Current focus:** Phase 33: Package Metadata and Build Readiness
 
 ## Current Position
 
-Phase: 32
-Plan: Complete
-Status: Milestone archived
-Last activity: 2026-05-05
+Phase: 33
+Plan: 33-01
+Status: Plan 33-01 complete
+Last activity: 2026-05-15 -- Phase 33 plan 33-01 complete
 
 ## Pending Todos
 
@@ -81,6 +80,10 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - Phase 32 planned on 2026-05-04 with four sequential plans
 - Phase 32 completed on 2026-05-05; v1.8 workload observability and callable replay proof are ready for milestone closeout
 - Milestone v1.8 archived on 2026-05-05; next step is fresh milestone definition
+- Milestone v1.9 started on 2026-05-15; PyPI distribution and release readiness are the next target areas
+- Phase 33 is the next work item and starts with package metadata, README rendering, version consistency, and build artifact readiness
+- Phase 33 planned on 2026-05-15 with three sequential plans across metadata/versioning, artifact validation, and README/render checks
+- Phase 33 plan 33-01 completed on 2026-05-15; package metadata is now single-sourced and enforced by tests
 
 ## Accumulated Context
 
@@ -89,6 +92,9 @@ Items acknowledged and deferred at milestone close on 2026-04-22:
 - v1.6 scope: capture-only foundation for generation-layer evaluation data, no scoring yet
 - v1.7 scope: shared wrapping infrastructure for future DB integrations is complete, with Qdrant now migrated onto the shared engine
 - v1.8 scope: RAGPulse-inspired workload traces, serving metrics, sessions, JSONL export/import, and replay feasibility
+- v1.9 scope: PyPI publication readiness, optional extras verification, Trusted Publishing automation, and install documentation
+- v1.9 should preserve base-install lightness; optional integrations must remain lazy and explicit extras should be verified from built artifacts
+- First PyPI publication should prefer Trusted Publishing over long-lived PyPI API tokens
 - Trace capture should preserve prompt/query text, retrieved context references, final answer text, and optional labels/judgments
 - Poor-fit generation metrics (Faithfulness, Context Precision, Contradictory Information Density, Answer Relevance / Context Utilization) remain out of scope until trace capture exists
 - Existing retrieval/engagement analytics and corpus-health reporting should remain unchanged while adding the new trace layer
