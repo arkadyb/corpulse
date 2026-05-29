@@ -39,6 +39,16 @@ Maintainers should use [.github/RELEASE_CHECKLIST.md](.github/RELEASE_CHECKLIST.
 
 ---
 
+## Contributing and Security
+
+Contributions are welcome through reviewed pull requests. See
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a larger change.
+
+Please report suspected vulnerabilities privately using the process in
+[SECURITY.md](SECURITY.md), not through public issues.
+
+---
+
 ## Quickstart: Manual API
 
 ```python

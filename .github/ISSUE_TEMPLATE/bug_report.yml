@@ -1,0 +1,41 @@
+name: Bug report
+description: Report reproducible incorrect behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the issue and the behavior you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include a minimal code sample, test case, or command sequence.
+      render: python
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: corpulse version
+      placeholder: "0.1.0, main branch commit, or editable install"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.10, 3.11, 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Logs, stack traces, backend details, or related links.
+
