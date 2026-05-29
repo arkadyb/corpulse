@@ -25,6 +25,7 @@ def test_pyproject_metadata():
     assert 'requires-python = ">=3.10"' in content, "Missing Python version requirement"
     assert '"numpy>=1.24"' in content, "Missing numpy dependency"
     assert '"scikit-learn>=1.3"' in content, "Missing scikit-learn dependency"
+    assert '"typing-extensions>=4.8"' in content, "Missing typing-extensions dependency"
     assert 'build-backend = "hatchling.build"' in content, "Missing hatchling build backend"
     assert "[tool.hatch.version]" in content, "Missing hatch version table"
     assert 'path = "corpulse/__init__.py"' in content, "Missing hatch version path"

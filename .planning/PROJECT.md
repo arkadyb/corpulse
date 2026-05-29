@@ -231,7 +231,7 @@ Make the persistence layer pluggable so corpulse can use PostgreSQL in productio
 | Qdrant remains first-class while the generic API serves advanced adapter authors | Keeps the common path simple for existing users while making future integrations cheaper to build | Shipped in v1.7 |
 | Workload observability is the v1.8 priority over a second vector DB adapter | RAGPulse comparison showed the bigger product gap is production request behavior, not another retrieval-client wrapper | Shipped through Phase 31 |
 | Callable replay over built-in endpoint replay | Current traces do not guarantee canonical messages, raw component content, tool payloads, streamed chunks, or response bodies; user callables can bridge private endpoint-specific payloads without new core dependencies | Shipped in Phase 32 |
-| PyPI Trusted Publishing over long-lived release tokens | OIDC avoids storing a long-lived PyPI API token in GitHub secrets and gives PyPI a verifiable source repository link | Pending in v1.9 |
+| PyPI Trusted Publishing over long-lived release tokens | OIDC avoids storing a long-lived PyPI API token in GitHub secrets and gives PyPI a verifiable source repository link | Shipped in v1.9 |
 
 ## Evolution
 
