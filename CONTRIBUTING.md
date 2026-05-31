@@ -29,4 +29,3 @@ Maintainers may ask for changes to tests, documentation, API shape, or scope.
 
 For contributor safety, do not post security vulnerabilities in public issues or
 pull requests. Use the private reporting process in `SECURITY.md`.
-

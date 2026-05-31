@@ -1,5 +1,5 @@
 """
-corpulse  v0.1.0
+corpulse  v1.9.2
 Core public API — track, analyse, and report on your RAG corpus health.
 """
 

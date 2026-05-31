@@ -53,4 +53,3 @@ Settings -> Code security and analysis:
 
 The release workflow publishes through PyPI Trusted Publishing and GitHub
 environments. Keep the `pypi` environment protected with required reviewers.
-

@@ -8,7 +8,7 @@ __all__ = [
     "QdrantCorpulseClient",
     "AsyncQdrantCorpulseClient",
 ]
-__version__ = "0.1.0"
+__version__ = "1.9.2"
 
 
 def __getattr__(name):

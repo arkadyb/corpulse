@@ -78,7 +78,7 @@ def test_base_wheel_install_imports_without_optional_dependencies(tmp_path):
         import corpulse
         from corpulse import Corpulse
 
-        assert corpulse.__version__ == "0.1.0"
+        assert corpulse.__version__ == "1.9.2"
         assert callable(Corpulse)
 
         for name in [

@@ -25,4 +25,3 @@ default branch and released in the next package version as needed.
 
 Maintainers should acknowledge reports within seven days, triage privately, and
 publish a GitHub Security Advisory if users need to take action.
-

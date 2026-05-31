@@ -16,13 +16,13 @@ def test_version_is_string():
     """Version is a valid string."""
     import corpulse
     assert isinstance(corpulse.__version__, str)
-    assert corpulse.__version__ == "0.1.0"
+    assert corpulse.__version__ == "1.9.2"
 
 
 def test_version_remains_single_sourced():
     """PKG-01: Runtime version remains available while Hatch reads it dynamically."""
     import corpulse
-    assert corpulse.__version__ == "0.1.0"
+    assert corpulse.__version__ == "1.9.2"
 
 
 def test_import_without_qdrant(monkeypatch):

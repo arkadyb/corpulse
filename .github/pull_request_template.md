@@ -1,6 +1,6 @@
 ## Summary
 
-- 
+-
 
 ## Checks
 
@@ -11,5 +11,4 @@
 
 ## Maintainer Notes
 
-- 
-
+-
