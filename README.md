@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/corpulse-logo.png" alt="Corpulse logo" width="520">
+  <img src="https://raw.githubusercontent.com/arkadyb/corpulse/main/docs/assets/corpulse-logo.png" alt="Corpulse logo" width="520">
 </p>
 
 # corpulse
