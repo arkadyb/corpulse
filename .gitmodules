@@ -1,0 +1,4 @@
+[submodule ".planning"]
+	path = .planning
+	url = git@github.com:arkadyb/corpulse-planning.git
+	branch = main
