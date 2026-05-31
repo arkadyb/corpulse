@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/corpulse-logo.png" alt="Corpulse logo" width="520">
+</p>
+
 # corpulse
 
 Corpus health analytics for RAG pipelines. Track which documents help, which ones don't, and which ones are just noise.
