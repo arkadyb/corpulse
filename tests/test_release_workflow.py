@@ -34,7 +34,7 @@ def test_release_workflow_builds_and_uploads_artifacts():
     assert 'python -m pip install ".[dev,qdrant,fastapi]" build' in content
     assert "python -m pytest" in content
     assert "python -m build" in content
-    assert "actions/upload-artifact@v4" in content
+    assert "actions/upload-artifact@v7" in content
     assert "python-package-distributions" in content
     assert "dist/*" in content
 
@@ -51,7 +51,7 @@ def test_testpypi_publish_uses_trusted_publishing():
     assert "if: github.event_name == 'workflow_dispatch'" in content
     assert "environment: testpypi" in content
     assert "id-token: write" in content
-    assert "actions/download-artifact@v4" in content
+    assert "actions/download-artifact@v8" in content
     assert "pypa/gh-action-pypi-publish@release/v1" in content
     assert "repository-url: https://test.pypi.org/legacy/" in content
 
@@ -85,7 +85,7 @@ def test_pypi_publish_is_tag_gated_and_environment_gated():
     assert "if: startsWith(github.ref, 'refs/tags/v')" in content
     assert "environment: pypi" in content
     assert "id-token: write" in content
-    assert "actions/download-artifact@v4" in content
+    assert "actions/download-artifact@v8" in content
     assert "pypa/gh-action-pypi-publish@release/v1" in content
 
     pypi_block = content.split("publish-pypi:", 1)[1]
